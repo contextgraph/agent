@@ -1,7 +1,7 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { spawnClaude } from '../claude-cli.js';
 
-const API_BASE_URL = 'https://contextgraph.dev';
+const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export async function runExecute(actionId: string): Promise<void> {
   const credentials = await loadCredentials();

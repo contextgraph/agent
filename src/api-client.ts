@@ -3,7 +3,7 @@ import type { ActionDetailResource, ActionNode } from './types/actions.js';
 
 export class ApiClient {
   constructor(
-    private baseUrl: string = 'https://contextgraph.dev'
+    private baseUrl: string = 'https://www.contextgraph.dev'
   ) {}
 
   private async getAuthToken(): Promise<string> {

@@ -21,7 +21,7 @@ type AuthenticationOptions = {
 };
 
 const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const DEFAULT_BASE_URL = 'https://contextgraph.dev';
+const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
 
 async function defaultOpenBrowser(url: string): Promise<void> {
   const open = (await import('open')).default;
