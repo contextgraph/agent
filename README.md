@@ -1,17 +1,17 @@
-# @contextgraph/agent
+# @context-graph/agent
 
 Autonomous agent for contextgraph action execution.
 
 ## Installation
 
 ```bash
-npm install -g @contextgraph/agent
+npm install -g @context-graph/agent
 ```
 
 Or use with npx:
 
 ```bash
-npx @contextgraph/agent <command>
+npx @context-graph/agent <command>
 ```
 
 ## Prerequisites
@@ -154,8 +154,8 @@ Ensure you have internet connectivity and can reach:
 ## Links
 
 - [contextgraph.dev](https://contextgraph.dev) - Main platform
-- [GitHub Repository](https://github.com/contextgraph/agent) - Source code and issues
-- [Issue Tracker](https://github.com/contextgraph/agent/issues) - Report bugs or request features
+- [GitHub Repository](https://github.com/context-graph/agent) - Source code and issues
+- [Issue Tracker](https://github.com/context-graph/agent/issues) - Report bugs or request features
 
 ## Configuration
 

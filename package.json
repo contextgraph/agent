@@ -1,5 +1,5 @@
 {
-  "name": "@contextgraph/agent",
+  "name": "@context-graph/agent",
   "version": "0.1.0",
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
@@ -21,11 +21,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/contextgraph/agent.git"
+    "url": "git+https://github.com/context-graph/agent.git"
   },
-  "homepage": "https://github.com/contextgraph/agent#readme",
+  "homepage": "https://github.com/context-graph/agent#readme",
   "bugs": {
-    "url": "https://github.com/contextgraph/agent/issues"
+    "url": "https://github.com/context-graph/agent/issues"
   },
   "dependencies": {
     "commander": "^11.0.0",
