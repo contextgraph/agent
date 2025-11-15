@@ -15,6 +15,7 @@ __tests__/
 coverage/
 .nyc_output/
 jest.config.js
+NPM_LINK_TEST_RESULTS.md
 
 # CI/CD
 .github/

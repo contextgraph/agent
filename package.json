@@ -4,7 +4,7 @@
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
-    "contextgraph-agent": "./dist/index.js"
+    "contextgraph-agent": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",
@@ -21,7 +21,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/contextgraph/agent.git"
+    "url": "git+https://github.com/contextgraph/agent.git"
   },
   "homepage": "https://github.com/contextgraph/agent#readme",
   "bugs": {
