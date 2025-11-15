@@ -55,11 +55,3 @@ export async function runExecute(actionId: string): Promise<void> {
   console.log('\n✅ Execution complete');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const actionId = process.argv[2];
-  if (!actionId) {
-    console.error('Usage: execute <action-id>');
-    process.exit(1);
-  }
-  runExecute(actionId).catch(console.error);
-}

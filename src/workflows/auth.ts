@@ -14,6 +14,3 @@ export async function runAuth(): Promise<void> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runAuth().catch(console.error);
-}

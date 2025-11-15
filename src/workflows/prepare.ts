@@ -55,11 +55,3 @@ export async function runPrepare(actionId: string): Promise<void> {
   console.log('\n✅ Preparation complete');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const actionId = process.argv[2];
-  if (!actionId) {
-    console.error('Usage: prepare <action-id>');
-    process.exit(1);
-  }
-  runPrepare(actionId).catch(console.error);
-}

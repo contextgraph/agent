@@ -109,11 +109,3 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const rootActionId = process.argv[2];
-  if (!rootActionId) {
-    console.error('Usage: agent <root-action-id>');
-    process.exit(1);
-  }
-  runLocalAgent(rootActionId).catch(console.error);
-}
