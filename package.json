@@ -4,7 +4,7 @@
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
-    "contextgraph-agent": "./dist/cli/index.js"
+    "contextgraph-agent": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",
