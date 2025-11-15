@@ -19,26 +19,23 @@ export async function runExecute(actionId: string): Promise<void> {
   console.log(`Fetching execution instructions for action ${actionId}...\n`);
 
   const response = await fetch(
-    `${API_BASE_URL}/api/actions/${actionId}/execute-prompt?token=${encodeURIComponent(credentials.clerkToken)}`,
+    `${API_BASE_URL}/api/prompts/execute`,
     {
+      method: 'POST',
       headers: {
-        'x-authorization': `Bearer ${credentials.clerkToken}`,
+        'Authorization': `Bearer ${credentials.clerkToken}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ actionId }),
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch execute prompt: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
   }
 
-  const result = await response.json();
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  const prompt = result.data.prompt;
+  const { prompt } = await response.json();
 
   console.log('Spawning Claude for execution...\n');
 
