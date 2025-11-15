@@ -1,0 +1,42 @@
+{
+  "name": "@contextgraph/agent",
+  "version": "0.1.0",
+  "description": "Autonomous agent for contextgraph action execution",
+  "type": "module",
+  "bin": {
+    "contextgraph-agent": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "jest"
+  },
+  "keywords": [
+    "contextgraph",
+    "agent",
+    "autonomous",
+    "cli"
+  ],
+  "author": "contextgraph",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/contextgraph/agent.git"
+  },
+  "homepage": "https://github.com/contextgraph/agent#readme",
+  "bugs": {
+    "url": "https://github.com/contextgraph/agent/issues"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "open": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

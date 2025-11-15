@@ -1,0 +1,38 @@
+# Source files
+src/
+tsconfig.json
+tsup.config.ts
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+__tests__/
+coverage/
+.nyc_output/
+jest.config.js
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Documentation (keep README.md)
+docs/
+
+# Git
+.git/
+.gitignore
+
+# Environment
+.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
