@@ -21,28 +21,6 @@ export class ApiClient {
     return credentials.clerkToken;
   }
 
-  async findNextLeaf(rootId: string): Promise<ActionNode | null> {
-    const token = await this.getAuthToken();
-
-    // Use both x-authorization header and query param for Vercel compatibility
-    const response = await fetch(
-      `${this.baseUrl}/api/actions/next-leaf?root=${rootId}&token=${encodeURIComponent(token)}`,
-      {
-        headers: {
-          'x-authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return result.data;
-  }
-
   async getActionDetail(actionId: string): Promise<ActionDetailResource> {
     const token = await this.getAuthToken();
 

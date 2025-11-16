@@ -1,20 +1,8 @@
 import { ApiClient } from '../api-client.js';
 import type { ActionNode } from '../types/actions.js';
+import { findNextLeaf } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
-
-function hasIncompleteChildren(node: ActionNode): boolean {
-  if (!node.children || node.children.length === 0) {
-    return false;
-  }
-
-  return node.children.some((child) => {
-    if (!child.done) {
-      return true;
-    }
-    return hasIncompleteChildren(child);
-  });
-}
 
 async function getNextAction(
   apiClient: ApiClient,
@@ -27,12 +15,8 @@ async function getNextAction(
     return null;
   }
 
-  if (hasIncompleteChildren(tree)) {
-    const nextAction = await apiClient.findNextLeaf(rootId);
-    return nextAction;
-  }
-
-  return tree;
+  // Use local findNextLeaf to traverse tree and find next action
+  return findNextLeaf(tree);
 }
 
 export async function runLocalAgent(rootActionId: string): Promise<void> {
