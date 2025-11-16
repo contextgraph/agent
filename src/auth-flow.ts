@@ -63,7 +63,7 @@ export async function authenticateAgent(
       createdAt: new Date().toISOString(),
     });
 
-    close();
+    await close();
 
     return {
       success: true,
@@ -74,7 +74,7 @@ export async function authenticateAgent(
     };
   } catch (error) {
     if (server) {
-      server.close();
+      await server.close();
     }
 
     return {

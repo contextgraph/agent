@@ -4,14 +4,16 @@ Autonomous agent for contextgraph action execution.
 
 ## Installation
 
-```bash
-npm install -g @context-graph/agent
-```
-
-Or use with npx:
+No installation required! Use npx to run commands directly:
 
 ```bash
 npx @context-graph/agent <command>
+```
+
+Or install globally for convenience:
+
+```bash
+npm install -g @context-graph/agent
 ```
 
 ## Prerequisites
@@ -25,13 +27,13 @@ npx @context-graph/agent <command>
 1. Authenticate with contextgraph.dev:
 
 ```bash
-contextgraph-agent auth
+npx @context-graph/agent auth
 ```
 
 2. Run an action:
 
 ```bash
-contextgraph-agent run <action-id>
+npx @context-graph/agent run <action-id>
 ```
 
 Get your action ID from https://contextgraph.dev
@@ -42,7 +44,7 @@ Get your action ID from https://contextgraph.dev
 Authenticate with contextgraph.dev using OAuth:
 
 ```bash
-contextgraph-agent auth
+npx @context-graph/agent auth
 ```
 
 Opens your browser to complete authentication. Credentials are securely stored in `~/.contextgraph/`.
@@ -51,7 +53,7 @@ Opens your browser to complete authentication. Credentials are securely stored i
 Check your current authentication status:
 
 ```bash
-contextgraph-agent whoami
+npx @context-graph/agent whoami
 ```
 
 Shows your user ID and token expiration.
@@ -60,7 +62,7 @@ Shows your user ID and token expiration.
 Run the autonomous agent loop:
 
 ```bash
-contextgraph-agent run <action-id>
+npx @context-graph/agent run <action-id>
 ```
 
 The agent will:
@@ -74,7 +76,7 @@ The agent will:
 Prepare a single action:
 
 ```bash
-contextgraph-agent prepare <action-id>
+npx @context-graph/agent prepare <action-id>
 ```
 
 Spawns Claude to assess whether the action should be broken down into child actions or is ready to execute.
@@ -83,7 +85,7 @@ Spawns Claude to assess whether the action should be broken down into child acti
 Execute a single prepared action:
 
 ```bash
-contextgraph-agent execute <action-id>
+npx @context-graph/agent execute <action-id>
 ```
 
 Spawns Claude to implement the action and mark it complete.
@@ -131,7 +133,7 @@ If not installed, follow the installation instructions at https://docs.claude.co
 If authentication fails or tokens expire:
 
 ```bash
-contextgraph-agent auth
+npx @context-graph/agent auth
 ```
 
 This will open a new browser session to re-authenticate.
@@ -141,8 +143,8 @@ This will open a new browser session to re-authenticate.
 Tokens expire after a period of time. Re-authenticate with:
 
 ```bash
-contextgraph-agent whoami  # Check expiration
-contextgraph-agent auth    # Re-authenticate if expired
+npx @context-graph/agent whoami  # Check expiration
+npx @context-graph/agent auth    # Re-authenticate if expired
 ```
 
 ### Network errors

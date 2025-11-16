@@ -5,7 +5,7 @@ import type { CallbackResult } from './types/actions.js';
 export type CallbackServerResult = {
   port: number;
   waitForCallback: () => Promise<CallbackResult>;
-  close: () => void;
+  close: () => Promise<void>;
 };
 
 const MIN_PORT = 3000;
@@ -87,7 +87,15 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
       });
     },
     close: () => {
-      server.close();
+      return new Promise<void>((resolve, reject) => {
+        server.close((err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
     },
   };
 }
