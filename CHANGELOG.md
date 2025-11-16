@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2025-11-16
+
+### Fixed
+- Fixed 400 error on iteration 2 by using local findNextLeaf instead of nonexistent API endpoint
+- Fixed auth command hanging after successful authentication by properly awaiting server close
+
+### Changed
+- Updated README to prioritize npx usage over global installation
+- Removed unused ApiClient.findNextLeaf() method
+- Simplified agent workflow to use local tree traversal
+
 ## [0.1.0] - 2025-11-15
 
 ### Added
