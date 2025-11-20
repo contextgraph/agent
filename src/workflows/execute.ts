@@ -1,6 +1,7 @@
-import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
+import { loadCredentials, isExpired, isTokenExpired, loadGitCredentials } from '../credentials.js';
 import { spawnClaude } from '../claude-cli.js';
 import { ApiClient } from '../api-client.js';
+import { prepareRepositoryWorkspace } from '../repository-manager.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -28,6 +29,16 @@ export async function runExecute(actionId: string): Promise<void> {
   const repositoryUrl = action.resolved_repository_url || action.repository_url;
   const branch = action.resolved_branch || action.branch;
 
+  // Prepare workspace with repository context
+  const gitCredentials = await loadGitCredentials();
+  const { workspacePath, cleanup } = await prepareRepositoryWorkspace(
+    repositoryUrl,
+    branch,
+    gitCredentials || undefined
+  );
+
+  console.log(`Working directory: ${workspacePath}`);
+
   console.log(`Fetching execution instructions for action ${actionId}...\n`);
 
   const response = await fetch(
@@ -51,16 +62,20 @@ export async function runExecute(actionId: string): Promise<void> {
 
   console.log('Spawning Claude for execution...\n');
 
-  const claudeResult = await spawnClaude({
-    prompt,
-    cwd: process.cwd(),
-  });
+  try {
+    const claudeResult = await spawnClaude({
+      prompt,
+      cwd: workspacePath,
+    });
 
-  if (claudeResult.exitCode !== 0) {
-    console.error(`\n❌ Claude execution failed with exit code ${claudeResult.exitCode}`);
-    process.exit(1);
+    if (claudeResult.exitCode !== 0) {
+      console.error(`\n❌ Claude execution failed with exit code ${claudeResult.exitCode}`);
+      process.exit(1);
+    }
+
+    console.log('\n✅ Execution complete');
+  } finally {
+    await cleanup();
   }
-
-  console.log('\n✅ Execution complete');
 }
 
