@@ -11,6 +11,20 @@ export type Credentials = {
   createdAt: string;
 };
 
+export interface GitCredentials {
+  githubToken?: string;
+  gitlabToken?: string;
+  sshKeyPath?: string;
+  provider?: 'github' | 'gitlab';
+  acquiredAt: string;
+  source: 'gh-cli' | 'manual' | 'env';
+}
+
+export interface StoredCredentials {
+  clerk: Credentials;
+  git?: GitCredentials;
+}
+
 export type CallbackResult = {
   token: string;
   userId: string;
