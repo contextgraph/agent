@@ -117,7 +117,7 @@ export async function spawnClaude(
 
     // Create a writable stream to parse and format stdout
     const stdout = new Writable({
-      write(chunk: Buffer, encoding: string, callback: Function) {
+      write(chunk: Buffer, _encoding: string, callback: Function) {
         try {
           lineBuffer += chunk.toString();
           const lines = lineBuffer.split('\n');
@@ -144,7 +144,7 @@ export async function spawnClaude(
     });
 
     // Build environment variables from credentials
-    const envVars: Record<string, string> = { ...process.env };
+    const envVars: NodeJS.ProcessEnv = { ...process.env };
 
     if (options.gitCredentials) {
       if (options.gitCredentials.githubToken) {

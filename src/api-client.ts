@@ -39,7 +39,7 @@ export class ApiClient {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as { success: boolean; error?: string; data: ActionDetailResource };
 
     if (!result.success) {
       throw new Error(result.error);
@@ -67,7 +67,7 @@ export class ApiClient {
       throw new Error(`Failed to fetch tree: ${response.status} ${errorText}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as { success: boolean; data: { rootActions: ActionNode[] } };
     if (!result.success || !result.data.rootActions?.[0]) {
       throw new Error('No root action found in tree response');
     }

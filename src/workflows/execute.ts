@@ -45,14 +45,14 @@ export async function runExecute(actionId: string): Promise<void> {
 
   try {
     const result = await prepareRepositoryWorkspace(
-      repositoryUrl,
-      branch,
+      repositoryUrl ?? undefined,
+      branch ?? undefined,
       gitCredentials || undefined
     );
     workspacePath = result.workspacePath;
     cleanup = result.cleanup;
   } catch (error) {
-    handleRepositoryError(error, repositoryUrl, branch, gitCredentials);
+    handleRepositoryError(error, repositoryUrl, branch ?? undefined, gitCredentials);
     // handleRepositoryError will exit, but TypeScript needs this for type safety
     throw error;
   }
@@ -78,7 +78,7 @@ export async function runExecute(actionId: string): Promise<void> {
     throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
   }
 
-  const { prompt } = await response.json();
+  const { prompt } = (await response.json()) as { prompt: string };
 
   console.log('Spawning Claude for execution...\n');
 
