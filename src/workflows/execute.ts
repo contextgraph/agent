@@ -1,5 +1,6 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { spawnClaude } from '../claude-cli.js';
+import { ApiClient } from '../api-client.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -15,6 +16,17 @@ export async function runExecute(actionId: string): Promise<void> {
     console.error('❌ Token expired. Re-authenticate to continue.');
     process.exit(1);
   }
+
+  // Initialize API client
+  const apiClient = new ApiClient();
+
+  // Fetch complete action metadata including repository context
+  console.log(`Fetching action details for ${actionId}...`);
+  const action = await apiClient.getActionDetail(actionId);
+
+  // Extract repository context for workspace preparation
+  const repositoryUrl = action.resolved_repository_url || action.repository_url;
+  const branch = action.resolved_branch || action.branch;
 
   console.log(`Fetching execution instructions for action ${actionId}...\n`);
 
