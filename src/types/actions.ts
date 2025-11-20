@@ -41,6 +41,7 @@ export type ClaudeResult = {
 export type SpawnClaudeOptions = {
   prompt: string;
   cwd: string;
+  gitCredentials?: GitCredentials;
 };
 
 // ============================================================================

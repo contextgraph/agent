@@ -143,12 +143,22 @@ export async function spawnClaude(
       }
     });
 
+    // Build environment variables from credentials
+    const envVars: Record<string, string> = { ...process.env };
+
+    if (options.gitCredentials) {
+      if (options.gitCredentials.githubToken) {
+        envVars.GITHUB_TOKEN = options.gitCredentials.githubToken;
+      }
+      if (options.gitCredentials.gitlabToken) {
+        envVars.GITLAB_TOKEN = options.gitCredentials.gitlabToken;
+      }
+    }
+
     const shell = spawn('sh', ['-c', command], {
       cwd: options.cwd,
       stdio: ['pipe', 'pipe', 'inherit'], // stdin=pipe, stdout=pipe, stderr=inherit
-      env: {
-        ...process.env,
-      },
+      env: envVars,
     });
 
     // Pipe stdout through our formatter

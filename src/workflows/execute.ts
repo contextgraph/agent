@@ -66,6 +66,7 @@ export async function runExecute(actionId: string): Promise<void> {
     const claudeResult = await spawnClaude({
       prompt,
       cwd: workspacePath,
+      gitCredentials: gitCredentials || undefined,
     });
 
     if (claudeResult.exitCode !== 0) {
