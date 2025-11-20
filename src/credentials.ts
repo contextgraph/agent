@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import type { Credentials } from './types/actions.js';
+import type { Credentials, StoredCredentials, GitCredentials } from './types/actions.js';
 
 function getCredentialsDir(): string {
   return process.env.CONTEXTGRAPH_CREDENTIALS_DIR || path.join(os.homedir(), '.contextgraph');
@@ -20,16 +20,37 @@ export async function saveCredentials(credentials: Credentials): Promise<void> {
 
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
 
-  const content = JSON.stringify(credentials, null, 2);
+  // Load existing credentials to preserve git credentials if they exist
+  const existing = await loadStoredCredentials();
+  const storedCreds: StoredCredentials = {
+    clerk: credentials,
+    git: existing?.git,
+  };
+
+  const content = JSON.stringify(storedCreds, null, 2);
   await fs.writeFile(filePath, content, { mode: 0o600 });
 }
 
-export async function loadCredentials(): Promise<Credentials | null> {
+/**
+ * Load stored credentials from disk
+ * Internal function that returns the full StoredCredentials structure
+ */
+async function loadStoredCredentials(): Promise<StoredCredentials | null> {
   const filePath = getCredentialsPath();
 
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as Credentials;
+    const parsed = JSON.parse(content);
+
+    // Check if this is the old format (has clerkToken at root level)
+    if ('clerkToken' in parsed && !('clerk' in parsed)) {
+      // Migrate old format to new format
+      return {
+        clerk: parsed as Credentials,
+      };
+    }
+
+    return parsed as StoredCredentials;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;
@@ -38,6 +59,11 @@ export async function loadCredentials(): Promise<Credentials | null> {
     console.error('Error loading credentials:', error);
     return null;
   }
+}
+
+export async function loadCredentials(): Promise<Credentials | null> {
+  const stored = await loadStoredCredentials();
+  return stored?.clerk || null;
 }
 
 export async function deleteCredentials(): Promise<void> {
@@ -140,4 +166,73 @@ export async function getAuthenticatedFetch(): Promise<typeof fetch> {
       headers,
     });
   };
+}
+
+// ============================================================================
+// Git Credentials Functions
+// ============================================================================
+
+/**
+ * Save git credentials to disk
+ * Preserves existing Clerk credentials
+ */
+export async function saveGitCredentials(git: GitCredentials): Promise<void> {
+  const dir = getCredentialsDir();
+  const filePath = getCredentialsPath();
+
+  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+
+  // Load existing credentials to preserve clerk credentials
+  const existing = await loadStoredCredentials();
+
+  if (!existing?.clerk) {
+    throw new Error(
+      'Cannot save git credentials without Clerk credentials. Please authenticate first.'
+    );
+  }
+
+  const storedCreds: StoredCredentials = {
+    clerk: existing.clerk,
+    git,
+  };
+
+  const content = JSON.stringify(storedCreds, null, 2);
+  await fs.writeFile(filePath, content, { mode: 0o600 });
+}
+
+/**
+ * Load git credentials from disk
+ * Returns null if no git credentials are stored
+ */
+export async function loadGitCredentials(): Promise<GitCredentials | null> {
+  const stored = await loadStoredCredentials();
+  return stored?.git || null;
+}
+
+/**
+ * Validate a git token by making a test API request
+ * Returns true if token is valid, false otherwise
+ */
+export async function validateGitToken(
+  token: string,
+  provider: 'github' | 'gitlab'
+): Promise<boolean> {
+  try {
+    const url = provider === 'github'
+      ? 'https://api.github.com/user'
+      : 'https://gitlab.com/api/v4/user';
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    return response.ok;
+  } catch (error) {
+    // Don't expose token in error messages
+    console.error(`Failed to validate ${provider} token:`, error instanceof Error ? error.message : 'Unknown error');
+    return false;
+  }
 }
