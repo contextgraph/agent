@@ -1,9 +1,10 @@
 import { Command } from 'commander';
 import { runAuth } from '../workflows/auth.js';
+import { runGitAuth } from '../workflows/git-auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
 import { runLocalAgent } from '../workflows/agent.js';
-import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
+import { loadCredentials, loadGitCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
 const program = new Command();
 
@@ -33,6 +34,18 @@ program
       await runAuth();
     } catch (error) {
       console.error('Error during authentication:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('auth:git')
+  .description('Authenticate with git provider (GitHub or GitLab)')
+  .action(async () => {
+    try {
+      await runGitAuth();
+    } catch (error) {
+      console.error('Error during git authentication:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
@@ -85,6 +98,17 @@ program
       console.log('✅ Authenticated');
       console.log(`User ID: ${credentials.userId}`);
       console.log(`Expires at: ${credentials.expiresAt}`);
+
+      // Check git authentication status
+      const gitCreds = await loadGitCredentials();
+      if (gitCreds) {
+        console.log('\n🔐 Git Authentication:');
+        console.log(`   Provider: ${gitCreds.provider || 'unknown'}`);
+        console.log(`   Source: ${gitCreds.source}`);
+        console.log(`   Acquired: ${gitCreds.acquiredAt}`);
+      } else {
+        console.log('\nℹ️  Not authenticated with git. Run `contextgraph-agent auth:git` to authenticate.');
+      }
     } catch (error) {
       console.error('Error checking authentication:', error instanceof Error ? error.message : error);
       process.exit(1);
