@@ -16,7 +16,7 @@ program
 program
   .command('run')
   .argument('<action-id>', 'Action ID to execute autonomously')
-  .description('Run autonomous prepare/execute cycle for an action')
+  .description('Run autonomous prepare/execute cycle for an action. Automatically prepares and executes actions in dependency order. Supports repository cloning and workspace preparation when repository context is specified.')
   .action(async (actionId: string) => {
     try {
       await runLocalAgent(actionId);
@@ -40,7 +40,7 @@ program
 
 program
   .command('auth:git')
-  .description('Authenticate with git provider (GitHub or GitLab)')
+  .description('Authenticate with git provider (GitHub or GitLab). Tries gh CLI, environment variables (GITHUB_TOKEN/GITLAB_TOKEN), or manual token entry. Required for private repositories.')
   .action(async () => {
     try {
       await runGitAuth();
@@ -66,7 +66,7 @@ program
 program
   .command('execute')
   .argument('<action-id>', 'Action ID to execute')
-  .description('Execute a single action')
+  .description('Execute a single action. Automatically clones repository and prepares workspace if repository context is specified. Runs tests, commits changes, and marks action complete.')
   .action(async (actionId: string) => {
     try {
       await runExecute(actionId);
