@@ -19,7 +19,6 @@ npm install -g @context-graph/agent
 ## Prerequisites
 
 - Node.js 18 or higher
-- Claude CLI installed and available in PATH (`claude --version`)
 - Active contextgraph.dev account
 
 ## Quick Start
@@ -118,16 +117,6 @@ The agent integrates with contextgraph.dev's MCP server to:
 
 ## Troubleshooting
 
-### Claude CLI not found
-
-Ensure Claude CLI is installed and in your PATH:
-
-```bash
-claude --version
-```
-
-If not installed, follow the installation instructions at https://docs.claude.com
-
 ### Authentication failures
 
 If authentication fails or tokens expire:
@@ -161,7 +150,17 @@ Ensure you have internet connectivity and can reach:
 
 ## Configuration
 
+### Credentials
+
 Credentials are stored in `~/.contextgraph/credentials.json`
+
+### Claude Agent SDK
+
+The agent uses the [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-typescript/tree/main/packages/agent-sdk) for reliable, high-performance execution of actions. The SDK provides:
+- Consistent error handling and recovery
+- Direct API integration without CLI dependencies
+- Better timeout and cancellation control
+- Structured message parsing and formatting
 
 ## Development
 

@@ -1,16 +1,25 @@
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
 import { runLocalAgent } from '../workflows/agent.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../package.json'), 'utf-8')
+);
+
 const program = new Command();
 
 program
   .name('contextgraph-agent')
   .description('Autonomous agent for contextgraph action execution')
-  .version('0.1.0');
+  .version(packageJson.version);
 
 program
   .command('run')

@@ -1,5 +1,5 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
-import { spawnClaude } from '../claude-cli.js';
+import { executeClaude } from '../claude-sdk.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -39,9 +39,10 @@ export async function runExecute(actionId: string): Promise<void> {
 
   console.log('Spawning Claude for execution...\n');
 
-  const claudeResult = await spawnClaude({
+  const claudeResult = await executeClaude({
     prompt,
     cwd: process.cwd(),
+    authToken: credentials.clerkToken,
   });
 
   if (claudeResult.exitCode !== 0) {
