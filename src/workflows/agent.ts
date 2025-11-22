@@ -9,8 +9,9 @@ import { runExecute } from './execute.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// When built, this file is in dist/, so package.json is one level up
 const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+  readFileSync(join(__dirname, '../package.json'), 'utf-8')
 );
 
 async function getNextAction(
