@@ -14,6 +14,11 @@
  * 7. Error scenarios - Invalid URLs, branches, credentials, network failures
  */
 
+// Mock the SDK module before other imports
+jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: jest.fn()
+}));
+
 import { rm, stat, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir, homedir } from 'os';

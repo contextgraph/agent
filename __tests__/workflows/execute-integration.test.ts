@@ -10,6 +10,11 @@
  * - Performance validation (caching behavior)
  */
 
+// Mock the SDK module before other imports
+jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: jest.fn()
+}));
+
 import { rm, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
