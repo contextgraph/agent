@@ -113,7 +113,6 @@ function formatMessage(message: SDKMessage): string | null {
 export async function executeClaude(
   options: SpawnClaudeOptions
 ): Promise<ClaudeResult> {
-  const startTime = Date.now();
   let sessionId: string | undefined;
   let totalCost = 0;
   let usage: any;
