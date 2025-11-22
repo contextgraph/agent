@@ -38,7 +38,7 @@ export async function runPrepare(actionId: string): Promise<void> {
 
   const { prompt } = await response.json();
 
-  const useSdk = process.env.USE_CLAUDE_SDK === 'true';
+  const useSdk = process.env.USE_CLAUDE_SDK !== 'false';
   console.log(`Spawning Claude for preparation${useSdk ? ' (using SDK)' : ' (using CLI)'}...\n`);
 
   const claudeResult = useSdk

@@ -81,7 +81,7 @@ export async function runExecute(actionId: string): Promise<void> {
 
   const { prompt } = (await response.json()) as { prompt: string };
 
-  const useSdk = process.env.USE_CLAUDE_SDK === 'true';
+  const useSdk = process.env.USE_CLAUDE_SDK !== 'false';
   console.log(`Spawning Claude for execution${useSdk ? ' (using SDK)' : ' (using CLI)'}...\n`);
 
   try {
