@@ -22,6 +22,9 @@ export type CallbackResult = {
 
 export type ClaudeResult = {
   exitCode: number;
+  sessionId?: string;  // SDK-specific: session identifier
+  usage?: any;         // SDK-specific: token usage stats
+  cost?: number;       // SDK-specific: total cost in USD
 };
 
 export type SpawnClaudeOptions = {
