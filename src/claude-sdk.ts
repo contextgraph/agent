@@ -142,6 +142,8 @@ export async function executeClaude(
   try {
     // Load the contextgraph plugin from the standard location
     const pluginPath = join(homedir(), 'code/claude-code-plugin/plugins/contextgraph');
+    console.log('[Agent SDK] Loading plugin from:', pluginPath);
+    console.log('[Agent SDK] Auth token available:', !!options.authToken);
 
     // Create the query with SDK using the plugin
     const iterator = query({
@@ -151,25 +153,19 @@ export async function executeClaude(
         abortController,
         permissionMode: 'acceptEdits', // Match default behavior
         maxTurns: 100, // Reasonable limit
-        env: process.env, // Pass through environment
+        env: {
+          ...process.env,
+          // Pass auth token through environment for MCP server
+          CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
+        },
         // Load the contextgraph plugin (provides MCP server URL and other config)
         plugins: [
           {
             type: 'local',
             path: pluginPath,
           }
-        ],
-        // Override plugin's MCP server to add auth headers
-        mcpServers: options.authToken ? {
-          'plugin:contextgraph:actions': {
-            type: 'http',
-            url: 'https://mcp.contextgraph.dev',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${options.authToken}`,
-            }
-          }
-        } : undefined
+        ]
+        // Note: Auth is passed via CONTEXTGRAPH_AUTH_TOKEN environment variable above
       }
     });
 
