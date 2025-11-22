@@ -26,7 +26,7 @@ import { cwd } from 'process';
 import { runExecute } from '../../src/workflows/execute.js';
 import * as credentialsModule from '../../src/credentials.js';
 import * as apiClientModule from '../../src/api-client.js';
-import * as claudeCliModule from '../../src/claude-cli.js';
+import * as claudeSdkModule from '../../src/claude-sdk.js';
 import type { ActionDetailResource } from '../../src/types/actions.js';
 
 const TEST_REPO_URL = 'https://github.com/contextgraph/actions.git';
@@ -78,8 +78,8 @@ describe('Execute Workflow E2E Tests', () => {
     jest.spyOn(credentialsModule, 'isTokenExpired').mockReturnValue(false);
     jest.spyOn(credentialsModule, 'loadGitCredentials').mockResolvedValue(mockGitCredentials);
 
-    // Mock Claude CLI to succeed quickly
-    jest.spyOn(claudeCliModule, 'spawnClaude').mockResolvedValue({ exitCode: 0 });
+    // Mock Claude SDK to succeed quickly
+    jest.spyOn(claudeSdkModule, 'executeClaude').mockResolvedValue({ exitCode: 0 });
 
     // Mock global fetch for execute prompt
     global.fetch = jest.fn().mockResolvedValue({
@@ -143,11 +143,11 @@ describe('Execute Workflow E2E Tests', () => {
       // Execute - this will use REAL repository cloning
       await runExecute(TEST_ACTION_ID);
 
-      // Verify Claude was spawned
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
+      // Verify Claude was executed
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
 
       // Verify the workspace path is NOT the current directory
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       expect(spawnCall.cwd).not.toBe(cwd());
 
       // Verify the workspace contains a git repository
@@ -183,7 +183,7 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute(TEST_ACTION_ID);
 
       // Get the workspace path that was used
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       const workspacePath = spawnCall.cwd;
 
       // Workspace should still exist (deferred cleanup strategy)
@@ -235,8 +235,8 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute(TEST_ACTION_ID);
 
       // Verify Claude was spawned with inherited repository context
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
 
       // Verify workspace is a git repository
       const gitDir = join(spawnCall.cwd, '.git');
@@ -271,7 +271,7 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute(TEST_ACTION_ID);
 
       // Verify the correct repository was used (by checking it's a valid git repo)
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       const gitDir = join(spawnCall.cwd, '.git');
       const stats = await stat(gitDir);
       expect(stats.isDirectory()).toBe(true);
@@ -306,7 +306,7 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute(TEST_ACTION_ID);
 
       // Verify workspace exists and is a git repository
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       const gitDir = join(spawnCall.cwd, '.git');
       const stats = await stat(gitDir);
       expect(stats.isDirectory()).toBe(true);
@@ -347,7 +347,7 @@ describe('Execute Workflow E2E Tests', () => {
       try {
         await runExecute(TEST_ACTION_ID);
         // If execution succeeds, the repo manager handled it gracefully
-        expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
+        expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
       } catch (error: any) {
         // If it throws, verify it's a branch-related error
         const errorMessage = error.message.toLowerCase();
@@ -426,7 +426,7 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute(TEST_ACTION_ID);
 
       // Verify Claude was spawned with git credentials
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       expect(spawnCall.gitCredentials).toEqual(mockGitCredentials);
     }, 120000);
   });
@@ -467,8 +467,8 @@ describe('Execute Workflow E2E Tests', () => {
       }
 
       // Verify Claude spawned in current directory before cleanup error
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
-      const spawnCall = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
+      const spawnCall = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
       expect(spawnCall.cwd).toBe(cwd());
     }, 60000);
 
@@ -508,7 +508,7 @@ describe('Execute Workflow E2E Tests', () => {
       }
 
       // Verify execution happened (even if cleanup errored)
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
     }, 60000);
   });
 
@@ -554,11 +554,11 @@ describe('Execute Workflow E2E Tests', () => {
       ]);
 
       // Both should have executed successfully
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalledTimes(2);
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalledTimes(2);
 
       // Both should use the same workspace (caching)
-      const call1 = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[0][0];
-      const call2 = (claudeCliModule.spawnClaude as jest.Mock).mock.calls[1][0];
+      const call1 = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[0][0];
+      const call2 = (claudeSdkModule.executeClaude as jest.Mock).mock.calls[1][0];
 
       // The workspace paths should be the same due to caching
       expect(call1.cwd).toBe(call2.cwd);
@@ -592,7 +592,7 @@ describe('Execute Workflow E2E Tests', () => {
       await runExecute('action-main');
 
       // Verify execution happened
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalled();
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalled();
     }, 180000);
   });
 

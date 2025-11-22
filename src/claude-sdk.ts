@@ -75,14 +75,13 @@ function formatAssistantMessage(message: SDKAssistantMessage['message']): void {
 }
 
 /**
- * Execute Claude using the SDK (parallel implementation to spawnClaude)
+ * Execute Claude using the SDK
  *
- * This function provides the same interface as spawnClaude() but uses the
- * Claude Agent SDK instead of spawning a CLI process. It can be used as a
- * drop-in replacement for testing and comparison.
+ * This function uses the Claude Agent SDK to execute prompts with full
+ * tool access and session management.
  *
- * @param options - Same options as spawnClaude
- * @returns Promise resolving to ClaudeResult with optional SDK-specific fields
+ * @param options - Execution options (prompt, cwd, gitCredentials)
+ * @returns Promise resolving to ClaudeResult with SDK-specific fields
  */
 export async function executeClaude(
   options: SpawnClaudeOptions

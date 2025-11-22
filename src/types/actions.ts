@@ -31,12 +31,12 @@ export type CallbackResult = {
 };
 
 // ============================================================================
-// Claude CLI Types
+// Claude Execution Types
 // ============================================================================
 
 export type ClaudeResult = {
   exitCode: number;
-  // Optional SDK-specific fields (not present when using CLI spawn)
+  // SDK-specific fields
   sessionId?: string;
   usage?: {
     inputTokens: number;

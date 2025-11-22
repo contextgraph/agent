@@ -22,7 +22,7 @@ import { cwd } from 'process';
 import { runExecute } from '../../src/workflows/execute.js';
 import * as credentialsModule from '../../src/credentials.js';
 import * as apiClientModule from '../../src/api-client.js';
-import * as claudeCliModule from '../../src/claude-cli.js';
+import * as claudeSdkModule from '../../src/claude-sdk.js';
 import * as repositoryManagerModule from '../../src/repository-manager.js';
 import type { ActionDetailResource } from '../../src/types/actions.js';
 
@@ -78,8 +78,8 @@ describe('Execute Workflow Integration Tests', () => {
     jest.spyOn(credentialsModule, 'isTokenExpired').mockReturnValue(false);
     jest.spyOn(credentialsModule, 'loadGitCredentials').mockResolvedValue(mockGitCredentials);
 
-    // Mock Claude CLI
-    jest.spyOn(claudeCliModule, 'spawnClaude').mockResolvedValue({ exitCode: 0 });
+    // Mock Claude SDK
+    jest.spyOn(claudeSdkModule, 'executeClaude').mockResolvedValue({ exitCode: 0 });
 
     // Mock global fetch for execute prompt
     global.fetch = jest.fn().mockResolvedValue({
@@ -149,7 +149,7 @@ describe('Execute Workflow Integration Tests', () => {
       );
 
       // Verify Claude spawned in correct workspace
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalledWith({
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalledWith({
         prompt: 'Test execution prompt',
         cwd: testDir,
         gitCredentials: mockGitCredentials,
@@ -323,7 +323,7 @@ describe('Execute Workflow Integration Tests', () => {
       );
 
       // Verify Claude spawned in current directory
-      expect(claudeCliModule.spawnClaude).toHaveBeenCalledWith({
+      expect(claudeSdkModule.executeClaude).toHaveBeenCalledWith({
         prompt: 'Test execution prompt',
         cwd: cwd(),
         gitCredentials: mockGitCredentials,

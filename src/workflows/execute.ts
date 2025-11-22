@@ -1,5 +1,4 @@
 import { loadCredentials, isExpired, isTokenExpired, loadGitCredentials } from '../credentials.js';
-import { spawnClaude } from '../claude-cli.js';
 import { executeClaude } from '../claude-sdk.js';
 import { ApiClient } from '../api-client.js';
 import { prepareRepositoryWorkspace } from '../repository-manager.js';
@@ -81,25 +80,17 @@ export async function runExecute(actionId: string): Promise<void> {
 
   const { prompt } = (await response.json()) as { prompt: string };
 
-  const useSdk = process.env.USE_CLAUDE_SDK !== 'false';
-  console.log(`Spawning Claude for execution${useSdk ? ' (using SDK)' : ' (using CLI)'}...\n`);
+  console.log(`Spawning Claude for execution...\n`);
 
   try {
-    const claudeResult = useSdk
-      ? await executeClaude({
-          prompt,
-          cwd: workspacePath,
-          gitCredentials: gitCredentials || undefined,
-        })
-      : await spawnClaude({
-          prompt,
-          cwd: workspacePath,
-          gitCredentials: gitCredentials || undefined,
-        });
+    const claudeResult = await executeClaude({
+      prompt,
+      cwd: workspacePath,
+      gitCredentials: gitCredentials || undefined,
+    });
 
     if (claudeResult.exitCode !== 0) {
-      const implType = useSdk ? 'SDK' : 'CLI';
-      console.error(`\n❌ Claude ${implType} execution failed with exit code ${claudeResult.exitCode}`);
+      console.error(`\n❌ Claude execution failed with exit code ${claudeResult.exitCode}`);
       process.exit(1);
     }
 

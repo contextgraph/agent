@@ -21,7 +21,7 @@ npm install -g @context-graph/agent
 - Node.js 18 or higher
 - Active contextgraph.dev account
 
-The agent uses the Claude Agent SDK by default. If you prefer to use the Claude CLI (legacy mode), set `USE_CLAUDE_SDK=false` and ensure Claude CLI is installed and available in PATH (`claude --version`).
+The agent uses the Claude Agent SDK for execution.
 
 ## Quick Start
 
@@ -218,16 +218,6 @@ The agent integrates with contextgraph.dev's MCP server to:
 
 ## Troubleshooting
 
-### Claude CLI not found
-
-Ensure Claude CLI is installed and in your PATH:
-
-```bash
-claude --version
-```
-
-If not installed, follow the installation instructions at https://docs.claude.com
-
 ### Authentication failures
 
 If authentication fails or tokens expire:
@@ -315,51 +305,11 @@ If you see workspace-related errors:
 
 Credentials are stored in `~/.contextgraph/credentials.json`
 
-### Implementation Modes
-
-The agent supports two implementation modes for Claude execution:
-
-**SDK Mode (Default)**
-- Uses the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`)
+The agent uses the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) for execution, providing:
 - Native TypeScript integration
 - Better observability through hook system
 - Built-in session management and resumption
-- This is the recommended mode
-
-**CLI Mode (Legacy Fallback)**
-- Uses the Claude CLI binary via process spawning
-- Available as a fallback for compatibility
-- Requires Claude CLI to be installed in PATH
-
-**Switching Modes**
-
-By default, the SDK mode is active. To use CLI mode instead:
-
-```bash
-# Use CLI mode for a single command
-USE_CLAUDE_SDK=false npx @context-graph/agent execute <action-id>
-
-# Set globally for all commands in current terminal session
-export USE_CLAUDE_SDK=false
-npx @context-graph/agent execute <action-id>
-```
-
-To switch back to SDK mode (or explicitly ensure SDK is used):
-
-```bash
-# SDK mode is default, so just unset the variable
-unset USE_CLAUDE_SDK
-
-# Or explicitly set it to any value except 'false'
-export USE_CLAUDE_SDK=true
-```
-
-**Monitoring Recommendation**
-
-During the transition period, monitor for any unexpected behavior. If issues arise:
-1. Switch to CLI mode immediately: `USE_CLAUDE_SDK=false`
-2. Report the issue with details
-3. Continue using CLI mode until the issue is resolved
+- Improved performance and reliability
 
 ## Development
 

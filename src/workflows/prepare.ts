@@ -1,5 +1,4 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
-import { spawnClaude } from '../claude-cli.js';
 import { executeClaude } from '../claude-sdk.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -38,22 +37,15 @@ export async function runPrepare(actionId: string): Promise<void> {
 
   const { prompt } = await response.json();
 
-  const useSdk = process.env.USE_CLAUDE_SDK !== 'false';
-  console.log(`Spawning Claude for preparation${useSdk ? ' (using SDK)' : ' (using CLI)'}...\n`);
+  console.log(`Spawning Claude for preparation...\n`);
 
-  const claudeResult = useSdk
-    ? await executeClaude({
-        prompt,
-        cwd: process.cwd(),
-      })
-    : await spawnClaude({
-        prompt,
-        cwd: process.cwd(),
-      });
+  const claudeResult = await executeClaude({
+    prompt,
+    cwd: process.cwd(),
+  });
 
   if (claudeResult.exitCode !== 0) {
-    const implType = useSdk ? 'SDK' : 'CLI';
-    console.error(`\n❌ Claude ${implType} preparation failed with exit code ${claudeResult.exitCode}`);
+    console.error(`\n❌ Claude preparation failed with exit code ${claudeResult.exitCode}`);
     process.exit(1);
   }
 
