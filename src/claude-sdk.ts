@@ -151,7 +151,7 @@ export async function executeClaude(
         mcpServers: options.authToken ? {
           'plugin:contextgraph:actions': {
             type: 'http',
-            url: 'https://www.contextgraph.dev/mcp/sse',
+            url: 'https://mcp.contextgraph.dev',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${options.authToken}`,
