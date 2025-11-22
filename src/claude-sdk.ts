@@ -1,4 +1,6 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import { join } from 'path';
+import { homedir } from 'os';
 import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
 
 // Constants for timeouts and truncation
@@ -138,7 +140,10 @@ export async function executeClaude(
   }, EXECUTION_TIMEOUT_MS);
 
   try {
-    // Create the query with SDK
+    // Load the contextgraph plugin from the standard location
+    const pluginPath = join(homedir(), 'code/claude-code-plugin/plugins/contextgraph');
+
+    // Create the query with SDK using the plugin
     const iterator = query({
       prompt: options.prompt,
       options: {
@@ -147,7 +152,14 @@ export async function executeClaude(
         permissionMode: 'acceptEdits', // Match default behavior
         maxTurns: 100, // Reasonable limit
         env: process.env, // Pass through environment
-        // Configure MCP server for contextgraph actions
+        // Load the contextgraph plugin (provides MCP server URL and other config)
+        plugins: [
+          {
+            type: 'local',
+            path: pluginPath,
+          }
+        ],
+        // Override plugin's MCP server to add auth headers
         mcpServers: options.authToken ? {
           'plugin:contextgraph:actions': {
             type: 'http',
