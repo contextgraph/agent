@@ -12,8 +12,17 @@ export default {
         useESM: true,
       },
     ],
+    '^.+\\.mjs$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
   },
   testMatch: ['**/__tests__/**/*.test.ts'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(@anthropic-ai/claude-agent-sdk)/)',
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
