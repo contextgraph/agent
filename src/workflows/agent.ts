@@ -1,8 +1,17 @@
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
 import type { ActionNode } from '../types/actions.js';
 import { findNextLeaf } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+);
 
 async function getNextAction(
   apiClient: ApiClient,
@@ -22,7 +31,8 @@ async function getNextAction(
 export async function runLocalAgent(rootActionId: string): Promise<void> {
   const apiClient = new ApiClient();
 
-  console.log(`🤖 Starting local agent for action: ${rootActionId}\n`);
+  console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
+  console.log(`🎯 Starting local agent for action: ${rootActionId}\n`);
 
   let iterations = 0;
   const maxIterations = 100;
