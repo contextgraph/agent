@@ -171,7 +171,7 @@ describe('SDK Wrapper Functions', () => {
           prompt: 'Test prompt',
           options: expect.objectContaining({
             cwd: '/test/path',
-            permissionMode: 'acceptEdits',
+            permissionMode: 'bypassPermissions',
             maxTurns: 100,
           }),
         });

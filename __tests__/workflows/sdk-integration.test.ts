@@ -481,7 +481,7 @@ describe('SDK Integration Tests', () => {
       expect(mockQuery).toHaveBeenCalledWith({
         prompt: 'Test',
         options: expect.objectContaining({
-          permissionMode: 'acceptEdits',
+          permissionMode: 'bypassPermissions',
           maxTurns: 100,
         }),
       });
