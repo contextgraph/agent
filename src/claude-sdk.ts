@@ -1,12 +1,24 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
 
+// Constants for timeouts and truncation
+const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+const THINKING_TRUNCATE_LENGTH = 100;
+const COMMAND_TRUNCATE_LENGTH = 60;
+
 // Helper types for SDK message content
+type ToolInput =
+  | { file_path: string; old_string?: string; new_string?: string }  // Read, Edit, Write
+  | { command: string; description?: string; timeout?: number }  // Bash
+  | { pattern: string; glob?: string; type?: string; output_mode?: string }  // Grep
+  | { pattern: string; path?: string }  // Glob
+  | Record<string, unknown>;  // Other tools
+
 type SDKMessageContent = {
   type: string;
   text?: string;
   name?: string;
-  input?: any;
+  input?: ToolInput;
   thinking?: string;
 };
 
@@ -20,8 +32,8 @@ function formatToolUse(content: SDKMessageContent): string {
     return `  🔧 ${name}${summary}`;
   }
   if (content.type === 'thinking' && content.thinking) {
-    const truncated = content.thinking.length > 100
-      ? content.thinking.substring(0, 100) + '...'
+    const truncated = content.thinking.length > THINKING_TRUNCATE_LENGTH
+      ? content.thinking.substring(0, THINKING_TRUNCATE_LENGTH) + '...'
       : content.thinking;
     return `  💭 ${truncated}`;
   }
@@ -42,7 +54,9 @@ function formatToolInput(toolName: string, input: any): string {
       return `: ${input.file_path}`;
     case 'Bash':
       const cmd = input.command || '';
-      const truncated = cmd.length > 60 ? cmd.substring(0, 60) + '...' : cmd;
+      const truncated = cmd.length > COMMAND_TRUNCATE_LENGTH
+        ? cmd.substring(0, COMMAND_TRUNCATE_LENGTH) + '...'
+        : cmd;
       return `: ${truncated}`;
     case 'Grep':
       return `: "${input.pattern}"`;
@@ -84,8 +98,8 @@ function formatMessage(message: SDKMessage): string | null {
 
     case 'assistant':
       const assistantMsg = message as SDKAssistantMessage;
-      if (assistantMsg.message?.content) {
-        return formatAssistantMessage(assistantMsg.message.content as any);
+      if (assistantMsg.message?.content && Array.isArray(assistantMsg.message.content)) {
+        return formatAssistantMessage(assistantMsg.message.content as Array<SDKMessageContent>);
       }
       return null;
 
@@ -121,7 +135,7 @@ export async function executeClaude(
   const abortController = new AbortController();
   const timeout = setTimeout(() => {
     abortController.abort();
-  }, 1200000); // 20 minute timeout
+  }, EXECUTION_TIMEOUT_MS);
 
   try {
     // Create the query with SDK
@@ -183,7 +197,8 @@ export async function executeClaude(
 
     // Handle abort/timeout
     if (abortController.signal.aborted) {
-      throw new Error('Claude SDK execution timed out after 20 minutes');
+      const timeoutMinutes = EXECUTION_TIMEOUT_MS / (60 * 1000);
+      throw new Error(`Claude SDK execution timed out after ${timeoutMinutes} minutes`);
     }
 
     // Handle other errors
