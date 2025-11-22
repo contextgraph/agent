@@ -126,7 +126,6 @@ describe('SDK Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    process.env.USE_CLAUDE_SDK = 'true';
   });
 
   describe('Simple action execution', () => {
