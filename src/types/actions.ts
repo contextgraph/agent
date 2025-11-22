@@ -36,6 +36,13 @@ export type CallbackResult = {
 
 export type ClaudeResult = {
   exitCode: number;
+  // Optional SDK-specific fields (not present when using CLI spawn)
+  sessionId?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+  cost?: number;
 };
 
 export type SpawnClaudeOptions = {
