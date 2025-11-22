@@ -19,8 +19,8 @@ npm install -g @context-graph/agent
 ## Prerequisites
 
 - Node.js 18 or higher
-- Claude CLI installed and available in PATH (`claude --version`)
 - Active contextgraph.dev account
+- (Optional) Claude CLI installed for fallback mode - see Configuration below
 
 ## Quick Start
 
@@ -118,15 +118,15 @@ The agent integrates with contextgraph.dev's MCP server to:
 
 ## Troubleshooting
 
-### Claude CLI not found
+### Claude CLI not found (only needed for fallback mode)
 
-Ensure Claude CLI is installed and in your PATH:
+By default, the agent uses the Claude Agent SDK and does not require Claude CLI. If you're using the CLI fallback mode (`USE_CLAUDE_SDK=false`) and see this error, ensure Claude CLI is installed and in your PATH:
 
 ```bash
 claude --version
 ```
 
-If not installed, follow the installation instructions at https://docs.claude.com
+If not installed, follow the installation instructions at https://docs.claude.com, or switch back to the SDK mode (default)
 
 ### Authentication failures
 
@@ -161,7 +161,22 @@ Ensure you have internet connectivity and can reach:
 
 ## Configuration
 
+### Credentials
+
 Credentials are stored in `~/.contextgraph/credentials.json`
+
+### Claude SDK vs CLI
+
+By default, the agent uses the Claude Agent SDK for better reliability and performance. If you need to use the legacy Claude CLI spawn approach, you can opt out:
+
+```bash
+# Use CLI fallback (opt-out of SDK)
+USE_CLAUDE_SDK=false npx @context-graph/agent execute <action-id>
+USE_CLAUDE_SDK=false npx @context-graph/agent prepare <action-id>
+USE_CLAUDE_SDK=false npx @context-graph/agent run <action-id>
+```
+
+**Note:** The CLI fallback requires Claude CLI to be installed and available in your PATH (`claude --version`). The SDK is recommended for most users as it provides better error handling and consistent behavior
 
 ## Development
 
