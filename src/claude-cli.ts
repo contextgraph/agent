@@ -109,6 +109,7 @@ export async function spawnClaude(
       '--print',                         // Non-interactive mode (required for --output-format)
       '--output-format', 'stream-json',  // Disable interactive UI
       '--verbose',
+      '--permission-mode', 'bypassPermissions',  // Allow autonomous execution without approval prompts
     ].map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ');
 
     const command = `cat | claude ${claudeArgs}`;
