@@ -30,6 +30,7 @@ export type ClaudeResult = {
 export type SpawnClaudeOptions = {
   prompt: string;
   cwd: string;
+  authToken?: string;  // Optional auth token for MCP server
 };
 
 // ============================================================================

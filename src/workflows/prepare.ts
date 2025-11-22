@@ -42,6 +42,7 @@ export async function runPrepare(actionId: string): Promise<void> {
   const claudeResult = await executeClaude({
     prompt,
     cwd: process.cwd(),
+    authToken: credentials.clerkToken,
   });
 
   if (claudeResult.exitCode !== 0) {

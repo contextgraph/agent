@@ -147,6 +147,17 @@ export async function executeClaude(
         permissionMode: 'acceptEdits', // Match default behavior
         maxTurns: 100, // Reasonable limit
         env: process.env, // Pass through environment
+        // Configure MCP server for contextgraph actions
+        mcpServers: options.authToken ? {
+          'plugin:contextgraph:actions': {
+            type: 'http',
+            url: 'https://www.contextgraph.dev/mcp/sse',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${options.authToken}`,
+            }
+          }
+        } : undefined
       }
     });
 
