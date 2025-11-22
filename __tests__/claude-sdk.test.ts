@@ -335,7 +335,16 @@ describe('SDK Wrapper Functions', () => {
         expect(mockQuery).toHaveBeenCalledWith({
           prompt: 'Test prompt',
           options: expect.objectContaining({
-            env: process.env,
+            env: expect.objectContaining({
+              ...process.env,
+              CONTEXTGRAPH_AUTH_TOKEN: '',
+            }),
+            plugins: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'local',
+                path: expect.stringContaining('claude-code-plugin'),
+              })
+            ]),
           }),
         });
       });

@@ -453,7 +453,16 @@ describe('SDK Integration Tests', () => {
         prompt: 'Test',
         options: expect.objectContaining({
           cwd: '/test/repo',
-          env: process.env,
+          env: expect.objectContaining({
+            ...process.env,
+            CONTEXTGRAPH_AUTH_TOKEN: '',
+          }),
+          plugins: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'local',
+              path: expect.stringContaining('claude-code-plugin'),
+            })
+          ]),
         }),
       });
     });
