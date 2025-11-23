@@ -151,7 +151,7 @@ export async function executeClaude(
       options: {
         cwd: options.cwd,
         abortController,
-        permissionMode: 'acceptEdits', // Match default behavior
+        permissionMode: 'bypassPermissions', // Allow MCP tools to execute automatically
         maxTurns: 100, // Reasonable limit
         env: {
           ...process.env,
