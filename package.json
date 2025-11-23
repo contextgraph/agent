@@ -1,6 +1,6 @@
 {
   "name": "@context-graph/agent",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
@@ -21,11 +21,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/context-graph/agent.git"
+    "url": "git+https://github.com/contextgraph/agent.git"
   },
-  "homepage": "https://github.com/context-graph/agent#readme",
+  "homepage": "https://github.com/contextgraph/agent#readme",
   "bugs": {
-    "url": "https://github.com/context-graph/agent/issues"
+    "url": "https://github.com/contextgraph/agent/issues"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.50",
