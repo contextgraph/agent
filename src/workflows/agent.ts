@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
 import type { ActionNode } from '../types/actions.js';
-import { findNextLeaf } from '../next-action.js';
+import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
 import { prepareWorkspace } from '../workspace-prep.js';
@@ -16,19 +16,48 @@ const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf-8')
 );
 
+/**
+ * Get the next action to work on, handling tree depth truncation.
+ * If the tree is truncated (children exist beyond depth limit), this function
+ * will recursively re-fetch the tree starting from the truncated node.
+ */
 async function getNextAction(
   apiClient: ApiClient,
-  rootId: string
+  rootId: string,
+  depth: number = 0
 ): Promise<ActionNode | null> {
+  // Prevent infinite recursion in case of malformed data
+  const maxDepth = 20;
+  if (depth >= maxDepth) {
+    console.error(`❌ Tree traversal exceeded maximum depth (${maxDepth}). Possible cycle or malformed data.`);
+    return null;
+  }
+
   const tree = await apiClient.fetchTree(rootId, false);
 
   if (tree.done) {
-    console.log('✅ Root action is already complete');
+    if (depth === 0) {
+      console.log('✅ Root action is already complete');
+    }
     return null;
   }
 
   // Use local findNextLeaf to traverse tree and find next action
-  return findNextLeaf(tree);
+  const result = findNextLeaf(tree);
+
+  // If we found an action, return it
+  if (result.action) {
+    return result.action;
+  }
+
+  // If tree was truncated, re-fetch starting from the truncated node
+  if (result.truncatedAt) {
+    console.log(`📊 Tree depth limit reached at action ${result.truncatedAt}. Fetching deeper...`);
+    return getNextAction(apiClient, result.truncatedAt, depth + 1);
+  }
+
+  // No action found and no truncation - tree is complete or blocked
+  return null;
 }
 
 export async function runLocalAgent(rootActionId: string): Promise<void> {
