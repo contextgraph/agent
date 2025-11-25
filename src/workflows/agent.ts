@@ -6,6 +6,8 @@ import type { ActionNode } from '../types/actions.js';
 import { findNextLeaf } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
+import { prepareWorkspace } from '../workspace-prep.js';
+import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,6 +34,17 @@ async function getNextAction(
 export async function runLocalAgent(rootActionId: string): Promise<void> {
   const apiClient = new ApiClient();
 
+  // Load and validate credentials upfront
+  const credentials = await loadCredentials();
+  if (!credentials) {
+    console.error('❌ Not authenticated. Run `contextgraph auth` first.');
+    process.exit(1);
+  }
+  if (isExpired(credentials) || isTokenExpired(credentials.clerkToken)) {
+    console.error('❌ Token expired. Run `contextgraph auth` to re-authenticate.');
+    process.exit(1);
+  }
+
   console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
   console.log(`🎯 Starting local agent for action: ${rootActionId}\n`);
 
@@ -53,50 +66,73 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
     const isPrepared = nextAction.prepared !== false;
 
-    if (!isPrepared) {
-      console.log(`\n📋 Preparing action: ${nextAction.title} (${nextAction.id})`);
-      await runPrepare(nextAction.id);
-      console.log('\n✅ Preparation complete. Moving to next iteration...');
-      continue;
-    }
+    // Prepare workspace if action has a repository
+    const repoUrl = nextAction.resolved_repository_url || nextAction.repository_url;
+    const branch = nextAction.resolved_branch || nextAction.branch;
 
-    console.log(`\n🎯 Executing action: ${nextAction.title} (${nextAction.id})`);
+    let workspacePath = process.cwd();
+    let cleanup: (() => Promise<void>) | undefined;
 
-    const actionDetail = await apiClient.getActionDetail(nextAction.id);
-    console.log(`\nAction context:`);
-    console.log(`  Title: ${actionDetail.title}`);
-    console.log(`  Description: ${actionDetail.description || 'N/A'}`);
-    console.log(`  Vision: ${actionDetail.vision || 'N/A'}`);
+    try {
+      if (repoUrl) {
+        console.log(`\n📦 Cloning ${repoUrl}${branch ? ` (branch: ${branch})` : ''}...`);
+        const workspace = await prepareWorkspace(repoUrl, {
+          branch: branch || undefined,
+          authToken: credentials.clerkToken,
+        });
+        workspacePath = workspace.path;
+        cleanup = workspace.cleanup;
+        console.log(`📂 Working in: ${workspacePath}`);
+      }
 
-    if (actionDetail.relationships) {
-      if (actionDetail.relationships.siblings && actionDetail.relationships.siblings.length > 0) {
-        console.log(`\nSiblings (${actionDetail.relationships.siblings.length}):`);
-        actionDetail.relationships.siblings.forEach((sibling) => {
+      if (!isPrepared) {
+        console.log(`\n📋 Preparing action: ${nextAction.title} (${nextAction.id})`);
+        await runPrepare(nextAction.id, { cwd: workspacePath });
+        console.log('\n✅ Preparation complete. Moving to next iteration...');
+        continue;
+      }
+
+      console.log(`\n🎯 Executing action: ${nextAction.title} (${nextAction.id})`);
+
+      const actionDetail = await apiClient.getActionDetail(nextAction.id);
+      console.log(`\nAction context:`);
+      console.log(`  Title: ${actionDetail.title}`);
+      console.log(`  Description: ${actionDetail.description || 'N/A'}`);
+      console.log(`  Vision: ${actionDetail.vision || 'N/A'}`);
+
+      if (actionDetail.siblings && actionDetail.siblings.length > 0) {
+        console.log(`\nSiblings (${actionDetail.siblings.length}):`);
+        actionDetail.siblings.forEach((sibling: { done: boolean; title: string }) => {
           const status = sibling.done ? '✅' : '⏳';
           console.log(`  ${status} ${sibling.title}`);
         });
       }
 
-      if (actionDetail.relationships.dependencies && actionDetail.relationships.dependencies.length > 0) {
-        console.log(`\nDependencies (${actionDetail.relationships.dependencies.length}):`);
-        actionDetail.relationships.dependencies.forEach((dep) => {
+      if (actionDetail.dependencies && actionDetail.dependencies.length > 0) {
+        console.log(`\nDependencies (${actionDetail.dependencies.length}):`);
+        actionDetail.dependencies.forEach((dep: { done: boolean; title: string }) => {
           const status = dep.done ? '✅' : '⏳';
           console.log(`  ${status} ${dep.title}`);
         });
       }
 
-      if (actionDetail.relationships.children && actionDetail.relationships.children.length > 0) {
-        console.log(`\nChildren (${actionDetail.relationships.children.length}):`);
-        actionDetail.relationships.children.forEach((child) => {
+      if (actionDetail.children && actionDetail.children.length > 0) {
+        console.log(`\nChildren (${actionDetail.children.length}):`);
+        actionDetail.children.forEach((child: { done: boolean; title: string }) => {
           const status = child.done ? '✅' : '⏳';
           console.log(`  ${status} ${child.title}`);
         });
       }
+
+      await runExecute(nextAction.id, { cwd: workspacePath });
+
+      console.log('\n✅ Execution complete. Moving to next iteration...');
+    } finally {
+      if (cleanup) {
+        console.log('🧹 Cleaning up workspace...');
+        await cleanup();
+      }
     }
-
-    await runExecute(nextAction.id);
-
-    console.log('\n✅ Execution complete. Moving to next iteration...');
   }
 
   if (iterations >= maxIterations) {
