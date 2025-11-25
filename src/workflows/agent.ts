@@ -66,16 +66,19 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
     const isPrepared = nextAction.prepared !== false;
 
+    // Fetch full action details to get resolved_repository_url (tree API strips this field)
+    const actionDetail = await apiClient.getActionDetail(nextAction.id);
+
     // Prepare workspace - repository URL is required
-    const repoUrl = nextAction.resolved_repository_url || nextAction.repository_url;
-    const branch = nextAction.resolved_branch || nextAction.branch;
+    const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
+    const branch = actionDetail.resolved_branch || actionDetail.branch;
 
     if (!repoUrl) {
       console.error(`\n❌ Action "${nextAction.title}" has no repository_url set.`);
       console.error(`   Actions must have a repository_url (directly or inherited from parent).`);
       console.error(`   Action ID: ${nextAction.id}`);
-      console.error(`   resolved_repository_url: ${nextAction.resolved_repository_url}`);
-      console.error(`   repository_url: ${nextAction.repository_url}`);
+      console.error(`   resolved_repository_url: ${actionDetail.resolved_repository_url}`);
+      console.error(`   repository_url: ${actionDetail.repository_url}`);
       process.exit(1);
     }
 
@@ -101,7 +104,7 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
       console.log(`\n🎯 Executing action: ${nextAction.title} (${nextAction.id})`);
 
-      const actionDetail = await apiClient.getActionDetail(nextAction.id);
+      // actionDetail already fetched above for repo URL
       console.log(`\nAction context:`);
       console.log(`  Title: ${actionDetail.title}`);
       console.log(`  Description: ${actionDetail.description || 'N/A'}`);
