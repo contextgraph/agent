@@ -115,8 +115,10 @@ export async function prepareWorkspace(
     const cloneUrl = buildAuthenticatedUrl(repoUrl, credentials.githubToken);
 
     // Clone the repository
-    console.log(`Cloning repository to ${workspacePath}...`);
+    console.log(`📂 Cloning ${repoUrl}`);
+    console.log(`   → ${workspacePath}`);
     await runGitCommand(['clone', cloneUrl, workspacePath]);
+    console.log(`✅ Repository cloned`);
 
     // Configure git identity if we have the info
     if (credentials.githubUsername) {
@@ -138,11 +140,11 @@ export async function prepareWorkspace(
 
       if (branchExists) {
         // Checkout existing branch
-        console.log(`Checking out existing branch: ${branch}`);
+        console.log(`🌿 Checking out branch: ${branch}`);
         await runGitCommand(['checkout', branch], workspacePath);
       } else {
         // Create new branch
-        console.log(`Creating new branch: ${branch}`);
+        console.log(`🌱 Creating new branch: ${branch}`);
         await runGitCommand(['checkout', '-b', branch], workspacePath);
       }
     }

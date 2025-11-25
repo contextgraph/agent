@@ -14,6 +14,7 @@ export async function ensurePlugin(): Promise<string> {
   // Check if plugin already exists
   try {
     await access(PLUGIN_PATH);
+    console.log(`📦 Using plugin: ${PLUGIN_PATH}`);
     return PLUGIN_PATH;
   } catch {
     // Plugin path doesn't exist, check if repo dir exists
@@ -23,12 +24,13 @@ export async function ensurePlugin(): Promise<string> {
   try {
     await access(PLUGIN_DIR);
     // Directory exists but plugin path doesn't - try pulling latest
-    console.log('[Plugin Setup] Plugin directory exists but plugin not found, pulling latest...');
+    console.log('📦 Plugin directory exists but incomplete, pulling latest...');
     await runCommand('git', ['pull'], PLUGIN_DIR);
 
     // Check again after pull
     try {
       await access(PLUGIN_PATH);
+      console.log(`📦 Plugin ready: ${PLUGIN_PATH}`);
       return PLUGIN_PATH;
     } catch {
       throw new Error(`Plugin not found at ${PLUGIN_PATH} even after git pull. Check repository structure.`);
@@ -37,7 +39,7 @@ export async function ensurePlugin(): Promise<string> {
     // Directory doesn't exist, need to clone
   }
 
-  console.log('[Plugin Setup] Contextgraph plugin not found, cloning from GitHub...');
+  console.log(`📦 Cloning plugin from ${PLUGIN_REPO}...`);
 
   // Ensure parent directory exists
   const contextgraphDir = join(homedir(), '.contextgraph');
@@ -53,7 +55,7 @@ export async function ensurePlugin(): Promise<string> {
   // Verify plugin exists after clone
   try {
     await access(PLUGIN_PATH);
-    console.log('[Plugin Setup] Plugin installed successfully');
+    console.log(`📦 Plugin installed: ${PLUGIN_PATH}`);
     return PLUGIN_PATH;
   } catch {
     throw new Error(`Plugin clone succeeded but plugin path not found at ${PLUGIN_PATH}`);
