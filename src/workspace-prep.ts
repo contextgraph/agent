@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import type { GitHubCredentials } from './types/actions.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -13,12 +14,6 @@ export interface WorkspaceResult {
 export interface PrepareWorkspaceOptions {
   branch?: string;
   authToken: string;
-}
-
-interface GitHubCredentials {
-  githubToken: string;
-  githubUsername?: string;
-  githubEmail?: string;
 }
 
 async function fetchGitHubCredentials(authToken: string): Promise<GitHubCredentials> {

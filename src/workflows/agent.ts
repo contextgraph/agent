@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
-import type { ActionNode } from '../types/actions.js';
+import type { ActionNode, ActionMetadata } from '../types/actions.js';
 import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
@@ -141,7 +141,7 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
       if (actionDetail.siblings && actionDetail.siblings.length > 0) {
         console.log(`\nSiblings (${actionDetail.siblings.length}):`);
-        actionDetail.siblings.forEach((sibling: { done: boolean; title: string }) => {
+        actionDetail.siblings.forEach((sibling) => {
           const status = sibling.done ? '✅' : '⏳';
           console.log(`  ${status} ${sibling.title}`);
         });
@@ -149,7 +149,7 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
       if (actionDetail.dependencies && actionDetail.dependencies.length > 0) {
         console.log(`\nDependencies (${actionDetail.dependencies.length}):`);
-        actionDetail.dependencies.forEach((dep: { done: boolean; title: string }) => {
+        actionDetail.dependencies.forEach((dep) => {
           const status = dep.done ? '✅' : '⏳';
           console.log(`  ${status} ${dep.title}`);
         });
@@ -157,7 +157,7 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
       if (actionDetail.children && actionDetail.children.length > 0) {
         console.log(`\nChildren (${actionDetail.children.length}):`);
-        actionDetail.children.forEach((child: { done: boolean; title: string }) => {
+        actionDetail.children.forEach((child) => {
           const status = child.done ? '✅' : '⏳';
           console.log(`  ${status} ${child.title}`);
         });

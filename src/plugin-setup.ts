@@ -21,8 +21,15 @@ export async function ensurePlugin(): Promise<string> {
   }
 
   // Check if repo directory exists but plugin path is missing (incomplete clone or wrong structure)
+  let repoDirExists = false;
   try {
     await access(PLUGIN_DIR);
+    repoDirExists = true;
+  } catch {
+    // Directory doesn't exist, will need to clone
+  }
+
+  if (repoDirExists) {
     // Directory exists but plugin path doesn't - try pulling latest
     console.log('📦 Plugin directory exists but incomplete, pulling latest...');
     await runCommand('git', ['pull'], PLUGIN_DIR);
@@ -35,8 +42,6 @@ export async function ensurePlugin(): Promise<string> {
     } catch {
       throw new Error(`Plugin not found at ${PLUGIN_PATH} even after git pull. Check repository structure.`);
     }
-  } catch {
-    // Directory doesn't exist, need to clone
   }
 
   console.log(`📦 Cloning plugin from ${PLUGIN_REPO}...`);
