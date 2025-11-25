@@ -68,8 +68,13 @@ export class ApiClient {
     }
 
     const result = await response.json();
-    if (!result.success || !result.data.rootActions?.[0]) {
-      throw new Error('No root action found in tree response');
+    if (!result.success) {
+      throw new Error('Failed to fetch tree: API returned unsuccessful response');
+    }
+
+    // If no root actions, the tree is complete (all actions done)
+    if (!result.data.rootActions?.[0]) {
+      return { id: rootActionId, title: '', done: true, dependencies: [], children: [] };
     }
 
     return result.data.rootActions[0];
