@@ -66,24 +66,31 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
 
     const isPrepared = nextAction.prepared !== false;
 
-    // Prepare workspace if action has a repository
+    // Prepare workspace - repository URL is required
     const repoUrl = nextAction.resolved_repository_url || nextAction.repository_url;
     const branch = nextAction.resolved_branch || nextAction.branch;
 
-    let workspacePath = process.cwd();
+    if (!repoUrl) {
+      console.error(`\n❌ Action "${nextAction.title}" has no repository_url set.`);
+      console.error(`   Actions must have a repository_url (directly or inherited from parent).`);
+      console.error(`   Action ID: ${nextAction.id}`);
+      console.error(`   resolved_repository_url: ${nextAction.resolved_repository_url}`);
+      console.error(`   repository_url: ${nextAction.repository_url}`);
+      process.exit(1);
+    }
+
+    let workspacePath: string;
     let cleanup: (() => Promise<void>) | undefined;
 
     try {
-      if (repoUrl) {
-        console.log(`\n📦 Cloning ${repoUrl}${branch ? ` (branch: ${branch})` : ''}...`);
-        const workspace = await prepareWorkspace(repoUrl, {
-          branch: branch || undefined,
-          authToken: credentials.clerkToken,
-        });
-        workspacePath = workspace.path;
-        cleanup = workspace.cleanup;
-        console.log(`📂 Working in: ${workspacePath}`);
-      }
+      console.log(`\n📂 Cloning ${repoUrl}${branch ? ` (branch: ${branch})` : ''}...`);
+      const workspace = await prepareWorkspace(repoUrl, {
+        branch: branch || undefined,
+        authToken: credentials.clerkToken,
+      });
+      workspacePath = workspace.path;
+      cleanup = workspace.cleanup;
+      console.log(`📂 Working in: ${workspacePath}`);
 
       if (!isPrepared) {
         console.log(`\n📋 Preparing action: ${nextAction.title} (${nextAction.id})`);
