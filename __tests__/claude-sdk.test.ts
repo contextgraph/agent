@@ -378,6 +378,7 @@ describe('SDK Wrapper Functions', () => {
           supportedModels: jest.fn(),
           mcpServerStatus: jest.fn(),
           accountInfo: jest.fn(),
+          streamInput: jest.fn(),
         }) as Query;
 
         mockQuery.mockReturnValue(errorQuery);
@@ -405,6 +406,7 @@ describe('SDK Wrapper Functions', () => {
           supportedModels: jest.fn(),
           mcpServerStatus: jest.fn(),
           accountInfo: jest.fn(),
+          streamInput: jest.fn(),
         }) as Query;
 
         mockQuery.mockReturnValue(authErrorQuery);
