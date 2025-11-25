@@ -3,7 +3,11 @@ import { executeClaude } from '../claude-sdk.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
-export async function runExecute(actionId: string): Promise<void> {
+export interface WorkflowOptions {
+  cwd?: string;
+}
+
+export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
   const credentials = await loadCredentials();
 
   if (!credentials) {
@@ -41,7 +45,7 @@ export async function runExecute(actionId: string): Promise<void> {
 
   const claudeResult = await executeClaude({
     prompt,
-    cwd: process.cwd(),
+    cwd: options?.cwd || process.cwd(),
     authToken: credentials.clerkToken,
   });
 

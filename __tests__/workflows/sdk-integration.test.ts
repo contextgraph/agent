@@ -530,6 +530,7 @@ describe('SDK Integration Tests', () => {
         supportedModels: jest.fn(),
         mcpServerStatus: jest.fn(),
         accountInfo: jest.fn(),
+        streamInput: jest.fn(),
       }) as Query;
 
       mockQuery.mockReturnValue(errorQuery);
@@ -553,6 +554,7 @@ describe('SDK Integration Tests', () => {
         supportedModels: jest.fn(),
         mcpServerStatus: jest.fn(),
         accountInfo: jest.fn(),
+        streamInput: jest.fn(),
       }) as Query;
 
       mockQuery.mockReturnValue(timeoutQuery);

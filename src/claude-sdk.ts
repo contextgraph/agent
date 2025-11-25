@@ -1,7 +1,6 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
-import { join } from 'path';
-import { homedir } from 'os';
 import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
+import { ensurePlugin } from './plugin-setup.js';
 
 // Constants for timeouts and truncation
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -140,8 +139,8 @@ export async function executeClaude(
   }, EXECUTION_TIMEOUT_MS);
 
   try {
-    // Load the contextgraph plugin from the standard location
-    const pluginPath = join(homedir(), 'code/claude-code-plugin/plugins/contextgraph');
+    // Ensure the contextgraph plugin is available (clones from GitHub if missing)
+    const pluginPath = await ensurePlugin();
     console.log('[Agent SDK] Loading plugin from:', pluginPath);
     console.log('[Agent SDK] Auth token available:', !!options.authToken);
 

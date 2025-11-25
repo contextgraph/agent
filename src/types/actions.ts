@@ -11,6 +11,13 @@ export type Credentials = {
   createdAt: string;
 };
 
+// GitHub credentials returned from /api/cli/credentials
+export interface GitHubCredentials {
+  githubToken: string;
+  githubUsername?: string;
+  githubEmail?: string;
+}
+
 export type CallbackResult = {
   token: string;
   userId: string;
