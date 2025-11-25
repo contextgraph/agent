@@ -1,0 +1,19 @@
+{
+  "name": "multi-worker-coordination-spike",
+  "version": "0.0.1",
+  "description": "Spike to validate multi-worker coordination approaches",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "tsx run-tests.ts",
+    "test:skip-redis": "SKIP_REDIS=true tsx run-tests.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "tsx": "^4.7.0"
+  }
+}
