@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -60,7 +61,7 @@ async function getNextAction(
   return null;
 }
 
-export async function runLocalAgent(rootActionId: string): Promise<void> {
+export async function runLocalAgent(): Promise<void> {
   const apiClient = new ApiClient();
 
   // Load and validate credentials upfront
@@ -74,8 +75,12 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
     process.exit(1);
   }
 
+  // Generate unique worker ID for this session
+  const workerId = randomUUID();
+
   console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
-  console.log(`🎯 Starting local agent for action: ${rootActionId}\n`);
+  console.log(`👷 Worker ID: ${workerId}`);
+  console.log(`🔄 Starting continuous worker loop...\n`);
 
   let iterations = 0;
   const maxIterations = 100;
@@ -86,26 +91,27 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
     console.log(`Iteration ${iterations}`);
     console.log('='.repeat(80));
 
-    const nextAction = await getNextAction(apiClient, rootActionId);
+    // Claim next action from worker queue
+    console.log('\n🔍 Claiming next action from queue...');
+    const actionDetail = await apiClient.claimNextAction(workerId);
 
-    if (!nextAction) {
-      console.log('\n✅ No more actions to execute. Agent complete!');
+    if (!actionDetail) {
+      console.log('💤 No work available');
       break;
     }
 
-    const isPrepared = nextAction.prepared !== false;
+    console.log(`✅ Claimed action: ${actionDetail.title} (${actionDetail.id})`);
 
-    // Fetch full action details to get resolved_repository_url (tree API strips this field)
-    const actionDetail = await apiClient.getActionDetail(nextAction.id);
+    const isPrepared = actionDetail.prepared !== false;
 
     // Prepare workspace - repository URL is required
     const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
     const branch = actionDetail.resolved_branch || actionDetail.branch;
 
     if (!repoUrl) {
-      console.error(`\n❌ Action "${nextAction.title}" has no repository_url set.`);
+      console.error(`\n❌ Action "${actionDetail.title}" has no repository_url set.`);
       console.error(`   Actions must have a repository_url (directly or inherited from parent).`);
-      console.error(`   Action ID: ${nextAction.id}`);
+      console.error(`   Action ID: ${actionDetail.id}`);
       console.error(`   resolved_repository_url: ${actionDetail.resolved_repository_url}`);
       console.error(`   repository_url: ${actionDetail.repository_url}`);
       process.exit(1);
@@ -125,15 +131,14 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
       console.log(`📂 Working in: ${workspacePath}`);
 
       if (!isPrepared) {
-        console.log(`\n📋 Preparing action: ${nextAction.title} (${nextAction.id})`);
-        await runPrepare(nextAction.id, { cwd: workspacePath });
+        console.log(`\n📋 Preparing action: ${actionDetail.title} (${actionDetail.id})`);
+        await runPrepare(actionDetail.id, { cwd: workspacePath });
         console.log('\n✅ Preparation complete. Moving to next iteration...');
         continue;
       }
 
-      console.log(`\n🎯 Executing action: ${nextAction.title} (${nextAction.id})`);
+      console.log(`\n🎯 Executing action: ${actionDetail.title} (${actionDetail.id})`);
 
-      // actionDetail already fetched above for repo URL
       console.log(`\nAction context:`);
       console.log(`  Title: ${actionDetail.title}`);
       console.log(`  Description: ${actionDetail.description || 'N/A'}`);
@@ -164,7 +169,7 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
       }
 
       try {
-        await runExecute(nextAction.id, { cwd: workspacePath });
+        await runExecute(actionDetail.id, { cwd: workspacePath });
 
         console.log('\n✅ Execution complete');
         console.log('📝 Action completion handled by Claude SDK (via MCP tool)');

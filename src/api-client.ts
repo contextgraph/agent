@@ -79,4 +79,33 @@ export class ApiClient {
 
     return result.data.rootActions[0];
   }
+
+  async claimNextAction(workerId: string): Promise<ActionDetailResource | null> {
+    const token = await this.getAuthToken();
+
+    const response = await fetch(
+      `${this.baseUrl}/api/worker/next?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ worker_id: workerId }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    // API returns null when no work is available
+    return result.data;
+  }
 }

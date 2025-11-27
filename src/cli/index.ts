@@ -23,11 +23,10 @@ program
 
 program
   .command('run')
-  .argument('<action-id>', 'Action ID to execute autonomously')
-  .description('Run autonomous prepare/execute cycle for an action')
-  .action(async (actionId: string) => {
+  .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
+  .action(async () => {
     try {
-      await runLocalAgent(actionId);
+      await runLocalAgent();
     } catch (error) {
       console.error('Error running agent:', error instanceof Error ? error.message : error);
       process.exit(1);
