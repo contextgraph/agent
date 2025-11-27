@@ -50,8 +50,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   });
 
   if (claudeResult.exitCode !== 0) {
-    console.error(`\n❌ Claude execution failed with exit code ${claudeResult.exitCode}`);
-    process.exit(1);
+    throw new Error(`Claude execution failed with exit code ${claudeResult.exitCode}`);
   }
 
   console.log('\n✅ Execution complete');

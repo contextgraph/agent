@@ -163,9 +163,18 @@ export async function runLocalAgent(rootActionId: string): Promise<void> {
         });
       }
 
-      await runExecute(nextAction.id, { cwd: workspacePath });
+      try {
+        await runExecute(nextAction.id, { cwd: workspacePath });
 
-      console.log('\n✅ Execution complete. Moving to next iteration...');
+        console.log('\n✅ Execution complete');
+        console.log('📝 Action completion handled by Claude SDK (via MCP tool)');
+        console.log('🧹 Claim fields cleared automatically by backend');
+        console.log('\n⏭️  Moving to next iteration...');
+      } catch (executeError) {
+        console.error('\n❌ Execution failed:', (executeError as Error).message);
+        console.error('⚠️  Action may not be marked as complete. Manual intervention may be required.');
+        console.log('\n⏭️  Continuing to next iteration...');
+      }
     } finally {
       if (cleanup) {
         console.log('🧹 Cleaning up workspace...');
