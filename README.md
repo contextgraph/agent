@@ -154,6 +154,21 @@ Ensure you have internet connectivity and can reach:
 
 Credentials are stored in `~/.contextgraph/credentials.json`
 
+### Worker Polling
+
+The worker uses exponential backoff when no work is available to prevent server overload. Configure polling behavior with environment variables:
+
+- `WORKER_INITIAL_POLL_INTERVAL` - Initial polling interval in milliseconds (default: 2000 / 2 seconds)
+- `WORKER_MAX_POLL_INTERVAL` - Maximum polling interval in milliseconds (default: 30000 / 30 seconds)
+
+When no work is available, the worker waits before polling again. The wait time increases exponentially (1.5x multiplier) up to the maximum interval. On successful claim, the interval resets to the initial value.
+
+Example:
+```bash
+# Poll more frequently (every 1 second initially, up to 15 seconds max)
+WORKER_INITIAL_POLL_INTERVAL=1000 WORKER_MAX_POLL_INTERVAL=15000 npx @context-graph/agent run <action-id>
+```
+
 ### Claude Agent SDK
 
 The agent uses the [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-typescript/tree/main/packages/agent-sdk) for reliable, high-performance execution of actions. The SDK provides:

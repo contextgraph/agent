@@ -17,6 +17,11 @@ const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf-8')
 );
 
+// Polling configuration from environment variables
+const INITIAL_POLL_INTERVAL = parseInt(process.env.WORKER_INITIAL_POLL_INTERVAL || '2000', 10);  // 2 seconds default
+const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '30000', 10);         // 30 seconds default
+const BACKOFF_MULTIPLIER = 1.5;
+
 // Module-scope state for graceful shutdown
 let running = true;
 let currentClaim: { actionId: string; claimId: string; workerId: string } | null = null;
@@ -104,6 +109,13 @@ function setupSignalHandlers(): void {
   });
 }
 
+/**
+ * Sleep for the specified number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function runLocalAgent(): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
@@ -132,6 +144,7 @@ export async function runLocalAgent(): Promise<void> {
 
   let iterations = 0;
   const maxIterations = 100;
+  let currentPollInterval = INITIAL_POLL_INTERVAL;
 
   while (running && iterations < maxIterations) {
     iterations++;
@@ -144,9 +157,14 @@ export async function runLocalAgent(): Promise<void> {
     const actionDetail = await apiClient.claimNextAction(workerId);
 
     if (!actionDetail) {
-      console.log('💤 No work available');
-      break;
+      console.log(`💤 No work available, waiting ${currentPollInterval}ms before next poll...`);
+      await sleep(currentPollInterval);
+      currentPollInterval = Math.min(currentPollInterval * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL);
+      continue;
     }
+
+    // Reset poll interval on successful claim
+    currentPollInterval = INITIAL_POLL_INTERVAL;
 
     console.log(`✅ Claimed action: ${actionDetail.title} (${actionDetail.id})`);
 
