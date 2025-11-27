@@ -108,4 +108,30 @@ export class ApiClient {
     // API returns null when no work is available
     return result.data;
   }
+
+  async releaseClaim(params: { action_id: string; worker_id: string; claim_id: string }): Promise<void> {
+    const token = await this.getAuthToken();
+
+    const response = await fetch(
+      `${this.baseUrl}/api/worker/release?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+  }
 }

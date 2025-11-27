@@ -17,6 +17,11 @@ const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf-8')
 );
 
+// Module-scope state for graceful shutdown
+let running = true;
+let currentClaim: { actionId: string; claimId: string; workerId: string } | null = null;
+let apiClient: ApiClient | null = null;
+
 /**
  * Get the next action to work on, handling tree depth truncation.
  * If the tree is truncated (children exist beyond depth limit), this function
@@ -61,8 +66,50 @@ async function getNextAction(
   return null;
 }
 
+/**
+ * Clean up any claimed work and exit gracefully
+ */
+async function cleanupAndExit(): Promise<void> {
+  if (currentClaim && apiClient) {
+    try {
+      console.log(`\n🧹 Releasing claim on action ${currentClaim.actionId}...`);
+      await apiClient.releaseClaim({
+        action_id: currentClaim.actionId,
+        worker_id: currentClaim.workerId,
+        claim_id: currentClaim.claimId,
+      });
+      console.log('✅ Claim released successfully');
+    } catch (error) {
+      console.error('⚠️  Failed to release claim:', (error as Error).message);
+    }
+  }
+  console.log('👋 Shutdown complete');
+  process.exit(0);
+}
+
+/**
+ * Set up signal handlers for graceful shutdown
+ */
+function setupSignalHandlers(): void {
+  process.on('SIGINT', async () => {
+    console.log('\n\n⚠️  Received SIGINT (Ctrl+C). Shutting down gracefully...');
+    running = false;
+    await cleanupAndExit();
+  });
+
+  process.on('SIGTERM', async () => {
+    console.log('\n\n⚠️  Received SIGTERM. Shutting down gracefully...');
+    running = false;
+    await cleanupAndExit();
+  });
+}
+
 export async function runLocalAgent(): Promise<void> {
-  const apiClient = new ApiClient();
+  // Initialize module-scope apiClient for signal handlers
+  apiClient = new ApiClient();
+
+  // Set up graceful shutdown handlers
+  setupSignalHandlers();
 
   // Load and validate credentials upfront
   const credentials = await loadCredentials();
@@ -81,11 +128,12 @@ export async function runLocalAgent(): Promise<void> {
   console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
   console.log(`👷 Worker ID: ${workerId}`);
   console.log(`🔄 Starting continuous worker loop...\n`);
+  console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
   let iterations = 0;
   const maxIterations = 100;
 
-  while (iterations < maxIterations) {
+  while (running && iterations < maxIterations) {
     iterations++;
     console.log(`\n${'='.repeat(80)}`);
     console.log(`Iteration ${iterations}`);
@@ -101,6 +149,15 @@ export async function runLocalAgent(): Promise<void> {
     }
 
     console.log(`✅ Claimed action: ${actionDetail.title} (${actionDetail.id})`);
+
+    // Track current claim for graceful shutdown
+    if (actionDetail.claim_id) {
+      currentClaim = {
+        actionId: actionDetail.id,
+        claimId: actionDetail.claim_id,
+        workerId,
+      };
+    }
 
     const isPrepared = actionDetail.prepared !== false;
 
@@ -134,6 +191,8 @@ export async function runLocalAgent(): Promise<void> {
         console.log(`\n📋 Preparing action: ${actionDetail.title} (${actionDetail.id})`);
         await runPrepare(actionDetail.id, { cwd: workspacePath });
         console.log('\n✅ Preparation complete. Moving to next iteration...');
+        // Clear current claim after preparation
+        currentClaim = null;
         continue;
       }
 
@@ -179,6 +238,9 @@ export async function runLocalAgent(): Promise<void> {
         console.error('\n❌ Execution failed:', (executeError as Error).message);
         console.error('⚠️  Action may not be marked as complete. Manual intervention may be required.');
         console.log('\n⏭️  Continuing to next iteration...');
+      } finally {
+        // Clear current claim after execution completes (success or failure)
+        currentClaim = null;
       }
     } finally {
       if (cleanup) {

@@ -82,6 +82,7 @@ export interface ActionDetailResource {
   vision?: string;
   freeformInput?: string;
   done: boolean;
+  prepared?: boolean; // Preparation status for autonomous execution
   version: number | null;
   created_at: string;
   updated_at: string;
@@ -104,6 +105,7 @@ export interface ActionDetailResource {
   relationship_flags: RelationshipFlags; // indicates which lists each action appears in
   dependency_completion_context: DependencyCompletionContext[]; // completion context from dependencies
   completion_context?: DependencyCompletionContext; // action's own completion context if completed
+  claim_id?: string; // Claim ID when action is claimed by a worker
 }
 
 // Relationship flags to help clients avoid duplicate display
