@@ -148,16 +148,12 @@ export async function runLocalAgent(): Promise<void> {
 
   while (running && iterations < maxIterations) {
     iterations++;
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`Iteration ${iterations}`);
-    console.log('='.repeat(80));
 
     // Claim next action from worker queue
-    console.log('\n🔍 Claiming next action from queue...');
     const actionDetail = await apiClient.claimNextAction(workerId);
 
     if (!actionDetail) {
-      console.log(`💤 No work available, waiting ${currentPollInterval}ms before next poll...`);
+      console.log(`Waiting: No work available. Waiting ${currentPollInterval}ms...`);
       await sleep(currentPollInterval);
       currentPollInterval = Math.min(currentPollInterval * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL);
       continue;
@@ -166,7 +162,7 @@ export async function runLocalAgent(): Promise<void> {
     // Reset poll interval on successful claim
     currentPollInterval = INITIAL_POLL_INTERVAL;
 
-    console.log(`✅ Claimed action: ${actionDetail.title} (${actionDetail.id})`);
+    console.log(`Working: ${actionDetail.title}`);
 
     // Track current claim for graceful shutdown
     if (actionDetail.claim_id) {
@@ -196,73 +192,31 @@ export async function runLocalAgent(): Promise<void> {
     let cleanup: (() => Promise<void>) | undefined;
 
     try {
-      console.log(`\n📂 Cloning ${repoUrl}${branch ? ` (branch: ${branch})` : ''}...`);
       const workspace = await prepareWorkspace(repoUrl, {
         branch: branch || undefined,
         authToken: credentials.clerkToken,
       });
       workspacePath = workspace.path;
       cleanup = workspace.cleanup;
-      console.log(`📂 Working in: ${workspacePath}`);
 
       if (!isPrepared) {
-        console.log(`\n📋 Preparing action: ${actionDetail.title} (${actionDetail.id})`);
         await runPrepare(actionDetail.id, { cwd: workspacePath });
-        console.log('\n✅ Preparation complete. Moving to next iteration...');
         // Clear current claim after preparation
         currentClaim = null;
         continue;
       }
 
-      console.log(`\n🎯 Executing action: ${actionDetail.title} (${actionDetail.id})`);
-
-      console.log(`\nAction context:`);
-      console.log(`  Title: ${actionDetail.title}`);
-      console.log(`  Description: ${actionDetail.description || 'N/A'}`);
-      console.log(`  Vision: ${actionDetail.vision || 'N/A'}`);
-
-      if (actionDetail.siblings && actionDetail.siblings.length > 0) {
-        console.log(`\nSiblings (${actionDetail.siblings.length}):`);
-        actionDetail.siblings.forEach((sibling) => {
-          const status = sibling.done ? '✅' : '⏳';
-          console.log(`  ${status} ${sibling.title}`);
-        });
-      }
-
-      if (actionDetail.dependencies && actionDetail.dependencies.length > 0) {
-        console.log(`\nDependencies (${actionDetail.dependencies.length}):`);
-        actionDetail.dependencies.forEach((dep) => {
-          const status = dep.done ? '✅' : '⏳';
-          console.log(`  ${status} ${dep.title}`);
-        });
-      }
-
-      if (actionDetail.children && actionDetail.children.length > 0) {
-        console.log(`\nChildren (${actionDetail.children.length}):`);
-        actionDetail.children.forEach((child) => {
-          const status = child.done ? '✅' : '⏳';
-          console.log(`  ${status} ${child.title}`);
-        });
-      }
-
       try {
         await runExecute(actionDetail.id, { cwd: workspacePath });
-
-        console.log('\n✅ Execution complete');
-        console.log('📝 Action completion handled by Claude SDK (via MCP tool)');
-        console.log('🧹 Claim fields cleared automatically by backend');
-        console.log('\n⏭️  Moving to next iteration...');
+        console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {
-        console.error('\n❌ Execution failed:', (executeError as Error).message);
-        console.error('⚠️  Action may not be marked as complete. Manual intervention may be required.');
-        console.log('\n⏭️  Continuing to next iteration...');
+        console.error(`Error: ${(executeError as Error).message}. Continuing...`);
       } finally {
         // Clear current claim after execution completes (success or failure)
         currentClaim = null;
       }
     } finally {
       if (cleanup) {
-        console.log('🧹 Cleaning up workspace...');
         await cleanup();
       }
     }
