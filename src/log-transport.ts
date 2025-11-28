@@ -107,7 +107,63 @@ export class LogTransportService {
   }
 
   /**
+   * Start the run (transition to running state)
+   * Called when execution begins
+   */
+  async startRun(): Promise<void> {
+    if (!this.runId) {
+      throw new Error('No run ID set. Call createRun() first.');
+    }
+
+    const response = await this.makeRequest(`/api/runs/${this.runId}/start`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to start run');
+    }
+  }
+
+  /**
+   * Finish the run with an outcome
+   * @param outcome - 'success' | 'error' | 'timeout' | 'incomplete'
+   * @param metadata - Optional metadata (exitCode, errorMessage, cost, usage)
+   */
+  async finishRun(
+    outcome: 'success' | 'error' | 'timeout' | 'incomplete',
+    metadata?: {
+      exitCode?: number;
+      errorMessage?: string;
+      cost?: number;
+      usage?: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    if (!this.runId) {
+      throw new Error('No run ID set. Call createRun() first.');
+    }
+
+    const response = await this.makeRequest(`/api/runs/${this.runId}/finish`, {
+      method: 'POST',
+      body: JSON.stringify({
+        outcome,
+        exitCode: metadata?.exitCode?.toString(),
+        errorMessage: metadata?.errorMessage,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to finish run');
+    }
+  }
+
+  /**
    * Update the state of the current run
+   * @deprecated Use startRun() and finishRun() instead
    * @param state - New state for the run
    * @param metadata - Optional metadata to include with the state update
    */
@@ -119,18 +175,20 @@ export class LogTransportService {
       throw new Error('No run ID set. Call createRun() first.');
     }
 
-    const response = await this.makeRequest(`/api/runs/${this.runId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        state,
-        ...(metadata && { metadata }),
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to update run state');
+    // Map state to appropriate endpoint
+    if (state === 'executing' || state === 'preparing' || state === 'running') {
+      await this.startRun();
+    } else if (state === 'completed' || state === 'failed') {
+      const outcome = state === 'completed' ? 'success' : 'error';
+      await this.finishRun(outcome, {
+        exitCode: metadata?.exitCode as number | undefined,
+        errorMessage: metadata?.error as string | undefined,
+        cost: metadata?.cost as number | undefined,
+        usage: metadata?.usage as Record<string, unknown> | undefined,
+      });
+    } else {
+      // For unknown states, just log a warning
+      console.warn(`[LogTransport] Unknown state '${state}' - no API call made`);
     }
   }
 

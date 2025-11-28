@@ -28,7 +28,15 @@ program
     try {
       await runLocalAgent();
     } catch (error) {
-      console.error('Error running agent:', error instanceof Error ? error.message : error);
+      if (error instanceof Error) {
+        console.error('Error running agent:', error.message || '(no message)');
+        if (error.stack) {
+          console.error('\nStack trace:');
+          console.error(error.stack);
+        }
+      } else {
+        console.error('Error running agent:', error);
+      }
       process.exit(1);
     }
   });

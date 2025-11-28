@@ -23,6 +23,11 @@ const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '5000
 const BACKOFF_MULTIPLIER = 1.5;
 const STATUS_INTERVAL_MS = 30000; // Show status every 30 seconds when idle
 
+// Retry configuration for transient API errors
+const MAX_API_RETRIES = 5;
+const INITIAL_RETRY_DELAY = 1000;  // 1 second
+const MAX_RETRY_DELAY = 30000;     // 30 seconds
+
 // Module-scope state for graceful shutdown
 let running = true;
 let currentClaim: { actionId: string; claimId: string; workerId: string } | null = null;
@@ -144,6 +149,27 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Check if an error is likely transient and worth retrying
+ */
+function isRetryableError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  // Retry on server errors (5xx), network errors, and timeouts
+  return (
+    message.includes('api error 5') ||
+    message.includes('500') ||
+    message.includes('502') ||
+    message.includes('503') ||
+    message.includes('504') ||
+    message.includes('network') ||
+    message.includes('timeout') ||
+    message.includes('econnreset') ||
+    message.includes('econnrefused') ||
+    message.includes('socket hang up') ||
+    message.includes('failed query')  // Database query failures
+  );
+}
+
 export async function runLocalAgent(): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
@@ -172,11 +198,40 @@ export async function runLocalAgent(): Promise<void> {
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
   let lastStatusTime = Date.now();
+  let consecutiveApiErrors = 0;
+  let apiRetryDelay = INITIAL_RETRY_DELAY;
 
   while (running) {
 
-    // Claim next action from worker queue
-    const actionDetail = await apiClient.claimNextAction(workerId);
+    // Claim next action from worker queue with retry logic
+    let actionDetail;
+    try {
+      actionDetail = await apiClient.claimNextAction(workerId);
+      // Reset error tracking on success
+      consecutiveApiErrors = 0;
+      apiRetryDelay = INITIAL_RETRY_DELAY;
+    } catch (error) {
+      const err = error as Error;
+
+      if (isRetryableError(err)) {
+        consecutiveApiErrors++;
+
+        if (consecutiveApiErrors >= MAX_API_RETRIES) {
+          console.error(`\n❌ API failed after ${MAX_API_RETRIES} consecutive retries. Last error: ${err.message}`);
+          throw err;
+        }
+
+        console.warn(`⚠️  API error (attempt ${consecutiveApiErrors}/${MAX_API_RETRIES}): ${err.message}`);
+        console.warn(`   Retrying in ${Math.round(apiRetryDelay / 1000)}s...`);
+
+        await sleep(apiRetryDelay);
+        apiRetryDelay = Math.min(apiRetryDelay * 2, MAX_RETRY_DELAY);
+        continue;
+      }
+
+      // Non-retryable error - re-throw
+      throw err;
+    }
 
     if (!actionDetail) {
       // Show periodic status while waiting

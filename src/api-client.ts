@@ -96,13 +96,14 @@ export class ApiClient {
     );
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
 
     if (!result.success) {
-      throw new Error(result.error);
+      throw new Error(result.error || 'API returned unsuccessful response');
     }
 
     // API returns null when no work is available
@@ -125,13 +126,14 @@ export class ApiClient {
     );
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
 
     if (!result.success) {
-      throw new Error(result.error);
+      throw new Error(result.error || 'API returned unsuccessful response');
     }
   }
 }
