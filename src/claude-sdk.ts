@@ -1,6 +1,8 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
 import { ensurePlugin } from './plugin-setup.js';
+import { transformSDKMessage } from './sdk-event-transformer.js';
+import type { LogEvent } from './log-transport.js';
 
 // Constants for timeouts and truncation
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -120,13 +122,23 @@ function formatMessage(message: SDKMessage): string | null {
 }
 
 /**
+ * Extended options for executeClaude with log streaming support
+ */
+export interface ExecuteClaudeOptions extends SpawnClaudeOptions {
+  /** Callback for log events - called for each SDK message transformed into a LogEvent */
+  onLogEvent?: (event: LogEvent) => void;
+}
+
+/**
  * Execute Claude using the Agent SDK
  *
  * This is a drop-in replacement for spawnClaude() that uses the SDK instead of spawning a CLI process.
  * It matches the same interface (SpawnClaudeOptions) and returns the same result type (ClaudeResult).
+ *
+ * Optionally accepts onLogEvent callback for real-time log streaming.
  */
 export async function executeClaude(
-  options: SpawnClaudeOptions
+  options: ExecuteClaudeOptions
 ): Promise<ClaudeResult> {
   let sessionId: string | undefined;
   let totalCost = 0;
@@ -175,10 +187,23 @@ export async function executeClaude(
         sessionId = message.session_id;
       }
 
-      // Format and display the message
+      // Format and display the message (preserved console output)
       const formatted = formatMessage(message);
       if (formatted) {
         console.log(formatted);
+      }
+
+      // Transform and emit log event if callback is provided
+      if (options.onLogEvent) {
+        try {
+          const logEvent = transformSDKMessage(message);
+          if (logEvent) {
+            options.onLogEvent(logEvent);
+          }
+        } catch (error) {
+          // Log transformation errors but don't block execution
+          console.error('[Log Transform]', error instanceof Error ? error.message : String(error));
+        }
       }
 
       // Capture result metadata

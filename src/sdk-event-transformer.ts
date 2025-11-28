@@ -5,7 +5,7 @@
  * into LogEvent objects for the log streaming infrastructure.
  */
 
-import type { LogEvent, LogEventType } from './log-transport.js';
+import type { LogEvent } from './log-transport.js';
 import type { SDKMessage, SDKAssistantMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 
 // Constants for content truncation
