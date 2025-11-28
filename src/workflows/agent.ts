@@ -19,7 +19,7 @@ const packageJson = JSON.parse(
 
 // Polling configuration from environment variables
 const INITIAL_POLL_INTERVAL = parseInt(process.env.WORKER_INITIAL_POLL_INTERVAL || '2000', 10);  // 2 seconds default
-const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '30000', 10);         // 30 seconds default
+const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '5000', 10);          // 5 seconds default
 const BACKOFF_MULTIPLIER = 1.5;
 
 // Module-scope state for graceful shutdown
@@ -142,12 +142,9 @@ export async function runLocalAgent(): Promise<void> {
   console.log(`🔄 Starting continuous worker loop...\n`);
   console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
-  let iterations = 0;
-  const maxIterations = 100;
   let currentPollInterval = INITIAL_POLL_INTERVAL;
 
-  while (running && iterations < maxIterations) {
-    iterations++;
+  while (running) {
 
     // Claim next action from worker queue
     const actionDetail = await apiClient.claimNextAction(workerId);
@@ -201,7 +198,7 @@ export async function runLocalAgent(): Promise<void> {
 
       if (!isPrepared) {
         await runPrepare(actionDetail.id, { cwd: workspacePath });
-        // Clear current claim after preparation
+        // Claim is automatically released server-side when prepared=true is set
         currentClaim = null;
         continue;
       }
@@ -222,8 +219,5 @@ export async function runLocalAgent(): Promise<void> {
     }
   }
 
-  if (iterations >= maxIterations) {
-    console.log(`\n⚠️  Reached maximum iterations (${maxIterations}). Stopping.`);
-  }
 }
 
