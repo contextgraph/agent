@@ -143,6 +143,7 @@ export async function runLocalAgent(): Promise<void> {
   console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
+  let wasWaiting = false;
 
   while (running) {
 
@@ -150,11 +151,16 @@ export async function runLocalAgent(): Promise<void> {
     const actionDetail = await apiClient.claimNextAction(workerId);
 
     if (!actionDetail) {
-      console.log(`Waiting: No work available. Waiting ${currentPollInterval}ms...`);
+      if (!wasWaiting) {
+        console.log(`Waiting for work...`);
+        wasWaiting = true;
+      }
       await sleep(currentPollInterval);
       currentPollInterval = Math.min(currentPollInterval * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL);
       continue;
     }
+
+    wasWaiting = false;
 
     // Reset poll interval on successful claim
     currentPollInterval = INITIAL_POLL_INTERVAL;
