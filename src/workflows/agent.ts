@@ -21,11 +21,39 @@ const packageJson = JSON.parse(
 const INITIAL_POLL_INTERVAL = parseInt(process.env.WORKER_INITIAL_POLL_INTERVAL || '2000', 10);  // 2 seconds default
 const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '5000', 10);          // 5 seconds default
 const BACKOFF_MULTIPLIER = 1.5;
+const STATUS_INTERVAL_MS = 30000; // Show status every 30 seconds when idle
 
 // Module-scope state for graceful shutdown
 let running = true;
 let currentClaim: { actionId: string; claimId: string; workerId: string } | null = null;
 let apiClient: ApiClient | null = null;
+
+// Stats tracking
+const stats = {
+  startTime: Date.now(),
+  prepared: 0,
+  executed: 0,
+  errors: 0,
+};
+
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+function printStatus(): void {
+  const uptime = formatDuration(Date.now() - stats.startTime);
+  const total = stats.prepared + stats.executed;
+  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
+}
 
 /**
  * Get the next action to work on, handling tree depth truncation.
@@ -143,7 +171,7 @@ export async function runLocalAgent(): Promise<void> {
   console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
-  let wasWaiting = false;
+  let lastStatusTime = Date.now();
 
   while (running) {
 
@@ -151,16 +179,15 @@ export async function runLocalAgent(): Promise<void> {
     const actionDetail = await apiClient.claimNextAction(workerId);
 
     if (!actionDetail) {
-      if (!wasWaiting) {
-        console.log(`Waiting for work...`);
-        wasWaiting = true;
+      // Show periodic status while waiting
+      if (Date.now() - lastStatusTime >= STATUS_INTERVAL_MS) {
+        printStatus();
+        lastStatusTime = Date.now();
       }
       await sleep(currentPollInterval);
       currentPollInterval = Math.min(currentPollInterval * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL);
       continue;
     }
-
-    wasWaiting = false;
 
     // Reset poll interval on successful claim
     currentPollInterval = INITIAL_POLL_INTERVAL;
@@ -204,6 +231,7 @@ export async function runLocalAgent(): Promise<void> {
 
       if (!isPrepared) {
         await runPrepare(actionDetail.id, { cwd: workspacePath });
+        stats.prepared++;
         // Claim is automatically released server-side when prepared=true is set
         currentClaim = null;
         continue;
@@ -211,8 +239,10 @@ export async function runLocalAgent(): Promise<void> {
 
       try {
         await runExecute(actionDetail.id, { cwd: workspacePath });
+        stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {
+        stats.errors++;
         console.error(`Error: ${(executeError as Error).message}. Continuing...`);
       } finally {
         // Clear current claim after execution completes (success or failure)
