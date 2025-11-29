@@ -79,15 +79,15 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       },
     });
 
-    // Update run state based on result
-    const finalState = claudeResult.exitCode === 0 ? 'completed' : 'failed';
-    await logTransport.updateRunState(finalState, {
-      exitCode: claudeResult.exitCode,
-      cost: claudeResult.cost,
-      usage: claudeResult.usage,
-    });
-
+    // Note: We don't call finishRun() for success cases. The server automatically
+    // transitions the run to 'summarizing' -> 'finished' when it receives the
+    // result event via the log buffer. We only need to explicitly finish for
+    // failure cases where the server might not receive a result event.
     if (claudeResult.exitCode !== 0) {
+      await logTransport.updateRunState('failed', {
+        exitCode: claudeResult.exitCode,
+        error: `Claude execution failed with exit code ${claudeResult.exitCode}`,
+      });
       throw new Error(`Claude execution failed with exit code ${claudeResult.exitCode}`);
     }
 

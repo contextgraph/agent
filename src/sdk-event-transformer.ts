@@ -3,46 +3,20 @@
  *
  * This module provides a pure transformation function that converts SDK messages
  * into LogEvent objects for the log streaming infrastructure.
+ *
+ * IMPORTANT: Events are emitted in the same format as the Vercel sandbox agents
+ * to ensure compatibility with the AgentEventMessage component. The full SDK
+ * message is preserved in the `data` field without truncation.
  */
 
 import type { LogEvent } from './log-transport.js';
 import type { SDKMessage, SDKAssistantMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 
-// Constants for content truncation
-const TOOL_OUTPUT_TRUNCATE_LENGTH = 500;
-const TEXT_CONTENT_TRUNCATE_LENGTH = 2000;
-
-/**
- * Content block types from SDK messages
- */
-interface TextContent {
-  type: 'text';
-  text: string;
-}
-
-interface ToolUseContent {
-  type: 'tool_use';
-  id?: string;
-  name: string;
-  input: Record<string, unknown>;
-}
-
-interface ThinkingContent {
-  type: 'thinking';
-  thinking: string;
-}
-
-interface ToolResultContent {
-  type: 'tool_result';
-  tool_use_id: string;
-  content?: string | Array<{ type: string; text?: string }>;
-  is_error?: boolean;
-}
-
-type MessageContent = TextContent | ToolUseContent | ThinkingContent | ToolResultContent;
-
 /**
  * Transform an SDK message into a LogEvent
+ *
+ * The transformation preserves the full SDK message in the `data` field,
+ * matching the Vercel sandbox format for UI compatibility.
  *
  * @param message - The SDK message to transform
  * @returns A LogEvent or null if the message should be skipped
@@ -74,32 +48,29 @@ export function transformSDKMessage(message: SDKMessage): LogEvent | null {
  * Transform a system message (initialization, etc.)
  */
 function transformSystemMessage(
-  message: SDKMessage & { subtype?: string },
+  message: SDKMessage & { subtype?: string; content?: string },
   timestamp: string
-): LogEvent | null {
-  if (message.subtype === 'init') {
-    return {
-      eventType: 'system',
-      content: 'Claude session initialized',
-      data: {
-        subtype: 'init',
-        sessionId: message.session_id,
-      },
-      timestamp,
-    };
-  }
-
-  // Generic system message
+): LogEvent {
+  // Emit in the format expected by AgentEventMessage
   return {
-    eventType: 'system',
-    content: `System event: ${message.subtype || 'unknown'}`,
-    data: { subtype: message.subtype },
+    eventType: 'claude_message',
+    content: message.content || `System: ${message.subtype || 'initialization'}`,
+    data: {
+      type: 'system',
+      subtype: message.subtype,
+      content: message.content,
+      session_id: message.session_id,
+    },
     timestamp,
   };
 }
 
 /**
  * Transform an assistant message (text, tool use, thinking)
+ *
+ * Preserves the full SDK message in the data field for UI rendering.
+ * This matches the Vercel sandbox format where the entire SDK JSON
+ * is stored in event.data.
  */
 function transformAssistantMessage(
   message: SDKAssistantMessage,
@@ -110,57 +81,28 @@ function transformAssistantMessage(
     return null;
   }
 
-  // Process content blocks
-  const textParts: string[] = [];
-  const toolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  // Generate a human-readable summary for the content field
+  const contentSummary = generateContentSummary(content);
 
-  for (const block of content as MessageContent[]) {
-    if (block.type === 'text' && block.text) {
-      textParts.push(truncateText(block.text, TEXT_CONTENT_TRUNCATE_LENGTH));
-    } else if (block.type === 'tool_use') {
-      toolCalls.push({
-        name: block.name,
-        input: extractToolInputSummary(block.name, block.input),
-      });
-    }
-    // Skip 'thinking' blocks - low value for logs per spec
-  }
-
-  // If there are tool calls, emit a tool_use event
-  if (toolCalls.length > 0) {
-    const toolSummary = toolCalls
-      .map(tc => formatToolCallSummary(tc.name, tc.input))
-      .join(', ');
-
-    return {
-      eventType: 'tool_use',
-      content: toolSummary,
-      data: {
-        role: 'assistant',
-        toolCalls,
-        hasText: textParts.length > 0,
-      },
-      timestamp,
-    };
-  }
-
-  // If there's only text, emit a claude_message event
-  if (textParts.length > 0) {
-    return {
-      eventType: 'claude_message',
-      content: textParts.join('\n'),
-      data: {
-        role: 'assistant',
-      },
-      timestamp,
-    };
-  }
-
-  return null;
+  // Emit the full SDK message structure in data for UI compatibility
+  // This matches sandbox-execution.ts line 512-522
+  return {
+    eventType: 'claude_message',
+    content: contentSummary,
+    data: {
+      type: 'assistant',
+      message: message.message,
+      session_id: message.session_id,
+      parent_tool_use_id: message.parent_tool_use_id,
+    },
+    timestamp,
+  };
 }
 
 /**
  * Transform a result message (completion status)
+ *
+ * Emits as claude_message with type='result' to match sandbox format.
  */
 function transformResultMessage(
   message: SDKResultMessage,
@@ -172,16 +114,18 @@ function transformResultMessage(
     : 'unknown';
 
   return {
-    eventType: 'system',
+    eventType: 'claude_message',
     content: isSuccess
       ? `Completed successfully in ${durationSec}s`
-      : `Execution failed: ${message.subtype}`,
+      : `Execution ${message.subtype}: ${durationSec}s`,
     data: {
+      type: 'result',
       subtype: message.subtype,
-      success: isSuccess,
-      durationMs: message.duration_ms,
-      totalCostUsd: message.total_cost_usd,
+      duration_ms: message.duration_ms,
+      total_cost_usd: message.total_cost_usd,
+      num_turns: message.num_turns,
       usage: message.usage,
+      session_id: message.session_id,
     },
     timestamp,
   };
@@ -189,6 +133,8 @@ function transformResultMessage(
 
 /**
  * Transform a user message (typically contains tool results)
+ *
+ * Preserves full tool result content for UI rendering.
  */
 function transformUserMessage(
   message: SDKMessage & { message?: { content?: unknown } },
@@ -199,135 +145,64 @@ function transformUserMessage(
     return null;
   }
 
-  // Look for tool results
-  const toolResults: Array<{
-    toolUseId: string;
-    result: string;
-    isError: boolean;
-  }> = [];
+  // Check if this contains tool results
+  const hasToolResults = content.some(
+    (block: any) => block.type === 'tool_result'
+  );
 
-  for (const block of content as MessageContent[]) {
-    if (block.type === 'tool_result') {
-      const resultContent = extractToolResultContent(block.content);
-      toolResults.push({
-        toolUseId: block.tool_use_id,
-        result: truncateText(resultContent, TOOL_OUTPUT_TRUNCATE_LENGTH),
-        isError: block.is_error || false,
-      });
+  if (!hasToolResults) {
+    return null;
+  }
+
+  // Generate summary for content field
+  const summaries = content
+    .filter((block: any) => block.type === 'tool_result')
+    .map((block: any) => {
+      const prefix = block.is_error ? '❌' : '✓';
+      const resultText = extractToolResultText(block.content);
+      return `${prefix} ${resultText.substring(0, 100)}${resultText.length > 100 ? '...' : ''}`;
+    });
+
+  // Emit full message structure in data for UI rendering
+  return {
+    eventType: 'claude_message',
+    content: summaries.join('\n'),
+    data: {
+      type: 'user',
+      message: message.message,
+      session_id: message.session_id,
+    },
+    timestamp,
+  };
+}
+
+/**
+ * Generate a human-readable summary from message content blocks
+ */
+function generateContentSummary(content: unknown[]): string {
+  const parts: string[] = [];
+
+  for (const block of content as any[]) {
+    if (block.type === 'text' && block.text) {
+      // Include first 200 chars of text in summary
+      const text = block.text.length > 200
+        ? block.text.substring(0, 200) + '...'
+        : block.text;
+      parts.push(text);
+    } else if (block.type === 'tool_use') {
+      parts.push(`🔧 ${block.name}`);
+    } else if (block.type === 'thinking') {
+      parts.push('💭 [thinking]');
     }
   }
 
-  if (toolResults.length > 0) {
-    const summaries = toolResults.map(tr => {
-      const prefix = tr.isError ? '❌' : '✓';
-      return `${prefix} ${tr.result}`;
-    });
-
-    return {
-      eventType: 'tool_result',
-      content: summaries.join('\n'),
-      data: {
-        toolResults,
-      },
-      timestamp,
-    };
-  }
-
-  return null;
+  return parts.join(' | ') || '[no content]';
 }
 
 /**
- * Extract a summary of tool input parameters for logging
+ * Extract text content from a tool result for summary purposes
  */
-function extractToolInputSummary(
-  toolName: string,
-  input: Record<string, unknown>
-): Record<string, unknown> {
-  if (!input) return {};
-
-  // Return relevant fields based on tool type
-  switch (toolName) {
-    case 'Read':
-      return { file_path: input.file_path };
-
-    case 'Edit':
-    case 'Write':
-      return {
-        file_path: input.file_path,
-        // Don't include actual content - too verbose
-      };
-
-    case 'Bash':
-      return {
-        command: truncateText(String(input.command || ''), 100),
-        description: input.description,
-      };
-
-    case 'Grep':
-      return {
-        pattern: input.pattern,
-        glob: input.glob,
-        type: input.type,
-      };
-
-    case 'Glob':
-      return {
-        pattern: input.pattern,
-        path: input.path,
-      };
-
-    case 'Task':
-      return {
-        description: input.description,
-        subagent_type: input.subagent_type,
-      };
-
-    default:
-      // For MCP tools and others, return a subset of keys
-      return Object.fromEntries(
-        Object.entries(input)
-          .slice(0, 5)
-          .map(([k, v]) => [k, typeof v === 'string' ? truncateText(v, 100) : v])
-      );
-  }
-}
-
-/**
- * Format a tool call for the content summary
- */
-function formatToolCallSummary(
-  name: string,
-  input: Record<string, unknown>
-): string {
-  switch (name) {
-    case 'Read':
-      return `Read: ${input.file_path}`;
-
-    case 'Edit':
-    case 'Write':
-      return `${name}: ${input.file_path}`;
-
-    case 'Bash':
-      return `Bash: ${input.command}`;
-
-    case 'Grep':
-      return `Grep: "${input.pattern}"`;
-
-    case 'Glob':
-      return `Glob: ${input.pattern}`;
-
-    case 'Task':
-      return `Task: ${input.description}`;
-
-    default:
-      return name;
-  }
-}
-
-/**
- * Extract text content from a tool result
- */
-function extractToolResultContent(
+function extractToolResultText(
   content: string | Array<{ type: string; text?: string }> | undefined
 ): string {
   if (!content) return '';
@@ -344,14 +219,6 @@ function extractToolResultContent(
   }
 
   return '';
-}
-
-/**
- * Truncate text to a maximum length
- */
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
 }
 
 /**
