@@ -208,6 +208,21 @@ The agent uses the [Claude Agent SDK](https://github.com/anthropics/anthropic-sd
 - Better timeout and cancellation control
 - Structured message parsing and formatting
 
+#### SDK Authentication
+
+The Claude Agent SDK requires Anthropic API credentials. Set the `ANTHROPIC_API_KEY` environment variable:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+```
+
+This is required for:
+- Worker agent execution
+- Autonomous action processing
+- Any command that spawns Claude for prepare/execute operations
+
+Get your Anthropic API key from https://console.anthropic.com/settings/keys
+
 ## Development
 
 ```bash
