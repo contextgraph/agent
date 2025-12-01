@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -17,7 +18,7 @@ export interface PrepareWorkspaceOptions {
 }
 
 async function fetchGitHubCredentials(authToken: string): Promise<GitHubCredentials> {
-  const response = await fetch(`${API_BASE_URL}/api/cli/credentials`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/api/cli/credentials`, {
     headers: {
       'x-authorization': `Bearer ${authToken}`,
       'Content-Type': 'application/json',

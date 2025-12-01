@@ -85,6 +85,7 @@ export class HeartbeatManager {
   /**
    * Send a heartbeat to the platform (internal method)
    * Errors are logged but not thrown to avoid blocking execution.
+   * Includes one retry attempt for transient network failures.
    */
   private async sendHeartbeat(): Promise<void> {
     const payload: HeartbeatPayload = {
@@ -96,29 +97,49 @@ export class HeartbeatManager {
       payload.progress = this.currentProgress;
     }
 
-    try {
-      const url = `${this.baseUrl}/api/runs/${this.runId}/heartbeat`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'x-authorization': `Bearer ${this.authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    const url = `${this.baseUrl}/api/runs/${this.runId}/heartbeat`;
+    const requestOptions: RequestInit = {
+      method: 'POST',
+      headers: {
+        'x-authorization': `Bearer ${this.authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    };
 
-      if (!response.ok) {
-        // Log but don't throw - heartbeats are best-effort
-        console.error(
-          `Heartbeat failed: HTTP ${response.status} ${response.statusText}`
-        );
+    // Try up to 2 times (initial + 1 retry)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await fetch(url, requestOptions);
+
+        if (response.ok) {
+          return; // Success
+        }
+
+        // Don't retry client errors (4xx)
+        if (response.status >= 400 && response.status < 500) {
+          console.error(
+            `Heartbeat failed: HTTP ${response.status} ${response.statusText}`
+          );
+          return;
+        }
+
+        // Server error - will retry
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        // Network error - retry once
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        } else {
+          // Log on final failure
+          console.error(
+            'Heartbeat error:',
+            error instanceof Error ? error.message : String(error)
+          );
+        }
       }
-    } catch (error) {
-      // Log but don't throw - heartbeats shouldn't block execution
-      console.error(
-        'Heartbeat error:',
-        error instanceof Error ? error.message : String(error)
-      );
     }
   }
 }

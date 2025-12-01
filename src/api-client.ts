@@ -1,4 +1,5 @@
 import { loadCredentials, isExpired, isTokenExpired } from './credentials.js';
+import { fetchWithRetry } from './fetch-with-retry.js';
 import type { ActionDetailResource, ActionNode } from './types/actions.js';
 
 export class ApiClient {
@@ -25,7 +26,7 @@ export class ApiClient {
     const token = await this.getAuthToken();
 
     // Use both x-authorization header and query param for Vercel compatibility
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${this.baseUrl}/api/actions/${actionId}?token=${encodeURIComponent(token)}`,
       {
         headers: {
@@ -52,7 +53,7 @@ export class ApiClient {
     const token = await this.getAuthToken();
 
     // Use both x-authorization header and query param for Vercel compatibility
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${this.baseUrl}/api/tree/${rootActionId}?includeCompleted=${includeCompleted}&token=${encodeURIComponent(token)}`,
       {
         headers: {
@@ -83,7 +84,7 @@ export class ApiClient {
   async claimNextAction(workerId: string): Promise<ActionDetailResource | null> {
     const token = await this.getAuthToken();
 
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${this.baseUrl}/api/worker/next?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',
@@ -113,7 +114,7 @@ export class ApiClient {
   async releaseClaim(params: { action_id: string; worker_id: string; claim_id: string }): Promise<void> {
     const token = await this.getAuthToken();
 
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${this.baseUrl}/api/worker/release?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',

@@ -1,5 +1,6 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { executeClaude } from '../claude-sdk.js';
+import { fetchWithRetry } from '../fetch-with-retry.js';
 import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
@@ -25,7 +26,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
 
   console.log(`Fetching preparation instructions for action ${actionId}...\n`);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${API_BASE_URL}/api/prompts/prepare`,
     {
       method: 'POST',
@@ -79,29 +80,29 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       },
     });
 
-    // Note: We don't call finishRun() for success cases. The server automatically
-    // transitions the run to 'summarizing' -> 'finished' when it receives the
-    // result event via the log buffer. We only need to explicitly finish for
-    // failure cases where the server might not receive a result event.
-    if (claudeResult.exitCode !== 0) {
-      await logTransport.updateRunState('failed', {
+    // Update run state based on execution result
+    if (claudeResult.exitCode === 0) {
+      await logTransport.finishRun('success', {
         exitCode: claudeResult.exitCode,
-        error: `Claude preparation failed with exit code ${claudeResult.exitCode}`,
-        phase: 'prepare',
+        cost: claudeResult.cost,
+        usage: claudeResult.usage,
+      });
+      console.log('\n✅ Preparation complete');
+    } else {
+      await logTransport.finishRun('error', {
+        exitCode: claudeResult.exitCode,
+        errorMessage: `Claude preparation failed with exit code ${claudeResult.exitCode}`,
       });
       console.error(`\n❌ Claude preparation failed with exit code ${claudeResult.exitCode}`);
       process.exit(1);
     }
 
-    console.log('\n✅ Preparation complete');
-
   } catch (error) {
     // Update run state to failed if we have a run
     if (runId) {
       try {
-        await logTransport.updateRunState('failed', {
-          error: error instanceof Error ? error.message : String(error),
-          phase: 'prepare',
+        await logTransport.finishRun('error', {
+          errorMessage: error instanceof Error ? error.message : String(error),
         });
       } catch (stateError) {
         console.error('[Log Streaming] Failed to update run state:', stateError);
