@@ -180,12 +180,19 @@ export async function runLocalAgent(): Promise<void> {
   // Load and validate credentials upfront
   const credentials = await loadCredentials();
   if (!credentials) {
-    console.error('❌ Not authenticated. Run `contextgraph auth` first.');
+    console.error('❌ Not authenticated.');
+    console.error('   Set CONTEXTGRAPH_API_TOKEN environment variable or run `contextgraph-agent auth`');
     process.exit(1);
   }
   if (isExpired(credentials) || isTokenExpired(credentials.clerkToken)) {
-    console.error('❌ Token expired. Run `contextgraph auth` to re-authenticate.');
+    console.error('❌ Token expired. Run `contextgraph-agent auth` to re-authenticate.');
     process.exit(1);
+  }
+
+  // Show authentication method
+  const usingApiToken = !!process.env.CONTEXTGRAPH_API_TOKEN;
+  if (usingApiToken) {
+    console.log('🔐 Authenticated via CONTEXTGRAPH_API_TOKEN');
   }
 
   // Generate unique worker ID for this session

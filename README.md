@@ -23,19 +23,30 @@ npm install -g @context-graph/agent
 
 ## Quick Start
 
+### Option 1: Interactive Authentication
+
 1. Authenticate with contextgraph.dev:
 
 ```bash
 npx @context-graph/agent auth
 ```
 
-2. Run an action:
+2. Run the agent:
 
 ```bash
-npx @context-graph/agent run <action-id>
+npx @context-graph/agent run
 ```
 
-Get your action ID from https://contextgraph.dev
+### Option 2: API Token (CI/CD & Cloud Deployments)
+
+For automated environments, use an API token:
+
+```bash
+export CONTEXTGRAPH_API_TOKEN="your-api-token"
+npx @context-graph/agent run
+```
+
+Get your API token from https://contextgraph.dev/settings/tokens
 
 ## Commands
 
@@ -152,7 +163,27 @@ Ensure you have internet connectivity and can reach:
 
 ### Credentials
 
-Credentials are stored in `~/.contextgraph/credentials.json`
+The agent supports two authentication methods:
+
+**1. Interactive OAuth (Default)**
+
+Credentials are stored in `~/.contextgraph/credentials.json` after running `contextgraph-agent auth`.
+
+**2. API Token (Environment Variable)**
+
+Set the `CONTEXTGRAPH_API_TOKEN` environment variable for automated deployments:
+
+```bash
+export CONTEXTGRAPH_API_TOKEN="your-api-token"
+```
+
+This is ideal for:
+- CI/CD pipelines (GitHub Actions, GitLab CI, etc.)
+- Cloud worker deployments (AWS Lambda, Modal, etc.)
+- Docker containers
+- Any automated environment where interactive login isn't possible
+
+API tokens take precedence over file-based credentials when both are present.
 
 ### Worker Polling
 

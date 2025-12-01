@@ -25,6 +25,21 @@ export async function saveCredentials(credentials: Credentials): Promise<void> {
 }
 
 export async function loadCredentials(): Promise<Credentials | null> {
+  // Check for API token in environment variable first
+  const apiToken = process.env.CONTEXTGRAPH_API_TOKEN;
+  if (apiToken) {
+    // Create credentials from API token
+    // API tokens don't expire in the same way, set a far future date
+    const farFuture = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year
+    return {
+      clerkToken: apiToken,
+      userId: 'api-token-user', // Placeholder - server will resolve actual user
+      expiresAt: farFuture,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  // Fall back to file-based credentials
   const filePath = getCredentialsPath();
 
   try {
@@ -58,12 +73,15 @@ export function isExpired(credentials: Credentials): boolean {
 
 export function isTokenExpired(token: string): boolean {
   try {
-    // Decode JWT to check actual token expiration
+    // API tokens (non-JWT format) don't expire - check with server
+    // API tokens typically start with a prefix like "cg_" or similar
     const parts = token.split('.');
     if (parts.length !== 3) {
-      return true; // Invalid token format
+      // Not a JWT - assume it's an API token that doesn't expire
+      return false;
     }
 
+    // Decode JWT to check actual token expiration
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
     const now = Math.floor(Date.now() / 1000);
 
@@ -84,7 +102,8 @@ export function isTokenExpired(token: string): boolean {
 
     return false;
   } catch {
-    return true; // If we can't decode it, treat as expired
+    // If we can't decode it as JWT, assume it's an API token
+    return false;
   }
 }
 
