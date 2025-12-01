@@ -221,7 +221,24 @@ This is required for:
 - Autonomous action processing
 - Any command that spawns Claude for prepare/execute operations
 
-Get your Anthropic API key from https://console.anthropic.com/settings/keys
+**Generating Long-Lived Anthropic Tokens:**
+
+For CI/CD pipelines, cloud deployments, and unattended worker execution, you'll need a long-lived Anthropic API key:
+
+1. Visit the [Anthropic Console API Keys page](https://console.anthropic.com/settings/keys)
+2. Click "Create Key" to generate a new API key
+3. Give it a descriptive name (e.g., "Production Worker" or "CI/CD Pipeline")
+4. Copy the key immediately - it won't be shown again
+5. Store it securely in your environment or secrets manager
+
+**Security Best Practices:**
+- Never commit API keys to version control
+- Use environment variables or secrets management systems (AWS Secrets Manager, GitHub Secrets, etc.)
+- Rotate keys periodically
+- Use separate keys for different environments (development, staging, production)
+- Revoke compromised keys immediately from the Anthropic Console
+
+For local development, you can set the key in your shell profile (`~/.bashrc`, `~/.zshrc`) or use a `.env` file (with proper `.gitignore` configuration).
 
 ## Development
 
