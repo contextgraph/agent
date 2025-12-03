@@ -1,6 +1,6 @@
 {
   "name": "@context-graph/agent",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
