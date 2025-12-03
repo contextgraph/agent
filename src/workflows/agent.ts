@@ -306,10 +306,45 @@ export async function runLocalAgent(): Promise<void> {
       } catch (executeError) {
         stats.errors++;
         console.error(`Error: ${(executeError as Error).message}. Continuing...`);
+
+        // Release claim on execution failure
+        if (currentClaim && apiClient) {
+          try {
+            console.log(`🧹 Releasing claim due to execution error...`);
+            await apiClient.releaseClaim({
+              action_id: currentClaim.actionId,
+              worker_id: currentClaim.workerId,
+              claim_id: currentClaim.claimId,
+            });
+            console.log('✅ Claim released');
+          } catch (releaseError) {
+            console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+          }
+        }
       } finally {
         // Clear current claim after execution completes (success or failure)
         currentClaim = null;
       }
+    } catch (workspaceError) {
+      // Handle workspace preparation or other errors
+      stats.errors++;
+      console.error(`Error preparing workspace: ${(workspaceError as Error).message}. Continuing...`);
+
+      // Release claim on workspace/preparation failure
+      if (currentClaim && apiClient) {
+        try {
+          console.log(`🧹 Releasing claim due to workspace error...`);
+          await apiClient.releaseClaim({
+            action_id: currentClaim.actionId,
+            worker_id: currentClaim.workerId,
+            claim_id: currentClaim.claimId,
+          });
+          console.log('✅ Claim released');
+        } catch (releaseError) {
+          console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+        }
+      }
+      currentClaim = null;
     } finally {
       if (cleanup) {
         await cleanup();

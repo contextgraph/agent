@@ -156,6 +156,7 @@ export async function executeClaude(
     console.log('[Agent SDK] Loading plugin from:', pluginPath);
     console.log('[Agent SDK] Auth token available:', !!options.authToken);
     console.log('[Agent SDK] Anthropic API key available:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('[Agent SDK] Claude OAuth token available:', !!process.env.CLAUDE_CODE_OAUTH_TOKEN);
 
     // Create the query with SDK using the plugin
     const iterator = query({
@@ -171,6 +172,8 @@ export async function executeClaude(
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
           // Pass Anthropic API key for SDK authentication
           ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+          // Pass Claude OAuth token for SDK authentication (alternative to API key)
+          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '',
         },
         // Load the contextgraph plugin (provides MCP server URL and other config)
         plugins: [
