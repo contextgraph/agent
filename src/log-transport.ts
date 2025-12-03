@@ -157,7 +157,14 @@ export class LogTransportService {
     const result = await response.json();
 
     if (!result.success) {
-      throw new Error(result.error || 'Failed to finish run');
+      // If the run is already in a finishing state (summarizing, finished),
+      // this is not an error - the server is already handling completion
+      const error = result.error || 'Failed to finish run';
+      if (error.includes('summarizing') || error.includes('finished')) {
+        console.log('[LogTransport] Run is already being finished by server, skipping client finish');
+        return;
+      }
+      throw new Error(error);
     }
   }
 
