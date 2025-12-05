@@ -294,7 +294,19 @@ export async function runLocalAgent(): Promise<void> {
       if (!isPrepared) {
         await runPrepare(actionDetail.id, { cwd: workspacePath });
         stats.prepared++;
-        // Claim is automatically released server-side when prepared=true is set
+
+        // Release claim after preparation
+        if (currentClaim && apiClient) {
+          try {
+            await apiClient.releaseClaim({
+              action_id: currentClaim.actionId,
+              worker_id: currentClaim.workerId,
+              claim_id: currentClaim.claimId,
+            });
+          } catch (releaseError) {
+            console.error('⚠️  Failed to release claim after preparation:', (releaseError as Error).message);
+          }
+        }
         currentClaim = null;
         continue;
       }
@@ -306,23 +318,19 @@ export async function runLocalAgent(): Promise<void> {
       } catch (executeError) {
         stats.errors++;
         console.error(`Error: ${(executeError as Error).message}. Continuing...`);
-
-        // Release claim on execution failure
+      } finally {
+        // Release claim after execution completes (success or failure)
         if (currentClaim && apiClient) {
           try {
-            console.log(`🧹 Releasing claim due to execution error...`);
             await apiClient.releaseClaim({
               action_id: currentClaim.actionId,
               worker_id: currentClaim.workerId,
               claim_id: currentClaim.claimId,
             });
-            console.log('✅ Claim released');
           } catch (releaseError) {
             console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
           }
         }
-      } finally {
-        // Clear current claim after execution completes (success or failure)
         currentClaim = null;
       }
     } catch (workspaceError) {
