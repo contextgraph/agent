@@ -2,6 +2,8 @@ export interface RetryOptions {
   maxRetries?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
+  /** If true, will log retry attempts */
+  verbose?: boolean;
 }
 
 export async function fetchWithRetry(

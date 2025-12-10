@@ -24,9 +24,11 @@ const BACKOFF_MULTIPLIER = 1.5;
 const STATUS_INTERVAL_MS = 30000; // Show status every 30 seconds when idle
 
 // Retry configuration for transient API errors
-const MAX_API_RETRIES = 5;
+// For extended outages, we wait indefinitely with a ceiling on delay
+const MAX_API_RETRIES = Infinity;  // Never give up on transient errors
 const INITIAL_RETRY_DELAY = 1000;  // 1 second
-const MAX_RETRY_DELAY = 30000;     // 30 seconds
+const MAX_RETRY_DELAY = 60000;     // 1 minute ceiling
+const OUTAGE_WARNING_THRESHOLD = 5;  // Warn user after this many retries
 
 // Module-scope state for graceful shutdown
 let running = true;
@@ -223,13 +225,24 @@ export async function runLocalAgent(): Promise<void> {
       if (isRetryableError(err)) {
         consecutiveApiErrors++;
 
-        if (consecutiveApiErrors >= MAX_API_RETRIES) {
-          console.error(`\n❌ API failed after ${MAX_API_RETRIES} consecutive retries. Last error: ${err.message}`);
-          throw err;
+        // Show extended outage warning once
+        if (consecutiveApiErrors === OUTAGE_WARNING_THRESHOLD) {
+          console.warn(`\n⚠️  API appears to be experiencing an outage.`);
+          console.warn(`   Will continue retrying indefinitely (every ${MAX_RETRY_DELAY / 1000}s max).`);
+          console.warn(`   Press Ctrl+C to stop.\n`);
         }
 
-        console.warn(`⚠️  API error (attempt ${consecutiveApiErrors}/${MAX_API_RETRIES}): ${err.message}`);
-        console.warn(`   Retrying in ${Math.round(apiRetryDelay / 1000)}s...`);
+        if (consecutiveApiErrors < OUTAGE_WARNING_THRESHOLD) {
+          console.warn(`⚠️  API error (attempt ${consecutiveApiErrors}): ${err.message}`);
+        } else if (consecutiveApiErrors % 10 === 0) {
+          // Only log every 10th retry during extended outage to reduce noise
+          console.warn(`⚠️  Still retrying... (attempt ${consecutiveApiErrors}, last error: ${err.message})`);
+        }
+
+        const delaySeconds = Math.round(apiRetryDelay / 1000);
+        if (consecutiveApiErrors < OUTAGE_WARNING_THRESHOLD) {
+          console.warn(`   Retrying in ${delaySeconds}s...`);
+        }
 
         await sleep(apiRetryDelay);
         apiRetryDelay = Math.min(apiRetryDelay * 2, MAX_RETRY_DELAY);
