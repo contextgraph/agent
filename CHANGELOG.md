@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0] - 2025-11-15
 
 ### Added
-- Initial release of @context-graph/agent
+- Initial release of @contextgraph/agent
 - OAuth authentication with contextgraph.dev
 - CLI commands: auth, whoami, run, prepare, execute
 - Autonomous agent loop with tree traversal

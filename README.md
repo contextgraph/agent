@@ -1,4 +1,4 @@
-# @context-graph/agent
+# @contextgraph/agent
 
 Autonomous agent for contextgraph action execution.
 
@@ -7,13 +7,13 @@ Autonomous agent for contextgraph action execution.
 No installation required! Use npx to run commands directly:
 
 ```bash
-npx @context-graph/agent <command>
+npx @contextgraph/agent <command>
 ```
 
 Or install globally for convenience:
 
 ```bash
-npm install -g @context-graph/agent
+npm install -g @contextgraph/agent
 ```
 
 ## Prerequisites
@@ -28,13 +28,13 @@ npm install -g @context-graph/agent
 1. Authenticate with contextgraph.dev:
 
 ```bash
-npx @context-graph/agent auth
+npx @contextgraph/agent auth
 ```
 
 2. Run the agent:
 
 ```bash
-npx @context-graph/agent run
+npx @contextgraph/agent run
 ```
 
 ### Option 2: API Token (CI/CD & Cloud Deployments)
@@ -43,7 +43,7 @@ For automated environments, use an API token:
 
 ```bash
 export CONTEXTGRAPH_API_TOKEN="your-api-token"
-npx @context-graph/agent run
+npx @contextgraph/agent run
 ```
 
 Get your API token from https://contextgraph.dev/settings/tokens
@@ -54,7 +54,7 @@ Get your API token from https://contextgraph.dev/settings/tokens
 Authenticate with contextgraph.dev using OAuth:
 
 ```bash
-npx @context-graph/agent auth
+npx @contextgraph/agent auth
 ```
 
 Opens your browser to complete authentication. Credentials are securely stored in `~/.contextgraph/`.
@@ -63,7 +63,7 @@ Opens your browser to complete authentication. Credentials are securely stored i
 Check your current authentication status:
 
 ```bash
-npx @context-graph/agent whoami
+npx @contextgraph/agent whoami
 ```
 
 Shows your user ID and token expiration.
@@ -72,7 +72,7 @@ Shows your user ID and token expiration.
 Run the autonomous agent loop:
 
 ```bash
-npx @context-graph/agent run <action-id>
+npx @contextgraph/agent run <action-id>
 ```
 
 The agent will:
@@ -86,7 +86,7 @@ The agent will:
 Prepare a single action:
 
 ```bash
-npx @context-graph/agent prepare <action-id>
+npx @contextgraph/agent prepare <action-id>
 ```
 
 Spawns Claude to assess whether the action should be broken down into child actions or is ready to execute.
@@ -95,7 +95,7 @@ Spawns Claude to assess whether the action should be broken down into child acti
 Execute a single prepared action:
 
 ```bash
-npx @context-graph/agent execute <action-id>
+npx @contextgraph/agent execute <action-id>
 ```
 
 Spawns Claude to implement the action and mark it complete.
@@ -133,7 +133,7 @@ The agent integrates with contextgraph.dev's MCP server to:
 If authentication fails or tokens expire:
 
 ```bash
-npx @context-graph/agent auth
+npx @contextgraph/agent auth
 ```
 
 This will open a new browser session to re-authenticate.
@@ -143,8 +143,8 @@ This will open a new browser session to re-authenticate.
 Tokens expire after a period of time. Re-authenticate with:
 
 ```bash
-npx @context-graph/agent whoami  # Check expiration
-npx @context-graph/agent auth    # Re-authenticate if expired
+npx @contextgraph/agent whoami  # Check expiration
+npx @contextgraph/agent auth    # Re-authenticate if expired
 ```
 
 ### Network errors
@@ -156,8 +156,8 @@ Ensure you have internet connectivity and can reach:
 ## Links
 
 - [contextgraph.dev](https://contextgraph.dev) - Main platform
-- [GitHub Repository](https://github.com/context-graph/agent) - Source code and issues
-- [Issue Tracker](https://github.com/context-graph/agent/issues) - Report bugs or request features
+- [GitHub Repository](https://github.com/contextgraph/agent) - Source code and issues
+- [Issue Tracker](https://github.com/contextgraph/agent/issues) - Report bugs or request features
 
 ## Configuration
 
@@ -197,7 +197,7 @@ When no work is available, the worker waits before polling again. The wait time 
 Example:
 ```bash
 # Poll more frequently (every 1 second initially, up to 15 seconds max)
-WORKER_INITIAL_POLL_INTERVAL=1000 WORKER_MAX_POLL_INTERVAL=15000 npx @context-graph/agent run <action-id>
+WORKER_INITIAL_POLL_INTERVAL=1000 WORKER_MAX_POLL_INTERVAL=15000 npx @contextgraph/agent run <action-id>
 ```
 
 ### Claude Agent SDK
