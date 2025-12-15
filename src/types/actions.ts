@@ -106,6 +106,7 @@ export interface ActionDetailResource {
   dependency_completion_context: DependencyCompletionContext[]; // completion context from dependencies
   completion_context?: DependencyCompletionContext; // action's own completion context if completed
   claim_id?: string; // Claim ID when action is claimed by a worker
+  mcp_token?: string; // Dedicated 30-minute MCP token for worker API calls
 }
 
 // Relationship flags to help clients avoid duplicate display

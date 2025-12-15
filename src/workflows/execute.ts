@@ -9,6 +9,7 @@ const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export interface WorkflowOptions {
   cwd?: string;
+  mcpToken?: string;
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -46,7 +47,9 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   const { prompt } = await response.json();
 
   // Initialize log streaming infrastructure
-  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
+  // Use MCP token if provided in options, otherwise fall back to clerk token
+  const authToken = options?.mcpToken || credentials.clerkToken;
+  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, undefined, undefined, options?.mcpToken);
   let runId: string | undefined;
   let heartbeatManager: HeartbeatManager | undefined;
   let logBuffer: LogBuffer | undefined;
@@ -61,7 +64,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     await logTransport.updateRunState('executing');
 
     // Start heartbeat manager
-    heartbeatManager = new HeartbeatManager(API_BASE_URL, credentials.clerkToken, runId);
+    heartbeatManager = new HeartbeatManager(API_BASE_URL, credentials.clerkToken, runId, options?.mcpToken);
     heartbeatManager.start();
     console.log('[Log Streaming] Heartbeat started');
 

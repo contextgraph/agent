@@ -35,7 +35,8 @@ export class HeartbeatManager {
   constructor(
     private baseUrl: string,
     private authToken: string,
-    private runId: string
+    private runId: string,
+    private mcpToken?: string
   ) {}
 
   /**
@@ -98,10 +99,12 @@ export class HeartbeatManager {
     }
 
     const url = `${this.baseUrl}/api/runs/${this.runId}/heartbeat`;
+    // Use MCP token if available, otherwise fall back to auth token
+    const token = this.mcpToken || this.authToken;
     const requestOptions: RequestInit = {
       method: 'POST',
       headers: {
-        'x-authorization': `Bearer ${this.authToken}`,
+        'x-authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),

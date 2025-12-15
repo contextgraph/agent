@@ -280,6 +280,12 @@ export async function runLocalAgent(): Promise<void> {
 
     const isPrepared = actionDetail.prepared !== false;
 
+    // Extract MCP token from claim response (if provided by API)
+    const mcpToken = actionDetail.mcp_token;
+    if (mcpToken) {
+      console.log('🔑 Using dedicated MCP token for API authentication');
+    }
+
     // Prepare workspace - repository URL is required
     const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
     const branch = actionDetail.resolved_branch || actionDetail.branch;
@@ -305,7 +311,7 @@ export async function runLocalAgent(): Promise<void> {
       cleanup = workspace.cleanup;
 
       if (!isPrepared) {
-        await runPrepare(actionDetail.id, { cwd: workspacePath });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, mcpToken });
         stats.prepared++;
 
         // Release claim after preparation
@@ -325,7 +331,7 @@ export async function runLocalAgent(): Promise<void> {
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath });
+        await runExecute(actionDetail.id, { cwd: workspacePath, mcpToken });
         stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {

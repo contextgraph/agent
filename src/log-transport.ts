@@ -64,15 +64,18 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 export class LogTransportService {
   private runId: string | null = null;
   private retryConfig: RetryConfig;
+  private mcpToken?: string;
 
   constructor(
     private baseUrl: string,
     private authToken: string,
     runId?: string,
-    retryConfig?: Partial<RetryConfig>
+    retryConfig?: Partial<RetryConfig>,
+    mcpToken?: string
   ) {
     this.runId = runId ?? null;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+    this.mcpToken = mcpToken;
   }
 
   /**
@@ -80,6 +83,14 @@ export class LogTransportService {
    */
   getRunId(): string | null {
     return this.runId;
+  }
+
+  /**
+   * Set the MCP token to use for subsequent API calls
+   * @param mcpToken - The dedicated MCP token from worker claim response
+   */
+  setMcpToken(mcpToken: string): void {
+    this.mcpToken = mcpToken;
   }
 
   /**
@@ -246,8 +257,10 @@ export class LogTransportService {
     options: RequestInit
   ): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
+    // Use MCP token if available, otherwise fall back to auth token
+    const token = this.mcpToken || this.authToken;
     const headers = {
-      'x-authorization': `Bearer ${this.authToken}`,
+      'x-authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
 
