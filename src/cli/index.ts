@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
+import { runLearn } from '../workflows/learn.js';
 import { runLocalAgent } from '../workflows/agent.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
@@ -75,6 +76,19 @@ program
       await runExecute(actionId);
     } catch (error) {
       console.error('Error executing action:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('learn')
+  .argument('<action-id>', 'Action ID to learn from')
+  .description('Extract learnings from a completed action')
+  .action(async (actionId: string) => {
+    try {
+      await runLearn(actionId);
+    } catch (error) {
+      console.error('Error learning from action:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
