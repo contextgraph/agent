@@ -7,6 +7,7 @@ import type { ActionNode, ActionMetadata } from '../types/actions.js';
 import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
+import { runLearn } from './learn.js';
 import { prepareWorkspace } from '../workspace-prep.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
@@ -39,6 +40,7 @@ let apiClient: ApiClient | null = null;
 const stats = {
   startTime: Date.now(),
   prepared: 0,
+  learned: 0,
   executed: 0,
   errors: 0,
 };
@@ -58,8 +60,8 @@ function formatDuration(ms: number): string {
 
 function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
-  const total = stats.prepared + stats.executed;
-  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
+  const total = stats.prepared + stats.learned + stats.executed;
+  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.learned} learned, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
 }
 
 /**
@@ -278,7 +280,15 @@ export async function runLocalAgent(): Promise<void> {
       };
     }
 
-    const isPrepared = actionDetail.prepared !== false;
+    // Determine which phase this action needs
+    let phase: 'prepare' | 'learn' | 'execute';
+    if (!actionDetail.prepared) {
+      phase = 'prepare';
+    } else if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned) {
+      phase = 'learn';
+    } else {
+      phase = 'execute';
+    }
 
     // Prepare workspace - repository URL is required
     const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
@@ -304,7 +314,7 @@ export async function runLocalAgent(): Promise<void> {
       workspacePath = workspace.path;
       cleanup = workspace.cleanup;
 
-      if (!isPrepared) {
+      if (phase === 'prepare') {
         await runPrepare(actionDetail.id, { cwd: workspacePath });
         stats.prepared++;
 
@@ -321,6 +331,32 @@ export async function runLocalAgent(): Promise<void> {
           }
         }
         currentClaim = null;
+        continue;
+      }
+
+      if (phase === 'learn') {
+        try {
+          await runLearn(actionDetail.id, { cwd: workspacePath });
+          stats.learned++;
+          console.log(`Learning extracted: ${actionDetail.title}`);
+        } catch (learnError) {
+          stats.errors++;
+          console.error(`Error during learning: ${(learnError as Error).message}. Continuing...`);
+        } finally {
+          // Release claim after learning completes (success or failure)
+          if (currentClaim && apiClient) {
+            try {
+              await apiClient.releaseClaim({
+                action_id: currentClaim.actionId,
+                worker_id: currentClaim.workerId,
+                claim_id: currentClaim.claimId,
+              });
+            } catch (releaseError) {
+              console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+            }
+          }
+          currentClaim = null;
+        }
         continue;
       }
 

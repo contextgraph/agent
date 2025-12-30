@@ -83,6 +83,8 @@ export interface ActionDetailResource {
   freeformInput?: string;
   done: boolean;
   prepared?: boolean; // Preparation status for autonomous execution
+  reviewed?: boolean; // Post-completion review status
+  learned?: boolean; // Learning extraction completion status
   version: number | null;
   created_at: string;
   updated_at: string;
