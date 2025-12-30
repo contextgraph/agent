@@ -54,7 +54,7 @@ export async function runLearn(actionId: string, options?: WorkflowOptions): Pro
   try {
     // Create run for this learning phase
     console.log('[Log Streaming] Creating run for learn phase...');
-    runId = await logTransport.createRun(actionId);
+    runId = await logTransport.createRun(actionId, 'learn');
     console.log(`[Log Streaming] Run created: ${runId}`);
 
     // Update run state to learning

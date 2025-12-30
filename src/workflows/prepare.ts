@@ -54,7 +54,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
   try {
     // Create run for this preparation phase
     console.log('[Log Streaming] Creating run for prepare phase...');
-    runId = await logTransport.createRun(actionId);
+    runId = await logTransport.createRun(actionId, 'prepare');
     console.log(`[Log Streaming] Run created: ${runId}`);
 
     // Update run state to preparing

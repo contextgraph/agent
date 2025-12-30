@@ -54,7 +54,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   try {
     // Create run for this execution
     console.log('[Log Streaming] Creating run...');
-    runId = await logTransport.createRun(actionId);
+    runId = await logTransport.createRun(actionId, 'execute');
     console.log(`[Log Streaming] Run created: ${runId}`);
 
     // Update run state to executing
