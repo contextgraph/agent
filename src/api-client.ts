@@ -1,6 +1,7 @@
 import { loadCredentials, isExpired, isTokenExpired } from './credentials.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import type { ActionDetailResource, ActionNode } from './types/actions.js';
+import packageJson from '../package.json' assert { type: 'json' };
 
 export class ApiClient {
   constructor(
@@ -92,7 +93,10 @@ export class ApiClient {
           'x-authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ worker_id: workerId }),
+        body: JSON.stringify({
+          worker_id: workerId,
+          agent_version: packageJson.version
+        }),
       }
     );
 
