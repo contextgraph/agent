@@ -183,7 +183,7 @@ export class LogTransportService {
     }
 
     // Map state to appropriate endpoint
-    if (state === 'executing' || state === 'preparing' || state === 'running') {
+    if (state === 'executing' || state === 'preparing' || state === 'running' || state === 'learning') {
       await this.startRun();
     } else if (state === 'completed' || state === 'failed') {
       const outcome = state === 'completed' ? 'success' : 'error';
