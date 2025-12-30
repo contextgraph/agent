@@ -281,13 +281,31 @@ export async function runLocalAgent(): Promise<void> {
     }
 
     // Determine which phase this action needs
+    // Check learning eligibility first - some actions were executed without being prepared
     let phase: 'prepare' | 'learn' | 'execute';
-    if (!actionDetail.prepared) {
-      phase = 'prepare';
-    } else if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned) {
+    if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned) {
       phase = 'learn';
-    } else {
+    } else if (!actionDetail.prepared) {
+      phase = 'prepare';
+    } else if (!actionDetail.done) {
       phase = 'execute';
+    } else {
+      // Action is done but not reviewed yet - nothing to do
+      // This shouldn't happen if the worker queue is filtering correctly
+      console.log(`⏭️  Skipping action "${actionDetail.title}" - done but not yet reviewed`);
+      if (currentClaim && apiClient) {
+        try {
+          await apiClient.releaseClaim({
+            action_id: currentClaim.actionId,
+            worker_id: currentClaim.workerId,
+            claim_id: currentClaim.claimId,
+          });
+        } catch (releaseError) {
+          console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+        }
+      }
+      currentClaim = null;
+      continue;
     }
 
     // Prepare workspace - repository URL is required
