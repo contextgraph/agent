@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
@@ -308,29 +310,44 @@ export async function runLocalAgent(): Promise<void> {
       continue;
     }
 
-    // Prepare workspace - repository URL is required
+    // Prepare workspace based on phase and repo availability
     const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
     const branch = actionDetail.resolved_branch || actionDetail.branch;
-
-    if (!repoUrl) {
-      console.error(`\n❌ Action "${actionDetail.title}" has no repository_url set.`);
-      console.error(`   Actions must have a repository_url (directly or inherited from parent).`);
-      console.error(`   Action ID: ${actionDetail.id}`);
-      console.error(`   resolved_repository_url: ${actionDetail.resolved_repository_url}`);
-      console.error(`   repository_url: ${actionDetail.repository_url}`);
-      process.exit(1);
-    }
 
     let workspacePath: string;
     let cleanup: (() => Promise<void>) | undefined;
 
+    // Determine if we need to clone the repository
+    // - Learning phase: never needs repo (works via API/MCP tools)
+    // - Prepare/Execute: need repo if available, blank workspace otherwise
+    const needsRepo = phase !== 'learn' && repoUrl;
+
     try {
-      const workspace = await prepareWorkspace(repoUrl, {
-        branch: branch || undefined,
-        authToken: credentials.clerkToken,
-      });
-      workspacePath = workspace.path;
-      cleanup = workspace.cleanup;
+      if (needsRepo) {
+        // Clone repository into workspace
+        const workspace = await prepareWorkspace(repoUrl, {
+          branch: branch || undefined,
+          authToken: credentials.clerkToken,
+        });
+        workspacePath = workspace.path;
+        cleanup = workspace.cleanup;
+      } else {
+        // Create a blank temp directory (learning phase, or no repo configured)
+        if (phase === 'learn') {
+          console.log(`📂 Learning phase - creating blank workspace`);
+        } else {
+          console.log(`📂 No repository configured - creating blank workspace`);
+        }
+        workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
+        console.log(`   → ${workspacePath}`);
+        cleanup = async () => {
+          try {
+            await rm(workspacePath, { recursive: true, force: true });
+          } catch (error) {
+            console.error(`Warning: Failed to cleanup workspace at ${workspacePath}:`, error);
+          }
+        };
+      }
 
       if (phase === 'prepare') {
         await runPrepare(actionDetail.id, { cwd: workspacePath });
