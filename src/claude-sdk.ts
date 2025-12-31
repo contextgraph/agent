@@ -162,6 +162,7 @@ export async function executeClaude(
     const iterator = query({
       prompt: options.prompt,
       options: {
+        model: 'claude-opus-4.5',
         cwd: options.cwd,
         abortController,
         permissionMode: 'bypassPermissions', // Allow MCP tools to execute automatically
