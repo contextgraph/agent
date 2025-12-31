@@ -9,6 +9,7 @@ const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export interface WorkspaceResult {
   path: string;
+  startingCommit: string;
   cleanup: () => Promise<void>;
 }
 
@@ -145,7 +146,11 @@ export async function prepareWorkspace(
       }
     }
 
-    return { path: workspacePath, cleanup };
+    // Capture starting commit for historical accuracy
+    const { stdout: commitHash } = await runGitCommand(['rev-parse', 'HEAD'], workspacePath);
+    const startingCommit = commitHash.trim();
+
+    return { path: workspacePath, startingCommit, cleanup };
   } catch (error) {
     // Cleanup on failure
     await cleanup();

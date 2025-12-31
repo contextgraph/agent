@@ -68,15 +68,17 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock git commands: clone, config user.name, config user.email
+      // Mock git commands: clone, config user.name, config user.email, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
         .mockReturnValueOnce(createMockProcess(0)) // git config user.name
-        .mockReturnValueOnce(createMockProcess(0)); // git config user.email
+        .mockReturnValueOnce(createMockProcess(0)) // git config user.email
+        .mockReturnValueOnce(createMockProcess(0, 'abc123def456\n')); // git rev-parse HEAD
 
       const result = await prepareWorkspace('https://github.com/test/repo', defaultOptions);
 
       expect(result.path).toBe('/tmp/cg-workspace-abc123');
+      expect(result.startingCommit).toBe('abc123def456');
       expect(typeof result.cleanup).toBe('function');
 
       // Verify fetch was called with correct auth header
@@ -106,11 +108,12 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock: clone, ls-remote (branch exists), checkout
+      // Mock: clone, ls-remote (branch exists), checkout, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
         .mockReturnValueOnce(createMockProcess(0, 'abc123\trefs/heads/feature-branch')) // ls-remote shows branch
-        .mockReturnValueOnce(createMockProcess(0)); // git checkout
+        .mockReturnValueOnce(createMockProcess(0)) // git checkout
+        .mockReturnValueOnce(createMockProcess(0, 'def789ghi012\n')); // git rev-parse HEAD
 
       const result = await prepareWorkspace('https://github.com/test/repo', {
         ...defaultOptions,
@@ -118,6 +121,7 @@ describe('workspace-prep', () => {
       });
 
       expect(result.path).toBe('/tmp/cg-workspace-abc123');
+      expect(result.startingCommit).toBe('def789ghi012');
 
       // Verify checkout was called (not checkout -b)
       expect(mockSpawn).toHaveBeenCalledWith(
@@ -136,11 +140,12 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock: clone, ls-remote (empty = no branch), checkout -b
+      // Mock: clone, ls-remote (empty = no branch), checkout -b, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
         .mockReturnValueOnce(createMockProcess(0, '')) // ls-remote returns empty
-        .mockReturnValueOnce(createMockProcess(0)); // git checkout -b
+        .mockReturnValueOnce(createMockProcess(0)) // git checkout -b
+        .mockReturnValueOnce(createMockProcess(0, 'aaa111bbb222\n')); // git rev-parse HEAD
 
       const result = await prepareWorkspace('https://github.com/test/repo', {
         ...defaultOptions,
@@ -148,6 +153,7 @@ describe('workspace-prep', () => {
       });
 
       expect(result.path).toBe('/tmp/cg-workspace-abc123');
+      expect(result.startingCommit).toBe('aaa111bbb222');
 
       // Verify checkout -b was called (create new branch)
       expect(mockSpawn).toHaveBeenCalledWith(
@@ -211,7 +217,9 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      mockSpawn.mockReturnValueOnce(createMockProcess(0)); // git clone
+      mockSpawn
+        .mockReturnValueOnce(createMockProcess(0)) // git clone
+        .mockReturnValueOnce(createMockProcess(0, 'ccc333ddd444\n')); // git rev-parse HEAD
 
       await prepareWorkspace('https://gitlab.com/test/repo', defaultOptions);
 
@@ -232,7 +240,9 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      mockSpawn.mockReturnValueOnce(createMockProcess(0)); // git clone
+      mockSpawn
+        .mockReturnValueOnce(createMockProcess(0)) // git clone
+        .mockReturnValueOnce(createMockProcess(0, 'eee555fff666\n')); // git rev-parse HEAD
 
       const result = await prepareWorkspace('https://github.com/test/repo', defaultOptions);
 
@@ -255,7 +265,9 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      mockSpawn.mockReturnValueOnce(createMockProcess(0)); // git clone
+      mockSpawn
+        .mockReturnValueOnce(createMockProcess(0)) // git clone
+        .mockReturnValueOnce(createMockProcess(0, 'ggg777hhh888\n')); // git rev-parse HEAD
       mockRm.mockRejectedValueOnce(new Error('Permission denied'));
 
       const result = await prepareWorkspace('https://github.com/test/repo', defaultOptions);
