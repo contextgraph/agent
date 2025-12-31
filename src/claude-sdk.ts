@@ -127,6 +127,8 @@ function formatMessage(message: SDKMessage): string | null {
 export interface ExecuteClaudeOptions extends SpawnClaudeOptions {
   /** Callback for log events - called for each SDK message transformed into a LogEvent */
   onLogEvent?: (event: LogEvent) => void;
+  /** Optional model to use (e.g., 'claude-opus-4-5-20251101'). If not specified, uses SDK default (Sonnet). */
+  model?: string;
 }
 
 /**
@@ -162,7 +164,7 @@ export async function executeClaude(
     const iterator = query({
       prompt: options.prompt,
       options: {
-        model: 'claude-opus-4.5',
+        ...(options.model ? { model: options.model } : {}),
         cwd: options.cwd,
         abortController,
         permissionMode: 'bypassPermissions', // Allow MCP tools to execute automatically

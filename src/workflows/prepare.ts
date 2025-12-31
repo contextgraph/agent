@@ -76,6 +76,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       prompt,
       cwd: options?.cwd || process.cwd(),
       authToken: credentials.clerkToken,
+      model: 'claude-opus-4-5-20251101',
       onLogEvent: (event) => {
         logBuffer!.push(event);
       },
