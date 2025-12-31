@@ -9,6 +9,7 @@ const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export interface WorkflowOptions {
   cwd?: string;
+  startingCommit?: string;
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -33,7 +34,9 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   try {
     // Create run for this execution FIRST so we have runId for the prompt
     console.log('[Log Streaming] Creating run...');
-    runId = await logTransport.createRun(actionId, 'execute');
+    runId = await logTransport.createRun(actionId, 'execute', {
+      startingCommit: options?.startingCommit,
+    });
     console.log(`[Log Streaming] Run created: ${runId}`);
 
     // Now fetch execution instructions with runId included

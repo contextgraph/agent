@@ -316,6 +316,7 @@ export async function runLocalAgent(): Promise<void> {
 
     let workspacePath: string;
     let cleanup: (() => Promise<void>) | undefined;
+    let startingCommit: string | undefined;
 
     // Determine if we need to clone the repository
     // - Learning phase: never needs repo (works via API/MCP tools)
@@ -331,6 +332,7 @@ export async function runLocalAgent(): Promise<void> {
         });
         workspacePath = workspace.path;
         cleanup = workspace.cleanup;
+        startingCommit = workspace.startingCommit;
       } else {
         // Create a blank temp directory (learning phase, or no repo configured)
         if (phase === 'learn') {
@@ -350,7 +352,7 @@ export async function runLocalAgent(): Promise<void> {
       }
 
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit });
         stats.prepared++;
 
         // Release claim after preparation
@@ -371,7 +373,7 @@ export async function runLocalAgent(): Promise<void> {
 
       if (phase === 'learn') {
         try {
-          await runLearn(actionDetail.id, { cwd: workspacePath });
+          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit });
           stats.learned++;
           console.log(`Learning extracted: ${actionDetail.title}`);
         } catch (learnError) {
@@ -396,7 +398,7 @@ export async function runLocalAgent(): Promise<void> {
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath });
+        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit });
         stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {

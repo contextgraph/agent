@@ -9,6 +9,7 @@ const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export interface WorkflowOptions {
   cwd?: string;
+  startingCommit?: string;
 }
 
 export async function runLearn(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -33,7 +34,9 @@ export async function runLearn(actionId: string, options?: WorkflowOptions): Pro
   try {
     // Create run for this learning phase FIRST so we have runId for the prompt
     console.log('[Log Streaming] Creating run for learn phase...');
-    runId = await logTransport.createRun(actionId, 'learn');
+    runId = await logTransport.createRun(actionId, 'learn', {
+      startingCommit: options?.startingCommit,
+    });
     console.log(`[Log Streaming] Run created: ${runId}`);
 
     // Now fetch learning instructions with runId included
