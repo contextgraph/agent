@@ -24,27 +24,6 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     process.exit(1);
   }
 
-  console.log(`Fetching preparation instructions for action ${actionId}...\n`);
-
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/api/prompts/prepare`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${credentials.clerkToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ actionId }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to fetch prepare prompt: ${response.statusText}\n${errorText}`);
-  }
-
-  const { prompt } = await response.json();
-
   // Initialize log streaming infrastructure
   const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
   let runId: string | undefined;
@@ -52,10 +31,32 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
   let logBuffer: LogBuffer | undefined;
 
   try {
-    // Create run for this preparation phase
+    // Create run for this preparation phase FIRST so we have runId for the prompt
     console.log('[Log Streaming] Creating run for prepare phase...');
     runId = await logTransport.createRun(actionId, 'prepare');
     console.log(`[Log Streaming] Run created: ${runId}`);
+
+    // Now fetch preparation instructions with runId included
+    console.log(`Fetching preparation instructions for action ${actionId}...\n`);
+
+    const response = await fetchWithRetry(
+      `${API_BASE_URL}/api/prompts/prepare`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${credentials.clerkToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ actionId, runId }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch prepare prompt: ${response.statusText}\n${errorText}`);
+    }
+
+    const { prompt } = await response.json();
 
     // Update run state to preparing
     await logTransport.updateRunState('preparing');

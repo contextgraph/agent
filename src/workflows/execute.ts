@@ -24,27 +24,6 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     process.exit(1);
   }
 
-  console.log(`Fetching execution instructions for action ${actionId}...\n`);
-
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/api/prompts/execute`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${credentials.clerkToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ actionId }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
-  }
-
-  const { prompt } = await response.json();
-
   // Initialize log streaming infrastructure
   const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
   let runId: string | undefined;
@@ -52,10 +31,32 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let logBuffer: LogBuffer | undefined;
 
   try {
-    // Create run for this execution
+    // Create run for this execution FIRST so we have runId for the prompt
     console.log('[Log Streaming] Creating run...');
     runId = await logTransport.createRun(actionId, 'execute');
     console.log(`[Log Streaming] Run created: ${runId}`);
+
+    // Now fetch execution instructions with runId included
+    console.log(`Fetching execution instructions for action ${actionId}...\n`);
+
+    const response = await fetchWithRetry(
+      `${API_BASE_URL}/api/prompts/execute`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${credentials.clerkToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ actionId, runId }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
+    }
+
+    const { prompt } = await response.json();
 
     // Update run state to executing
     await logTransport.updateRunState('executing');
