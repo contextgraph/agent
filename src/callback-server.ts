@@ -43,6 +43,7 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
   const port = await findFreePort();
 
   let callbackResolve: ((result: CallbackResult) => void) | null = null;
+  const connections = new Set<import('net').Socket>();
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url || '/', `http://localhost:${port}`);
@@ -75,6 +76,14 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
     }
   });
 
+  // Track connections so we can destroy them on close
+  server.on('connection', (socket) => {
+    connections.add(socket);
+    socket.on('close', () => {
+      connections.delete(socket);
+    });
+  });
+
   await new Promise<void>((resolve) => {
     server.listen(port, resolve);
   });
@@ -88,6 +97,12 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
     },
     close: () => {
       return new Promise<void>((resolve, reject) => {
+        // Destroy all active connections to ensure server closes immediately
+        for (const socket of connections) {
+          socket.destroy();
+        }
+        connections.clear();
+
         server.close((err) => {
           if (err) {
             reject(err);

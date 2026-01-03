@@ -8,6 +8,7 @@ export async function runAuth(): Promise<void> {
   if (result.success) {
     console.log('\n✅ Authentication successful!');
     console.log(`User ID: ${result.credentials.userId}`);
+    process.exit(0);
   } else {
     console.error('\n❌ Authentication failed:', result.error);
     process.exit(1);
