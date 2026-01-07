@@ -176,7 +176,7 @@ function isRetryableError(error: Error): boolean {
   );
 }
 
-export async function runLocalAgent(forceModel?: string): Promise<void> {
+export async function runLocalAgent(options?: { forceModel?: string; skipLearning?: boolean }): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
 
@@ -207,6 +207,9 @@ export async function runLocalAgent(forceModel?: string): Promise<void> {
   console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
   console.log(`👷 Worker ID: ${workerId}`);
   console.log(`🔄 Starting continuous worker loop...\n`);
+  if (options?.skipLearning) {
+    console.log(`⏭️  Skipping learning runs (--skip-learning)\n`);
+  }
   console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
@@ -285,7 +288,7 @@ export async function runLocalAgent(forceModel?: string): Promise<void> {
     // Determine which phase this action needs
     // Check learning eligibility first - some actions were executed without being prepared
     let phase: 'prepare' | 'learn' | 'execute';
-    if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned) {
+    if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned && !options?.skipLearning) {
       phase = 'learn';
     } else if (!actionDetail.prepared) {
       phase = 'prepare';
@@ -352,7 +355,7 @@ export async function runLocalAgent(forceModel?: string): Promise<void> {
       }
 
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
         stats.prepared++;
 
         // Release claim after preparation
@@ -373,7 +376,7 @@ export async function runLocalAgent(forceModel?: string): Promise<void> {
 
       if (phase === 'learn') {
         try {
-          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
+          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
           stats.learned++;
           console.log(`Learning extracted: ${actionDetail.title}`);
         } catch (learnError) {
@@ -398,7 +401,7 @@ export async function runLocalAgent(forceModel?: string): Promise<void> {
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
+        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
         stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {

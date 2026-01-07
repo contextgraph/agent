@@ -26,9 +26,13 @@ program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
   .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
+  .option('--skip-learning', 'Skip learning runs and only do preparation and execution')
   .action(async (options) => {
     try {
-      await runLocalAgent(options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined);
+      await runLocalAgent({
+        forceModel: options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined,
+        skipLearning: options.skipLearning || false,
+      });
     } catch (error) {
       if (error instanceof Error) {
         console.error('Error running agent:', error.message || '(no message)');
