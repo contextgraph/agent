@@ -274,8 +274,6 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
     // Reset poll interval on successful claim
     currentPollInterval = INITIAL_POLL_INTERVAL;
 
-    console.log(`Working: ${actionDetail.title}`);
-
     // Track current claim for graceful shutdown
     if (actionDetail.claim_id) {
       currentClaim = {
@@ -315,6 +313,9 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
       currentClaim = null;
       continue;
     }
+
+    // Only print "Working" once we've determined there's actual work to do
+    console.log(`Working: ${actionDetail.title}`);
 
     // Prepare workspace based on phase and repo availability
     const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
