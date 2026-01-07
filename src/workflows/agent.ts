@@ -295,9 +295,12 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
     } else if (!actionDetail.done) {
       phase = 'execute';
     } else {
-      // Action is done but not reviewed yet - nothing to do
-      // This shouldn't happen if the worker queue is filtering correctly
-      console.log(`⏭️  Skipping action "${actionDetail.title}" - done but not yet reviewed`);
+      // Action is done but not reviewed yet, or learning is disabled - nothing to do
+      // Only log if this isn't a learning-only scenario being skipped
+      const isLearningOnlyAndSkipped = actionDetail.done && actionDetail.reviewed && !actionDetail.learned && options?.skipLearning;
+      if (!isLearningOnlyAndSkipped) {
+        console.log(`⏭️  Skipping action "${actionDetail.title}" - done but not yet reviewed`);
+      }
       if (currentClaim && apiClient) {
         try {
           await apiClient.releaseClaim({
