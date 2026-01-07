@@ -10,6 +10,7 @@ const API_BASE_URL = 'https://www.contextgraph.dev';
 export interface WorkflowOptions {
   cwd?: string;
   startingCommit?: string;
+  model?: string;
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -79,6 +80,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       prompt,
       cwd: options?.cwd || process.cwd(),
       authToken: credentials.clerkToken,
+      ...(options?.model ? { model: options.model } : {}),
       onLogEvent: (event) => {
         logBuffer!.push(event);
       },

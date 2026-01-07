@@ -176,7 +176,7 @@ function isRetryableError(error: Error): boolean {
   );
 }
 
-export async function runLocalAgent(): Promise<void> {
+export async function runLocalAgent(forceModel?: string): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
 
@@ -352,7 +352,7 @@ export async function runLocalAgent(): Promise<void> {
       }
 
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
         stats.prepared++;
 
         // Release claim after preparation
@@ -373,7 +373,7 @@ export async function runLocalAgent(): Promise<void> {
 
       if (phase === 'learn') {
         try {
-          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit });
+          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
           stats.learned++;
           console.log(`Learning extracted: ${actionDetail.title}`);
         } catch (learnError) {
@@ -398,7 +398,7 @@ export async function runLocalAgent(): Promise<void> {
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit });
+        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: forceModel });
         stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {
