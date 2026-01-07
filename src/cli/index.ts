@@ -25,10 +25,10 @@ program
 program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
-  .option('--force-haiku', 'Force all workflows to use claude-3-5-haiku instead of default models')
+  .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
   .action(async (options) => {
     try {
-      await runLocalAgent(options.forceHaiku ? 'claude-3-5-haiku-20241022' : undefined);
+      await runLocalAgent(options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined);
     } catch (error) {
       if (error instanceof Error) {
         console.error('Error running agent:', error.message || '(no message)');
