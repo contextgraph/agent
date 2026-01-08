@@ -9,7 +9,6 @@ import type { ActionNode, ActionMetadata } from '../types/actions.js';
 import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
-import { runLearn } from './learn.js';
 import { prepareWorkspace } from '../workspace-prep.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
@@ -42,7 +41,6 @@ let apiClient: ApiClient | null = null;
 const stats = {
   startTime: Date.now(),
   prepared: 0,
-  learned: 0,
   executed: 0,
   errors: 0,
 };
@@ -62,8 +60,8 @@ function formatDuration(ms: number): string {
 
 function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
-  const total = stats.prepared + stats.learned + stats.executed;
-  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.learned} learned, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
+  const total = stats.prepared + stats.executed;
+  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
 }
 
 /**
@@ -176,7 +174,7 @@ function isRetryableError(error: Error): boolean {
   );
 }
 
-export async function runLocalAgent(options?: { forceModel?: string; skipLearning?: boolean }): Promise<void> {
+export async function runLocalAgent(options?: { forceModel?: string }): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
 
@@ -207,9 +205,6 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
   console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
   console.log(`👷 Worker ID: ${workerId}`);
   console.log(`🔄 Starting continuous worker loop...\n`);
-  if (options?.skipLearning) {
-    console.log(`⏭️  Skipping learning runs (--skip-learning)\n`);
-  }
   console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
@@ -284,21 +279,14 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
     }
 
     // Determine which phase this action needs
-    // Check learning eligibility first - some actions were executed without being prepared
-    let phase: 'prepare' | 'learn' | 'execute';
-    if (actionDetail.done && actionDetail.reviewed && !actionDetail.learned && !options?.skipLearning) {
-      phase = 'learn';
-    } else if (!actionDetail.prepared) {
+    let phase: 'prepare' | 'execute';
+    if (!actionDetail.prepared) {
       phase = 'prepare';
     } else if (!actionDetail.done) {
       phase = 'execute';
     } else {
-      // Action is done but not reviewed yet, or learning is disabled - nothing to do
-      // Only log if this isn't a learning-only scenario being skipped
-      const isLearningOnlyAndSkipped = actionDetail.done && actionDetail.reviewed && !actionDetail.learned && options?.skipLearning;
-      if (!isLearningOnlyAndSkipped) {
-        console.log(`⏭️  Skipping action "${actionDetail.title}" - done but not yet reviewed`);
-      }
+      // Action is already done - nothing to do
+      console.log(`⏭️  Skipping action "${actionDetail.title}" - already completed`);
       if (currentClaim && apiClient) {
         try {
           await apiClient.releaseClaim({
@@ -326,9 +314,8 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
     let startingCommit: string | undefined;
 
     // Determine if we need to clone the repository
-    // - Learning phase: never needs repo (works via API/MCP tools)
     // - Prepare/Execute: need repo if available, blank workspace otherwise
-    const needsRepo = phase !== 'learn' && repoUrl;
+    const needsRepo = repoUrl;
 
     try {
       if (needsRepo) {
@@ -341,12 +328,8 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
         cleanup = workspace.cleanup;
         startingCommit = workspace.startingCommit;
       } else {
-        // Create a blank temp directory (learning phase, or no repo configured)
-        if (phase === 'learn') {
-          console.log(`📂 Learning phase - creating blank workspace`);
-        } else {
-          console.log(`📂 No repository configured - creating blank workspace`);
-        }
+        // Create a blank temp directory (no repo configured)
+        console.log(`📂 No repository configured - creating blank workspace`);
         workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
         console.log(`   → ${workspacePath}`);
         cleanup = async () => {
@@ -375,32 +358,6 @@ export async function runLocalAgent(options?: { forceModel?: string; skipLearnin
           }
         }
         currentClaim = null;
-        continue;
-      }
-
-      if (phase === 'learn') {
-        try {
-          await runLearn(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
-          stats.learned++;
-          console.log(`Learning extracted: ${actionDetail.title}`);
-        } catch (learnError) {
-          stats.errors++;
-          console.error(`Error during learning: ${(learnError as Error).message}. Continuing...`);
-        } finally {
-          // Release claim after learning completes (success or failure)
-          if (currentClaim && apiClient) {
-            try {
-              await apiClient.releaseClaim({
-                action_id: currentClaim.actionId,
-                worker_id: currentClaim.workerId,
-                claim_id: currentClaim.claimId,
-              });
-            } catch (releaseError) {
-              console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
-            }
-          }
-          currentClaim = null;
-        }
         continue;
       }
 

@@ -5,7 +5,6 @@ import { dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
-import { runLearn } from '../workflows/learn.js';
 import { runLocalAgent } from '../workflows/agent.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
@@ -26,12 +25,10 @@ program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
   .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
-  .option('--skip-learning', 'Skip learning runs and only do preparation and execution')
   .action(async (options) => {
     try {
       await runLocalAgent({
         forceModel: options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined,
-        skipLearning: options.skipLearning || false,
       });
     } catch (error) {
       if (error instanceof Error) {
@@ -81,19 +78,6 @@ program
       await runExecute(actionId);
     } catch (error) {
       console.error('Error executing action:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('learn')
-  .argument('<action-id>', 'Action ID to learn from')
-  .description('Extract learnings from a completed action')
-  .action(async (actionId: string) => {
-    try {
-      await runLearn(actionId);
-    } catch (error) {
-      console.error('Error learning from action:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });

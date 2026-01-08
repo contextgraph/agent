@@ -85,13 +85,13 @@ export class LogTransportService {
   /**
    * Create a new run for an action
    * @param actionId - The action ID this run is executing
-   * @param purpose - The purpose of this run: 'execute' | 'prepare' | 'learn' | 'review'
+   * @param purpose - The purpose of this run: 'execute' | 'prepare' | 'review'
    * @param metadata - Optional metadata for the run (e.g., startingCommit)
    * @returns The created run ID
    */
   async createRun(
     actionId: string,
-    purpose: 'execute' | 'prepare' | 'learn' | 'review',
+    purpose: 'execute' | 'prepare' | 'review',
     metadata?: { startingCommit?: string }
   ): Promise<string> {
     const response = await this.makeRequest('/api/runs', {
@@ -191,7 +191,7 @@ export class LogTransportService {
     }
 
     // Map state to appropriate endpoint
-    if (state === 'executing' || state === 'preparing' || state === 'running' || state === 'learning') {
+    if (state === 'executing' || state === 'preparing' || state === 'running') {
       await this.startRun();
     } else if (state === 'completed' || state === 'failed') {
       const outcome = state === 'completed' ? 'success' : 'error';
