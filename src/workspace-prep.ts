@@ -4,6 +4,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
+import { injectSkills } from './skill-injection.js';
+import { getValidationSkills } from './test-skills.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -149,6 +151,17 @@ export async function prepareWorkspace(
     // Capture starting commit for historical accuracy
     const { stdout: commitHash } = await runGitCommand(['rev-parse', 'HEAD'], workspacePath);
     const startingCommit = commitHash.trim();
+
+    // Inject validation skills into workspace
+    // This happens AFTER repo clone but BEFORE Claude Code starts
+    console.log('');  // Blank line for better log readability
+    try {
+      const validationSkills = getValidationSkills();
+      await injectSkills(workspacePath, validationSkills);
+    } catch (skillError) {
+      // Log but don't fail - agent can still work without skills
+      console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
+    }
 
     return { path: workspacePath, startingCommit, cleanup };
   } catch (error) {
