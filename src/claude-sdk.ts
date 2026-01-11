@@ -169,6 +169,26 @@ export async function executeClaude(
         abortController,
         permissionMode: 'bypassPermissions', // Allow MCP tools to execute automatically
         maxTurns: 100, // Reasonable limit
+        // Enable skills: load from project .claude/skills/ and allow Skill tool
+        settingSources: ['project'],
+        allowedTools: [
+          // Core file operations
+          'Read', 'Write', 'Edit', 'MultiEdit',
+          // Search tools
+          'Grep', 'Glob',
+          // Execution
+          'Bash',
+          // Skills
+          'Skill',
+          // Agent orchestration
+          'Task',
+          // User interaction
+          'TodoWrite', 'AskUserQuestion',
+          // Web access
+          'WebFetch', 'WebSearch',
+          // MCP tools (pattern match for contextgraph MCP server)
+          'mcp__*',
+        ],
         env: {
           ...process.env,
           // Pass auth token through environment for MCP server
