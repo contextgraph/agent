@@ -6,6 +6,7 @@ import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
 import { injectSkills } from './skill-injection.js';
 import { getValidationSkills } from './test-skills.js';
+import { fetchSkillsLibrary } from './skills-library-fetch.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -152,12 +153,22 @@ export async function prepareWorkspace(
     const { stdout: commitHash } = await runGitCommand(['rev-parse', 'HEAD'], workspacePath);
     const startingCommit = commitHash.trim();
 
-    // Inject validation skills into workspace
+    // Fetch and inject skills from ContextGraph library into workspace
     // This happens AFTER repo clone but BEFORE Claude Code starts
     console.log('');  // Blank line for better log readability
     try {
+      // Fetch user's skills library from ContextGraph API
+      const librarySkills = await fetchSkillsLibrary(authToken);
+
+      // Combine with validation skills for testing
       const validationSkills = getValidationSkills();
-      await injectSkills(workspacePath, validationSkills);
+      const allSkills = [...librarySkills, ...validationSkills];
+
+      if (allSkills.length > 0) {
+        await injectSkills(workspacePath, allSkills);
+      } else {
+        console.log('📚 No skills to inject (empty library)');
+      }
     } catch (skillError) {
       // Log but don't fail - agent can still work without skills
       console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
