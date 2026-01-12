@@ -1,14 +1,9 @@
-import { mkdtemp } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { executeClaude } from '../claude-sdk.js';
 import { fetchWithRetry } from '../fetch-with-retry.js';
 import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
-import { ApiClient } from '../api-client.js';
-import { prepareWorkspace } from '../workspace-prep.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -31,42 +26,6 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     process.exit(1);
   }
 
-  // Determine workspace - use provided cwd or prepare workspace from action details
-  let workspacePath: string;
-  let cleanup: (() => Promise<void>) | undefined;
-  let startingCommit = options?.startingCommit;
-
-  if (options?.cwd) {
-    // Called from agent.ts with pre-prepared workspace
-    workspacePath = options.cwd;
-  } else {
-    // Standalone CLI invocation - prepare workspace ourselves
-    const apiClient = new ApiClient();
-    const actionDetail = await apiClient.getActionDetail(actionId);
-
-    const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
-    const branch = actionDetail.resolved_branch || actionDetail.branch;
-
-    if (repoUrl) {
-      console.log(`📦 Preparing workspace for action "${actionDetail.title}"...`);
-      const workspace = await prepareWorkspace(repoUrl, {
-        branch: branch || undefined,
-        authToken: credentials.clerkToken,
-      });
-      workspacePath = workspace.path;
-      cleanup = workspace.cleanup;
-      startingCommit = workspace.startingCommit;
-    } else {
-      console.log(`📂 No repository configured - creating blank workspace`);
-      workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
-      console.log(`   → ${workspacePath}`);
-      cleanup = async () => {
-        const { rm } = await import('fs/promises');
-        await rm(workspacePath, { recursive: true, force: true });
-      };
-    }
-  }
-
   // Initialize log streaming infrastructure
   const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
   let runId: string | undefined;
@@ -77,7 +36,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     // Create run for this preparation phase FIRST so we have runId for the prompt
     console.log('[Log Streaming] Creating run for prepare phase...');
     runId = await logTransport.createRun(actionId, 'prepare', {
-      startingCommit,
+      startingCommit: options?.startingCommit,
     });
     console.log(`[Log Streaming] Run created: ${runId}`);
 
@@ -119,7 +78,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
 
     const claudeResult = await executeClaude({
       prompt,
-      cwd: workspacePath,
+      cwd: options?.cwd || process.cwd(),
       authToken: credentials.clerkToken,
       model: options?.model || 'claude-opus-4-5-20251101',
       onLogEvent: (event) => {
@@ -167,11 +126,6 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     if (logBuffer) {
       await logBuffer.stop();
       console.log('[Log Streaming] Logs flushed');
-    }
-
-    // Cleanup workspace if we created it
-    if (cleanup) {
-      await cleanup();
     }
   }
 }

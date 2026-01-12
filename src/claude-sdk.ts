@@ -9,24 +9,6 @@ const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const THINKING_TRUNCATE_LENGTH = 100;
 const COMMAND_TRUNCATE_LENGTH = 60;
 
-/**
- * Skill invocation preamble prepended to all prompts.
- * This tells Claude to invoke required skills before proceeding with work.
- */
-const SKILL_PREAMBLE = `# FIRST: Invoke Required Skills
-
-Before doing anything else, you MUST invoke the "agent-session-start" skill:
-
-\`\`\`
-Skill({ skill: "agent-session-start" })
-\`\`\`
-
-This is mandatory - do not skip this step. After invoking the skill, proceed with the instructions below.
-
----
-
-`;
-
 // Helper types for SDK message content
 type ToolInput =
   | { file_path: string; old_string?: string; new_string?: string }  // Read, Edit, Write
@@ -113,13 +95,6 @@ function formatMessage(message: SDKMessage): string | null {
   switch (message.type) {
     case 'system':
       if (message.subtype === 'init') {
-        // Log details about skills from init message
-        const initMsg = message as any;
-        if (initMsg.skills) {
-          console.log('[Agent SDK] Skills loaded:', JSON.stringify(initMsg.skills, null, 2));
-        } else {
-          console.log('[Agent SDK] No skills in init message');
-        }
         return '🚀 Claude session initialized';
       }
       return null;
@@ -184,16 +159,10 @@ export async function executeClaude(
     console.log('[Agent SDK] Auth token available:', !!options.authToken);
     console.log('[Agent SDK] Anthropic API key available:', !!process.env.ANTHROPIC_API_KEY);
     console.log('[Agent SDK] Claude OAuth token available:', !!process.env.CLAUDE_CODE_OAUTH_TOKEN);
-    console.log('[Agent SDK] cwd:', options.cwd);
-    console.log('[Agent SDK] settingSources:', ['project']);
-    console.log('[Agent SDK] Skill tool enabled in allowedTools:', true);
-
-    // Prepend skill invocation instructions to the prompt
-    const promptWithSkills = SKILL_PREAMBLE + options.prompt;
 
     // Create the query with SDK using the plugin
     const iterator = query({
-      prompt: promptWithSkills,
+      prompt: options.prompt,
       options: {
         ...(options.model ? { model: options.model } : {}),
         cwd: options.cwd,
@@ -202,15 +171,14 @@ export async function executeClaude(
         maxTurns: 100, // Reasonable limit
         // Enable skills: load from project .claude/skills/ and allow Skill tool
         settingSources: ['project'],
-        // Explicitly include Skill tool in available tools
-        tools: [
+        allowedTools: [
           // Core file operations
           'Read', 'Write', 'Edit', 'MultiEdit',
           // Search tools
           'Grep', 'Glob',
           // Execution
           'Bash',
-          // Skills - must be explicitly included
+          // Skills
           'Skill',
           // Agent orchestration
           'Task',
@@ -218,19 +186,6 @@ export async function executeClaude(
           'TodoWrite', 'AskUserQuestion',
           // Web access
           'WebFetch', 'WebSearch',
-          // Notebook editing
-          'NotebookEdit',
-        ],
-        allowedTools: [
-          // Auto-approve all the tools we're using
-          'Read', 'Write', 'Edit', 'MultiEdit',
-          'Grep', 'Glob',
-          'Bash',
-          'Skill',
-          'Task',
-          'TodoWrite', 'AskUserQuestion',
-          'WebFetch', 'WebSearch',
-          'NotebookEdit',
           // MCP tools (pattern match for contextgraph MCP server)
           'mcp__*',
         ],
