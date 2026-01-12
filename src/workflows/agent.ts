@@ -11,6 +11,9 @@ import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
 import { prepareWorkspace } from '../workspace-prep.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
+import { LogTransportService } from '../log-transport.js';
+
+const API_BASE_URL = 'https://www.contextgraph.dev';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -312,17 +315,27 @@ export async function runLocalAgent(options?: { forceModel?: string }): Promise<
     let workspacePath: string;
     let cleanup: (() => Promise<void>) | undefined;
     let startingCommit: string | undefined;
+    let runId: string | undefined;
 
     // Determine if we need to clone the repository
     // - Prepare/Execute: need repo if available, blank workspace otherwise
     const needsRepo = repoUrl;
 
     try {
+      // Create run FIRST so we can track which skills are loaded
+      // This enables the "skill refinement signals" feature
+      const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
+      console.log('[Log Streaming] Creating run...');
+      runId = await logTransport.createRun(actionDetail.id, phase);
+      console.log(`[Log Streaming] Run created: ${runId}`);
+
       if (needsRepo) {
         // Clone repository into workspace
+        // Pass runId so skills loading is recorded for this run
         const workspace = await prepareWorkspace(repoUrl, {
           branch: branch || undefined,
           authToken: credentials.clerkToken,
+          runId,
         });
         workspacePath = workspace.path;
         cleanup = workspace.cleanup;
@@ -342,7 +355,7 @@ export async function runLocalAgent(options?: { forceModel?: string }): Promise<
       }
 
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });
         stats.prepared++;
 
         // Release claim after preparation
@@ -362,7 +375,7 @@ export async function runLocalAgent(options?: { forceModel?: string }): Promise<
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel });
+        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });
         stats.executed++;
         console.log(`Completed: ${actionDetail.title}`);
       } catch (executeError) {

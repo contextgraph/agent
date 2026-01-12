@@ -18,6 +18,7 @@ export interface WorkspaceResult {
 export interface PrepareWorkspaceOptions {
   branch?: string;
   authToken: string;
+  runId?: string; // Optional runId to record which skills were loaded
 }
 
 async function fetchGitHubCredentials(authToken: string): Promise<GitHubCredentials> {
@@ -93,7 +94,7 @@ export async function prepareWorkspace(
   repoUrl: string,
   options: PrepareWorkspaceOptions
 ): Promise<WorkspaceResult> {
-  const { branch, authToken } = options;
+  const { branch, authToken, runId } = options;
 
   // Fetch GitHub credentials
   const credentials = await fetchGitHubCredentials(authToken);
@@ -157,7 +158,8 @@ export async function prepareWorkspace(
     console.log('');  // Blank line for better log readability
     try {
       // Fetch user's skills library from ContextGraph API
-      const librarySkills = await fetchSkillsLibrary(authToken);
+      // If runId is provided, the server will record which skills were loaded for this run
+      const librarySkills = await fetchSkillsLibrary({ authToken, runId });
 
       if (librarySkills.length > 0) {
         await injectSkills(workspacePath, librarySkills);

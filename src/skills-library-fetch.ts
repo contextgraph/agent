@@ -17,16 +17,29 @@ interface SkillsLibraryResponse {
   };
 }
 
+export interface FetchSkillsLibraryOptions {
+  authToken: string;
+  runId?: string; // Optional runId to record which skills were loaded for this run
+}
+
 /**
  * Fetches the user's skills library from the ContextGraph API.
  *
- * @param authToken - User authentication token
+ * @param options - Options including authToken and optional runId
  * @returns Array of skills to inject, or empty array if fetch fails
  */
-export async function fetchSkillsLibrary(authToken: string): Promise<SkillToInject[]> {
+export async function fetchSkillsLibrary(options: FetchSkillsLibraryOptions): Promise<SkillToInject[]> {
+  const { authToken, runId } = options;
+
   try {
+    // Build URL with optional runId query parameter
+    const url = new URL(`${API_BASE_URL}/api/skills/library`);
+    if (runId) {
+      url.searchParams.set('runId', runId);
+    }
+
     const response = await fetchWithRetry(
-      `${API_BASE_URL}/api/skills/library`,
+      url.toString(),
       {
         headers: {
           'x-authorization': `Bearer ${authToken}`,

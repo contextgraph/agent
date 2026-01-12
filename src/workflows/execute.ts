@@ -11,6 +11,7 @@ export interface WorkflowOptions {
   cwd?: string;
   startingCommit?: string;
   model?: string;
+  runId?: string; // Pre-created runId (skips run creation if provided)
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -27,18 +28,23 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   }
 
   // Initialize log streaming infrastructure
-  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
-  let runId: string | undefined;
+  // If runId is pre-provided, pass it to the constructor
+  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, options?.runId);
+  let runId: string | undefined = options?.runId;
   let heartbeatManager: HeartbeatManager | undefined;
   let logBuffer: LogBuffer | undefined;
 
   try {
-    // Create run for this execution FIRST so we have runId for the prompt
-    console.log('[Log Streaming] Creating run...');
-    runId = await logTransport.createRun(actionId, 'execute', {
-      startingCommit: options?.startingCommit,
-    });
-    console.log(`[Log Streaming] Run created: ${runId}`);
+    // Create run for this execution if not pre-created
+    if (!runId) {
+      console.log('[Log Streaming] Creating run...');
+      runId = await logTransport.createRun(actionId, 'execute', {
+        startingCommit: options?.startingCommit,
+      });
+      console.log(`[Log Streaming] Run created: ${runId}`);
+    } else {
+      console.log(`[Log Streaming] Using pre-created run: ${runId}`);
+    }
 
     // Now fetch execution instructions with runId included
     console.log(`Fetching execution instructions for action ${actionId}...\n`);
