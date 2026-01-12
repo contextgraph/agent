@@ -5,7 +5,6 @@ import { join } from 'path';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
 import { injectSkills } from './skill-injection.js';
-import { getValidationSkills } from './test-skills.js';
 import { fetchSkillsLibrary } from './skills-library-fetch.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -160,12 +159,8 @@ export async function prepareWorkspace(
       // Fetch user's skills library from ContextGraph API
       const librarySkills = await fetchSkillsLibrary(authToken);
 
-      // Combine with validation skills for testing
-      const validationSkills = getValidationSkills();
-      const allSkills = [...librarySkills, ...validationSkills];
-
-      if (allSkills.length > 0) {
-        await injectSkills(workspacePath, allSkills);
+      if (librarySkills.length > 0) {
+        await injectSkills(workspacePath, librarySkills);
       } else {
         console.log('📚 No skills to inject (empty library)');
       }
