@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm, appendFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fetchWithRetry } from './fetch-with-retry.js';
@@ -128,6 +128,10 @@ export async function prepareWorkspace(
     if (credentials.githubEmail) {
       await runGitCommand(['config', 'user.email', credentials.githubEmail], workspacePath);
     }
+
+    // Add .claude/skills/ to git exclude to prevent injected skills from being committed
+    // This ensures skills we inject (or modify) don't accidentally end up in PRs
+    await appendFile(join(workspacePath, '.git', 'info', 'exclude'), '\n.claude/skills/\n');
 
     // Handle branch checkout if specified
     if (branch) {
