@@ -25,6 +25,8 @@ export interface WorkspaceSetupOptions {
   actionDetail?: ActionDetailResource;
   /** Optional starting commit override */
   startingCommit?: string;
+  /** Skip skill injection (for testing) */
+  skipSkills?: boolean;
 }
 
 /**
@@ -43,7 +45,7 @@ export async function setupWorkspaceForAction(
   actionId: string,
   options: WorkspaceSetupOptions
 ): Promise<WorkspaceSetupResult> {
-  const { authToken, phase, startingCommit: startingCommitOverride } = options;
+  const { authToken, phase, startingCommit: startingCommitOverride, skipSkills } = options;
 
   // Fetch action details if not provided
   let actionDetail = options.actionDetail;
@@ -71,12 +73,13 @@ export async function setupWorkspaceForAction(
   let startingCommit: string | undefined = startingCommitOverride;
 
   if (repoUrl) {
-    // Clone repository and inject skills
+    // Clone repository and inject skills (unless skipSkills is set)
     // Pass runId so skills loading is recorded for this run
     const workspace = await prepareWorkspace(repoUrl, {
       branch: branch || undefined,
       authToken,
       runId,
+      skipSkills,
     });
     workspacePath = workspace.path;
     cleanup = workspace.cleanup;

@@ -13,6 +13,7 @@ export interface WorkflowOptions {
   startingCommit?: string;
   model?: string;
   runId?: string; // Pre-created runId (skips run creation and workspace setup if provided)
+  skipSkills?: boolean; // Skip skill injection (for testing)
 }
 
 export async function runPrepare(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -43,6 +44,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
         authToken: credentials.clerkToken,
         phase: 'prepare',
         startingCommit: options?.startingCommit,
+        skipSkills: options?.skipSkills,
       });
       workspacePath = setup.workspacePath;
       cleanup = setup.cleanup;

@@ -19,6 +19,7 @@ export interface PrepareWorkspaceOptions {
   branch?: string;
   authToken: string;
   runId?: string; // Optional runId to record which skills were loaded
+  skipSkills?: boolean; // Skip skill injection (for testing)
 }
 
 async function fetchGitHubCredentials(authToken: string): Promise<GitHubCredentials> {
@@ -94,7 +95,7 @@ export async function prepareWorkspace(
   repoUrl: string,
   options: PrepareWorkspaceOptions
 ): Promise<WorkspaceResult> {
-  const { branch, authToken, runId } = options;
+  const { branch, authToken, runId, skipSkills } = options;
 
   // Fetch GitHub credentials
   const credentials = await fetchGitHubCredentials(authToken);
@@ -156,19 +157,23 @@ export async function prepareWorkspace(
     // Fetch and inject skills from ContextGraph library into workspace
     // This happens AFTER repo clone but BEFORE Claude Code starts
     console.log('');  // Blank line for better log readability
-    try {
-      // Fetch user's skills library from ContextGraph API
-      // If runId is provided, the server will record which skills were loaded for this run
-      const librarySkills = await fetchSkillsLibrary({ authToken, runId });
+    if (skipSkills) {
+      console.log('📚 Skipping skill injection (--no-skills flag)');
+    } else {
+      try {
+        // Fetch user's skills library from ContextGraph API
+        // If runId is provided, the server will record which skills were loaded for this run
+        const librarySkills = await fetchSkillsLibrary({ authToken, runId });
 
-      if (librarySkills.length > 0) {
-        await injectSkills(workspacePath, librarySkills);
-      } else {
-        console.log('📚 No skills to inject (empty library)');
+        if (librarySkills.length > 0) {
+          await injectSkills(workspacePath, librarySkills);
+        } else {
+          console.log('📚 No skills to inject (empty library)');
+        }
+      } catch (skillError) {
+        // Log but don't fail - agent can still work without skills
+        console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
       }
-    } catch (skillError) {
-      // Log but don't fail - agent can still work without skills
-      console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
     }
 
     return { path: workspacePath, startingCommit, cleanup };

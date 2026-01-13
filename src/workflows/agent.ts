@@ -174,7 +174,7 @@ function isRetryableError(error: Error): boolean {
   );
 }
 
-export async function runLocalAgent(options?: { forceModel?: string }): Promise<void> {
+export async function runLocalAgent(options?: { forceModel?: string; skipSkills?: boolean }): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
 
@@ -320,6 +320,7 @@ export async function runLocalAgent(options?: { forceModel?: string }): Promise<
         authToken: credentials.clerkToken,
         phase,
         actionDetail, // Pass pre-fetched action detail to avoid redundant API call
+        skipSkills: options?.skipSkills,
       });
       workspacePath = setup.workspacePath;
       cleanup = setup.cleanup;

@@ -12,6 +12,9 @@ interface SkillsLibraryResponse {
     skills: Array<{
       id: string;
       filename: string;
+      title: string;
+      description: string;
+      trigger: string | null;
       content: string;
     }>;
   };
@@ -66,33 +69,16 @@ export async function fetchSkillsLibrary(options: FetchSkillsLibraryOptions): Pr
     }
 
     // Transform API response to SkillToInject format
+    // API now returns structured metadata fields, no need to parse frontmatter
     const skills: SkillToInject[] = data.data.skills.map((skill) => {
       // Extract skill name from filename (remove .md extension)
       const name = skill.filename.replace(/\.md$/, '');
 
-      // Parse frontmatter to extract description (if present)
-      // Expected format:
-      // ---
-      // name: skill-name
-      // description: Brief description
-      // ---
-      // Content...
-      let description = 'Skill from ContextGraph library';
-      const frontmatterMatch = skill.content.match(/^---\n([\s\S]*?)\n---/);
-      if (frontmatterMatch) {
-        const descMatch = frontmatterMatch[1].match(/description:\s*(.+)/);
-        if (descMatch) {
-          description = descMatch[1].trim();
-        }
-      }
-
-      // Remove frontmatter from content since injectSkills will add it
-      const contentWithoutFrontmatter = skill.content.replace(/^---\n[\s\S]*?\n---\n/, '');
-
       return {
         name,
-        description,
-        content: contentWithoutFrontmatter,
+        description: skill.description,
+        trigger: skill.trigger,
+        content: skill.content,
       };
     });
 

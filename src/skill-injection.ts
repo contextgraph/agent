@@ -9,7 +9,9 @@ export interface SkillToInject {
   name: string;
   /** Brief description for frontmatter */
   description: string;
-  /** Full skill content (markdown) */
+  /** When to invoke the skill (optional, for frontmatter trigger field) */
+  trigger?: string | null;
+  /** Skill body content (markdown, WITHOUT frontmatter) */
   content: string;
 }
 
@@ -38,10 +40,11 @@ export async function injectSkills(
       await mkdir(skillDir, { recursive: true });
 
       // Build SKILL.md content with frontmatter
+      const triggerSection = skill.trigger ? `trigger: |\n${skill.trigger.split('\n').map(line => `  ${line}`).join('\n')}\n` : '';
       const skillContent = `---
 name: ${skill.name}
 description: ${skill.description}
----
+${triggerSection}---
 
 ${skill.content}
 `;

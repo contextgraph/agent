@@ -25,10 +25,12 @@ program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
   .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
+  .option('--skip-skills', 'Skip skill injection (for testing)')
   .action(async (options) => {
     try {
       await runLocalAgent({
         forceModel: options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined,
+        skipSkills: options.skipSkills,
       });
     } catch (error) {
       if (error instanceof Error) {
@@ -60,9 +62,10 @@ program
   .command('prepare')
   .argument('<action-id>', 'Action ID to prepare')
   .description('Prepare a single action')
-  .action(async (actionId: string) => {
+  .option('--skip-skills', 'Skip skill injection (for testing)')
+  .action(async (actionId: string, options: { skipSkills?: boolean }) => {
     try {
-      await runPrepare(actionId);
+      await runPrepare(actionId, { skipSkills: options.skipSkills });
     } catch (error) {
       console.error('Error preparing action:', error instanceof Error ? error.message : error);
       process.exit(1);
@@ -73,9 +76,10 @@ program
   .command('execute')
   .argument('<action-id>', 'Action ID to execute')
   .description('Execute a single action')
-  .action(async (actionId: string) => {
+  .option('--skip-skills', 'Skip skill injection (for testing)')
+  .action(async (actionId: string, options: { skipSkills?: boolean }) => {
     try {
-      await runExecute(actionId);
+      await runExecute(actionId, { skipSkills: options.skipSkills });
     } catch (error) {
       console.error('Error executing action:', error instanceof Error ? error.message : error);
       process.exit(1);
