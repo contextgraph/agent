@@ -1,7 +1,5 @@
 import { randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
-import { mkdtemp, rm } from 'fs/promises';
-import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
@@ -9,9 +7,8 @@ import type { ActionNode, ActionMetadata } from '../types/actions.js';
 import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
-import { prepareWorkspace } from '../workspace-prep.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
-import { LogTransportService } from '../log-transport.js';
+import { setupWorkspaceForAction } from '../workspace-setup.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -308,51 +305,26 @@ export async function runLocalAgent(options?: { forceModel?: string }): Promise<
     // Only print "Working" once we've determined there's actual work to do
     console.log(`Working: ${actionDetail.title}`);
 
-    // Prepare workspace based on phase and repo availability
-    const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
-    const branch = actionDetail.resolved_branch || actionDetail.branch;
-
+    // Set up workspace using shared function
     let workspacePath: string;
     let cleanup: (() => Promise<void>) | undefined;
     let startingCommit: string | undefined;
     let runId: string | undefined;
 
-    // Determine if we need to clone the repository
-    // - Prepare/Execute: need repo if available, blank workspace otherwise
-    const needsRepo = repoUrl;
-
     try {
-      // Create run FIRST so we can track which skills are loaded
-      // This enables the "skill refinement signals" feature
-      const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken);
-      console.log('[Log Streaming] Creating run...');
-      runId = await logTransport.createRun(actionDetail.id, phase);
-      console.log(`[Log Streaming] Run created: ${runId}`);
-
-      if (needsRepo) {
-        // Clone repository into workspace
-        // Pass runId so skills loading is recorded for this run
-        const workspace = await prepareWorkspace(repoUrl, {
-          branch: branch || undefined,
-          authToken: credentials.clerkToken,
-          runId,
-        });
-        workspacePath = workspace.path;
-        cleanup = workspace.cleanup;
-        startingCommit = workspace.startingCommit;
-      } else {
-        // Create a blank temp directory (no repo configured)
-        console.log(`📂 No repository configured - creating blank workspace`);
-        workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
-        console.log(`   → ${workspacePath}`);
-        cleanup = async () => {
-          try {
-            await rm(workspacePath, { recursive: true, force: true });
-          } catch (error) {
-            console.error(`Warning: Failed to cleanup workspace at ${workspacePath}:`, error);
-          }
-        };
-      }
+      // Use shared workspace setup that handles:
+      // - Creating run FIRST (for skill tracking)
+      // - Cloning repo and injecting skills (if repo configured)
+      // - Creating blank workspace (if no repo)
+      const setup = await setupWorkspaceForAction(actionDetail.id, {
+        authToken: credentials.clerkToken,
+        phase,
+        actionDetail, // Pass pre-fetched action detail to avoid redundant API call
+      });
+      workspacePath = setup.workspacePath;
+      cleanup = setup.cleanup;
+      startingCommit = setup.startingCommit;
+      runId = setup.runId;
 
       if (phase === 'prepare') {
         await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });

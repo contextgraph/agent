@@ -4,6 +4,7 @@ import { fetchWithRetry } from '../fetch-with-retry.js';
 import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
+import { setupWorkspaceForAction } from '../workspace-setup.js';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -11,7 +12,7 @@ export interface WorkflowOptions {
   cwd?: string;
   startingCommit?: string;
   model?: string;
-  runId?: string; // Pre-created runId (skips run creation if provided)
+  runId?: string; // Pre-created runId (skips run creation and workspace setup if provided)
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -27,23 +28,31 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     process.exit(1);
   }
 
-  // Initialize log streaming infrastructure
-  // If runId is pre-provided, pass it to the constructor
-  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, options?.runId);
   let runId: string | undefined = options?.runId;
   let heartbeatManager: HeartbeatManager | undefined;
   let logBuffer: LogBuffer | undefined;
+  let workspacePath: string | undefined;
+  let cleanup: (() => Promise<void>) | undefined;
+
+  // Initialize log transport (will use pre-provided runId if available)
+  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, options?.runId);
 
   try {
-    // Create run for this execution if not pre-created
+    // If no pre-created runId, set up workspace from scratch using shared function
+    // This matches the behavior of the agent loop
     if (!runId) {
-      console.log('[Log Streaming] Creating run...');
-      runId = await logTransport.createRun(actionId, 'execute', {
+      const setup = await setupWorkspaceForAction(actionId, {
+        authToken: credentials.clerkToken,
+        phase: 'execute',
         startingCommit: options?.startingCommit,
       });
-      console.log(`[Log Streaming] Run created: ${runId}`);
+      workspacePath = setup.workspacePath;
+      cleanup = setup.cleanup;
+      runId = setup.runId;
     } else {
+      // runId was pre-provided, use the provided cwd (agent loop already set up workspace)
       console.log(`[Log Streaming] Using pre-created run: ${runId}`);
+      workspacePath = options?.cwd || process.cwd();
     }
 
     // Now fetch execution instructions with runId included
@@ -84,7 +93,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
 
     const claudeResult = await executeClaude({
       prompt,
-      cwd: options?.cwd || process.cwd(),
+      cwd: workspacePath,
       authToken: credentials.clerkToken,
       ...(options?.model ? { model: options.model } : {}),
       onLogEvent: (event) => {
@@ -131,6 +140,11 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     if (logBuffer) {
       await logBuffer.stop();
       console.log('[Log Streaming] Logs flushed');
+    }
+
+    // Cleanup workspace if we created it
+    if (cleanup) {
+      await cleanup();
     }
   }
 }
