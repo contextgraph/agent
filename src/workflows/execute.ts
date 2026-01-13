@@ -33,9 +33,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let logBuffer: LogBuffer | undefined;
   let workspacePath: string | undefined;
   let cleanup: (() => Promise<void>) | undefined;
-
-  // Initialize log transport (will use pre-provided runId if available)
-  const logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, options?.runId);
+  let logTransport: LogTransportService;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
@@ -49,10 +47,13 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       workspacePath = setup.workspacePath;
       cleanup = setup.cleanup;
       runId = setup.runId;
+      logTransport = setup.logTransport;
     } else {
       // runId was pre-provided, use the provided cwd (agent loop already set up workspace)
       console.log(`[Log Streaming] Using pre-created run: ${runId}`);
       workspacePath = options?.cwd || process.cwd();
+      // Create log transport with existing runId
+      logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, runId);
     }
 
     // Now fetch execution instructions with runId included

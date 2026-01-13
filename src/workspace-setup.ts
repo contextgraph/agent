@@ -13,6 +13,7 @@ export interface WorkspaceSetupResult {
   cleanup: () => Promise<void>;
   startingCommit: string | undefined;
   runId: string;
+  logTransport: LogTransportService;
 }
 
 export interface WorkspaceSetupOptions {
@@ -99,5 +100,6 @@ export async function setupWorkspaceForAction(
     cleanup,
     startingCommit,
     runId,
+    logTransport,
   };
 }
