@@ -95,7 +95,12 @@ function formatMessage(message: SDKMessage): string | null {
   switch (message.type) {
     case 'system':
       if (message.subtype === 'init') {
-        return '🚀 Claude session initialized';
+        const initMsg = message as { skills?: string[] };
+        const skillCount = initMsg.skills?.length ?? 0;
+        if (skillCount > 0) {
+          return `🚀 Claude session initialized\n📚 Skills loaded (${skillCount}): ${initMsg.skills!.join(', ')}`;
+        }
+        return '🚀 Claude session initialized\n📚 No skills loaded';
       }
       return null;
 

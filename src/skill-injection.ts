@@ -27,11 +27,8 @@ export async function injectSkills(
   skills: SkillToInject[]
 ): Promise<void> {
   if (skills.length === 0) {
-    console.log('📚 No skills to inject');
     return;
   }
-
-  console.log(`📚 Injecting ${skills.length} skill(s) into workspace...`);
 
   for (const skill of skills) {
     try {
@@ -52,13 +49,9 @@ ${skill.content}
       // Write SKILL.md file
       const skillFilePath = join(skillDir, 'SKILL.md');
       await writeFile(skillFilePath, skillContent, 'utf-8');
-
-      console.log(`   ✅ Injected skill: ${skill.name}`);
     } catch (error) {
-      console.error(`   ❌ Failed to inject skill "${skill.name}":`, error);
+      console.error(`❌ Failed to inject skill "${skill.name}":`, error);
       throw error;
     }
   }
-
-  console.log(`✅ Skills injected successfully`);
 }
