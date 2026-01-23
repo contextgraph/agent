@@ -16,6 +16,7 @@ export interface GitHubCredentials {
   githubToken: string;
   githubUsername?: string;
   githubEmail?: string;
+  gitCredentialsUsername?: string; // Username for git clone URLs (e.g., 'x-access-token' for GitHub App tokens)
 }
 
 export type CallbackResult = {

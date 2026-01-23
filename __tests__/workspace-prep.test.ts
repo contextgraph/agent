@@ -65,6 +65,7 @@ describe('workspace-prep', () => {
           githubToken: 'gh-token-123',
           githubUsername: 'testuser',
           githubEmail: 'test@example.com',
+          gitCredentialsUsername: 'x-access-token',
         }),
       } as Response);
 
@@ -91,10 +92,10 @@ describe('workspace-prep', () => {
         })
       );
 
-      // Verify git clone was called with authenticated URL
+      // Verify git clone was called with authenticated URL (x-access-token format for GitHub App tokens)
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
-        ['clone', 'https://gh-token-123@github.com/test/repo', '/tmp/cg-workspace-abc123'],
+        ['clone', 'https://x-access-token:gh-token-123@github.com/test/repo', '/tmp/cg-workspace-abc123'],
         expect.any(Object)
       );
     });

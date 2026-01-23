@@ -76,15 +76,19 @@ function runGitCommand(args: string[], cwd?: string): Promise<{ stdout: string; 
   });
 }
 
-function buildAuthenticatedUrl(repoUrl: string, token: string): string {
+function buildAuthenticatedUrl(repoUrl: string, token: string, username?: string): string {
+  // Build auth string: if username provided, use username:token format (required for GitHub App tokens)
+  // Otherwise, use just token (for backward compatibility with OAuth tokens)
+  const authString = username ? `${username}:${token}` : token;
+
   // Handle https://github.com/... URLs
   if (repoUrl.startsWith('https://github.com/')) {
-    return repoUrl.replace('https://github.com/', `https://${token}@github.com/`);
+    return repoUrl.replace('https://github.com/', `https://${authString}@github.com/`);
   }
 
   // Handle https://github.com URLs without trailing slash
   if (repoUrl.startsWith('https://github.com')) {
-    return repoUrl.replace('https://github.com', `https://${token}@github.com`);
+    return repoUrl.replace('https://github.com', `https://${authString}@github.com`);
   }
 
   // For other URLs, return as-is (might be SSH or other provider)
@@ -113,7 +117,7 @@ export async function prepareWorkspace(
 
   try {
     // Build authenticated clone URL
-    const cloneUrl = buildAuthenticatedUrl(repoUrl, credentials.githubToken);
+    const cloneUrl = buildAuthenticatedUrl(repoUrl, credentials.githubToken, credentials.gitCredentialsUsername);
 
     // Clone the repository
     console.log(`📂 Cloning ${repoUrl}`);
