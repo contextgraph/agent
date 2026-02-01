@@ -162,8 +162,14 @@ export async function executeClaude(
     const pluginPath = await ensurePlugin();
     console.log('[Agent SDK] Loading plugin from:', pluginPath);
     console.log('[Agent SDK] Auth token available:', !!options.authToken);
+    console.log('[Agent SDK] Auth token prefix:', options.authToken?.substring(0, 20) + '...');
     console.log('[Agent SDK] Anthropic API key available:', !!process.env.ANTHROPIC_API_KEY);
     console.log('[Agent SDK] Claude OAuth token available:', !!process.env.CLAUDE_CODE_OAUTH_TOKEN);
+    console.log('[Agent SDK] MCP server config:', JSON.stringify({
+      type: 'http',
+      url: 'https://mcp.contextgraph.dev',
+      headers: { 'x-authorization': `Bearer ${options.authToken?.substring(0, 20)}...` },
+    }));
 
     // Create the query with SDK using the plugin
     const iterator = query({
@@ -196,21 +202,23 @@ export async function executeClaude(
         ],
         env: {
           ...process.env,
-          // Pass auth token through environment for MCP server
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
-          // Pass Anthropic API key for SDK authentication
           ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-          // Pass Claude OAuth token for SDK authentication (alternative to API key)
           CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '',
         },
-        // Load the contextgraph plugin (provides MCP server URL and other config)
-        plugins: [
-          {
-            type: 'local',
-            path: pluginPath,
-          }
-        ]
-        // Note: Auth is passed via CONTEXTGRAPH_AUTH_TOKEN environment variable above
+        // Configure MCP server directly with auth header (not via plugin, which has no auth)
+        // Vercel strips Authorization header, so use x-authorization
+        mcpServers: {
+          actions: {
+            type: 'http',
+            url: 'https://mcp.contextgraph.dev',
+            headers: {
+              'x-authorization': `Bearer ${options.authToken}`,
+            },
+          },
+        },
+        // Skills are injected into workspace .claude/skills/ by injectSkills() in workspace-prep.ts
+        // settingSources: ['project'] above picks them up — no plugin needed
       }
     });
 
@@ -219,6 +227,11 @@ export async function executeClaude(
       // Capture session ID from first message
       if (!sessionId && message.session_id) {
         sessionId = message.session_id;
+      }
+
+      // Debug: log raw system messages to see MCP connection status
+      if (message.type === 'system') {
+        console.log('[Agent SDK] System message:', JSON.stringify(message, null, 2));
       }
 
       // Format and display the message (preserved console output)
