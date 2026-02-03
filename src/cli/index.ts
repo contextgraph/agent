@@ -6,6 +6,7 @@ import { runAuth } from '../workflows/auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
 import { runLocalAgent } from '../workflows/agent.js';
+import { runSetup } from '../workflows/setup.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +43,18 @@ program
       } else {
         console.error('Error running agent:', error);
       }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('setup')
+  .description('Interactive setup wizard for new users')
+  .action(async () => {
+    try {
+      await runSetup();
+    } catch (error) {
+      console.error('Error during setup:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
