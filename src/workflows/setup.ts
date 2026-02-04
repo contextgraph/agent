@@ -1,41 +1,6 @@
-import { execSync } from 'child_process';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { authenticateAgent } from '../auth-flow.js';
-
-const PLUGIN_REPO = 'https://github.com/contextgraph/claude-code-plugin';
-
-/**
- * Check if Claude Code CLI is available
- */
-function isClaudeCodeAvailable(): boolean {
-  try {
-    execSync('which claude', { stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if the ContextGraph plugin is already installed in Claude Code
- */
-function isPluginInstalled(): boolean {
-  try {
-    const output = execSync('claude plugin list', { stdio: 'pipe' }).toString();
-    return output.includes('contextgraph');
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Install the ContextGraph plugin in Claude Code (includes MCP server)
- */
-function installPlugin(): void {
-  console.log('Installing ContextGraph plugin for Claude Code...');
-  execSync(`claude plugin install ${PLUGIN_REPO}`, { stdio: 'inherit' });
-  console.log('ContextGraph plugin installed (includes MCP server)');
-}
+import { isClaudeCodeAvailable, isPluginInstalled, ensurePluginInstalled } from '../plugin-setup.js';
 
 /**
  * Main setup workflow
@@ -62,9 +27,9 @@ export async function runSetup(): Promise<void> {
   }
 
   // Step 2: Authenticate if needed
-  console.log('Step 2: Authenticating with ContextGraph...\n');
-
   if (needsAuth) {
+    console.log('Step 2: Authenticating with ContextGraph...\n');
+
     const result = await authenticateAgent();
 
     if (!result.success) {
@@ -74,13 +39,13 @@ export async function runSetup(): Promise<void> {
     console.log('\n  Authentication successful!');
     console.log(`  User ID: ${result.credentials.userId}\n`);
   } else {
-    console.log('  No authentication needed, credentials are valid.\n');
+    console.log('Step 2: Already authenticated, skipping.\n');
   }
 
   // Step 3: Check for Claude Code
   console.log('Step 3: Checking for Claude Code...\n');
 
-  const hasClaudeCode = isClaudeCodeAvailable();
+  const hasClaudeCode = await isClaudeCodeAvailable();
 
   if (hasClaudeCode) {
     console.log('  Claude Code detected!\n');
@@ -89,28 +54,30 @@ export async function runSetup(): Promise<void> {
     console.log('Step 4: Installing ContextGraph plugin...\n');
 
     try {
-      if (isPluginInstalled()) {
+      if (await isPluginInstalled()) {
         console.log('  ContextGraph plugin is already installed.\n');
       } else {
-        installPlugin();
+        await ensurePluginInstalled();
         console.log('');
       }
     } catch (error) {
       console.error('  Could not install plugin automatically.');
       console.error('  You can install it manually with:');
-      console.error(`  claude plugin install ${PLUGIN_REPO}\n`);
+      console.error('  claude plugin marketplace add contextgraph/claude-code-plugin');
+      console.error('  claude plugin install contextgraph\n');
     }
 
     // Show getting started instructions
-    console.log('Setup complete! Here\'s how to get started:\n');
-    console.log('1. Open Claude Code or restart if already running');
-    console.log('2. Start a conversation and try these commands:');
-    console.log('   - "@contextgraph help" - Learn about available commands');
-    console.log('   - "@contextgraph search <query>" - Find actions in your graph');
-    console.log('   - "@contextgraph create" - Create a new action\n');
-    console.log('You can also run the autonomous agent to execute actions:');
-    console.log('   npx @contextgraph/agent run\n');
-    console.log('Visit https://contextgraph.dev to manage your action graph!');
+    console.log('Setup complete! You\'re ready to go.\n');
+    console.log('Next steps:\n');
+    console.log('  1. Open Claude Code (or restart if already running)');
+    console.log('  2. Ask Claude to help you plan — it has access to your action graph\n');
+    console.log('  Examples:');
+    console.log('    "Create an action plan for implementing user auth"');
+    console.log('    "Show me my action tree"');
+    console.log('    "What should I work on next?"\n');
+    console.log('  Run the autonomous agent:  npx @contextgraph/agent run');
+    console.log('  Web dashboard:             https://contextgraph.dev');
 
   } else {
     console.log('  Claude Code not detected.\n');

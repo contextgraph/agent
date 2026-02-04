@@ -1,108 +1,100 @@
 import { spawn } from 'child_process';
-import { access, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { homedir } from 'os';
 
-const PLUGIN_REPO = 'https://github.com/contextgraph/claude-code-plugin.git';
-const PLUGIN_DIR = join(homedir(), '.contextgraph', 'claude-code-plugin');
-const PLUGIN_PATH = join(PLUGIN_DIR, 'plugins', 'contextgraph');
+export const PLUGIN_REPO = 'https://github.com/contextgraph/claude-code-plugin';
+const MARKETPLACE_SOURCE = 'contextgraph/claude-code-plugin';
+const MARKETPLACE_NAME = 'contextgraph';
+const PLUGIN_NAME = 'contextgraph';
 
 /**
- * Get the path to the contextgraph plugin, cloning it if necessary
+ * Run a command and capture stdout + exit code.
  */
-export async function ensurePlugin(): Promise<string> {
-  // Check if plugin already exists
-  try {
-    await access(PLUGIN_PATH);
-    console.log(`📦 Using plugin: ${PLUGIN_PATH}`);
-    return PLUGIN_PATH;
-  } catch {
-    // Plugin path doesn't exist, check if repo dir exists
-  }
-
-  // Check if repo directory exists but plugin path is missing (incomplete clone or wrong structure)
-  let repoDirExists = false;
-  try {
-    await access(PLUGIN_DIR);
-    repoDirExists = true;
-  } catch {
-    // Directory doesn't exist, will need to clone
-  }
-
-  if (repoDirExists) {
-    // Directory exists but plugin path doesn't - try pulling latest
-    console.log('📦 Plugin directory exists but incomplete, pulling latest...');
-    await runCommand('git', ['pull'], PLUGIN_DIR);
-
-    // Check again after pull
-    try {
-      await access(PLUGIN_PATH);
-      console.log(`📦 Plugin ready: ${PLUGIN_PATH}`);
-      return PLUGIN_PATH;
-    } catch {
-      throw new Error(`Plugin not found at ${PLUGIN_PATH} even after git pull. Check repository structure.`);
-    }
-  }
-
-  console.log(`📦 Cloning plugin from ${PLUGIN_REPO}...`);
-
-  // Ensure parent directory exists
-  const contextgraphDir = join(homedir(), '.contextgraph');
-  try {
-    await mkdir(contextgraphDir, { recursive: true });
-  } catch {
-    // Directory might already exist
-  }
-
-  // Clone the repository
-  await runCommand('git', ['clone', PLUGIN_REPO, PLUGIN_DIR]);
-
-  // Verify plugin exists after clone
-  try {
-    await access(PLUGIN_PATH);
-    console.log(`📦 Plugin installed: ${PLUGIN_PATH}`);
-    return PLUGIN_PATH;
-  } catch {
-    throw new Error(`Plugin clone succeeded but plugin path not found at ${PLUGIN_PATH}`);
-  }
-}
-
-/**
- * Update the plugin to latest version
- */
-export async function updatePlugin(): Promise<void> {
-  try {
-    await access(PLUGIN_DIR);
-  } catch {
-    throw new Error('Plugin not installed. Run the agent first to auto-install.');
-  }
-
-  console.log('[Plugin Setup] Updating plugin...');
-  await runCommand('git', ['pull'], PLUGIN_DIR);
-  console.log('[Plugin Setup] Plugin updated');
-}
-
-/**
- * Get the plugin path (without ensuring it exists)
- */
-export function getPluginPath(): string {
-  return PLUGIN_PATH;
-}
-
-function runCommand(command: string, args: string[], cwd?: string): Promise<void> {
+function runCommand(command: string, args: string[]): Promise<{ stdout: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, args, { cwd, stdio: 'inherit' });
+    const proc = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+
+    proc.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
 
     proc.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} ${args[0]} failed with exit code ${code}`));
-      }
+      resolve({ stdout, exitCode: code ?? 1 });
     });
 
     proc.on('error', (err) => {
       reject(new Error(`Failed to spawn ${command}: ${err.message}`));
     });
   });
+}
+
+/**
+ * Check if Claude Code CLI is available
+ */
+export async function isClaudeCodeAvailable(): Promise<boolean> {
+  try {
+    const { exitCode } = await runCommand('claude', ['--version']);
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if the ContextGraph marketplace is configured in Claude Code
+ */
+async function isMarketplaceConfigured(): Promise<boolean> {
+  try {
+    const { stdout, exitCode } = await runCommand('claude', ['plugin', 'marketplace', 'list']);
+    return exitCode === 0 && stdout.includes(MARKETPLACE_NAME);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Add the ContextGraph marketplace to Claude Code
+ */
+async function addMarketplace(): Promise<void> {
+  console.log('Adding ContextGraph marketplace...');
+  const { exitCode } = await runCommand('claude', ['plugin', 'marketplace', 'add', MARKETPLACE_SOURCE]);
+
+  if (exitCode !== 0) {
+    throw new Error(`Failed to add marketplace (exit code ${exitCode})`);
+  }
+}
+
+/**
+ * Check if the ContextGraph plugin is already installed in Claude Code
+ */
+export async function isPluginInstalled(): Promise<boolean> {
+  try {
+    const { stdout, exitCode } = await runCommand('claude', ['plugin', 'list']);
+    return exitCode === 0 && stdout.includes(PLUGIN_NAME);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure the ContextGraph plugin is installed in Claude Code.
+ * Adds the marketplace if needed, then installs the plugin if not already present.
+ */
+export async function ensurePluginInstalled(): Promise<void> {
+  if (await isPluginInstalled()) {
+    return;
+  }
+
+  // Ensure marketplace is configured before attempting install
+  if (!await isMarketplaceConfigured()) {
+    await addMarketplace();
+  }
+
+  console.log('Installing ContextGraph plugin for Claude Code...');
+  const { exitCode } = await runCommand('claude', ['plugin', 'install', PLUGIN_NAME]);
+
+  if (exitCode !== 0) {
+    throw new Error(`Failed to install plugin (exit code ${exitCode})`);
+  }
+
+  console.log('ContextGraph plugin installed (includes MCP server)');
 }

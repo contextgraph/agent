@@ -1,33 +1,31 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { ChildProcess, spawn as actualSpawn } from 'child_process';
 import { EventEmitter } from 'events';
+import { Readable } from 'stream';
 
-// Mock modules before importing
+// Mock child_process before importing
 jest.mock('child_process');
-jest.mock('fs/promises');
-jest.mock('os', () => {
-  const original = jest.requireActual<typeof import('os')>('os');
-  return {
-    ...original,
-    homedir: () => '/home/testuser',
-  };
-});
 
-// Import after mocking
 import { spawn } from 'child_process';
-import { access, mkdir } from 'fs/promises';
-import { ensurePlugin, updatePlugin, getPluginPath } from '../src/plugin-setup.js';
+import { isClaudeCodeAvailable, isPluginInstalled, ensurePluginInstalled, PLUGIN_REPO } from '../src/plugin-setup.js';
 
 const mockSpawn = spawn as jest.MockedFunction<typeof actualSpawn>;
-const mockAccess = access as jest.MockedFunction<typeof access>;
-const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>;
 
-// Helper to create a mock child process with stdio: 'inherit'
-function createMockProcess(exitCode: number): ChildProcess {
+/**
+ * Create a mock child process that emits close with the given exit code
+ * and streams the given stdout data.
+ */
+function createMockProcess(exitCode: number, stdoutData = ''): ChildProcess {
   const proc = new EventEmitter() as ChildProcess;
+  const stdout = new Readable({ read() {} });
+  (proc as any).stdout = stdout;
+  (proc as any).stderr = new Readable({ read() {} });
 
-  // Emit close asynchronously
   setImmediate(() => {
+    if (stdoutData) {
+      stdout.push(stdoutData);
+    }
+    stdout.push(null);
     proc.emit('close', exitCode);
   });
 
@@ -43,162 +41,170 @@ describe('plugin-setup', () => {
     jest.resetAllMocks();
   });
 
-  describe('ensurePlugin', () => {
-    const expectedPluginPath = '/home/testuser/.contextgraph/claude-code-plugin/plugins/contextgraph';
-    const expectedPluginDir = '/home/testuser/.contextgraph/claude-code-plugin';
-
-    it('should return existing plugin path when plugin exists', async () => {
-      // Plugin path exists
-      mockAccess.mockResolvedValueOnce(undefined);
-
-      const result = await ensurePlugin();
-
-      expect(result).toBe(expectedPluginPath);
-      expect(mockAccess).toHaveBeenCalledWith(expectedPluginPath);
-      expect(mockSpawn).not.toHaveBeenCalled();
+  describe('PLUGIN_REPO', () => {
+    it('should be the canonical repository URL', () => {
+      expect(PLUGIN_REPO).toBe('https://github.com/contextgraph/claude-code-plugin');
     });
+  });
 
-    it('should pull and return path when repo dir exists but plugin missing', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) succeeds
-      mockAccess.mockResolvedValueOnce(undefined);
-      // git pull succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-      // Third access (plugin path after pull) succeeds
-      mockAccess.mockResolvedValueOnce(undefined);
+  describe('isClaudeCodeAvailable', () => {
+    it('should return true when claude --version succeeds', async () => {
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, '1.0.0\n'));
 
-      const result = await ensurePlugin();
+      const result = await isClaudeCodeAvailable();
 
-      expect(result).toBe(expectedPluginPath);
+      expect(result).toBe(true);
       expect(mockSpawn).toHaveBeenCalledWith(
-        'git',
-        ['pull'],
-        expect.objectContaining({ cwd: expectedPluginDir })
+        'claude',
+        ['--version'],
+        expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
       );
     });
 
-    it('should throw when plugin not found after git pull', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) succeeds
-      mockAccess.mockResolvedValueOnce(undefined);
-      // git pull succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-      // Third access (plugin path after pull) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
+    it('should return false when claude --version fails', async () => {
+      mockSpawn.mockReturnValueOnce(createMockProcess(1));
 
-      await expect(ensurePlugin()).rejects.toThrow('Plugin not found at');
+      const result = await isClaudeCodeAvailable();
+
+      expect(result).toBe(false);
     });
 
-    it('should clone repo when neither plugin nor dir exist', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // mkdir succeeds
-      mockMkdir.mockResolvedValueOnce(undefined);
-      // git clone succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-      // Final access (plugin path after clone) succeeds
-      mockAccess.mockResolvedValueOnce(undefined);
+    it('should return false when spawn throws (command not found)', async () => {
+      mockSpawn.mockImplementationOnce((() => {
+        const proc = new EventEmitter() as ChildProcess;
+        (proc as any).stdout = new Readable({ read() {} });
+        (proc as any).stderr = new Readable({ read() {} });
+        setImmediate(() => proc.emit('error', new Error('ENOENT')));
+        return proc;
+      }) as any);
 
-      const result = await ensurePlugin();
+      const result = await isClaudeCodeAvailable();
 
-      expect(result).toBe(expectedPluginPath);
-      expect(mockMkdir).toHaveBeenCalledWith('/home/testuser/.contextgraph', { recursive: true });
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isPluginInstalled', () => {
+    it('should return true when plugin list includes contextgraph', async () => {
+      mockSpawn.mockReturnValueOnce(
+        createMockProcess(0, 'contextgraph@contextgraph-marketplace\nother-plugin\n')
+      );
+
+      const result = await isPluginInstalled();
+
+      expect(result).toBe(true);
       expect(mockSpawn).toHaveBeenCalledWith(
-        'git',
-        ['clone', 'https://github.com/contextgraph/claude-code-plugin.git', expectedPluginDir],
+        'claude',
+        ['plugin', 'list'],
+        expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
+      );
+    });
+
+    it('should return false when plugin list does not include the plugin', async () => {
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'some-other-plugin\n'));
+
+      const result = await isPluginInstalled();
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when plugin list command fails', async () => {
+      mockSpawn.mockReturnValueOnce(createMockProcess(1));
+
+      const result = await isPluginInstalled();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('ensurePluginInstalled', () => {
+    it('should skip install when plugin is already installed', async () => {
+      // isPluginInstalled: claude plugin list returns the plugin
+      mockSpawn.mockReturnValueOnce(
+        createMockProcess(0, 'contextgraph@contextgraph-marketplace\n')
+      );
+
+      await ensurePluginInstalled();
+
+      // Only one spawn call (plugin list), no marketplace or install calls
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'claude',
+        ['plugin', 'list'],
         expect.any(Object)
       );
     });
 
-    it('should throw when clone succeeds but plugin path not found', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // mkdir succeeds
-      mockMkdir.mockResolvedValueOnce(undefined);
-      // git clone succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-      // Final access (plugin path after clone) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
+    it('should install plugin when marketplace is already configured', async () => {
+      // isPluginInstalled: not installed
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // isMarketplaceConfigured: marketplace exists
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'contextgraph-marketplace\n'));
+      // claude plugin install succeeds
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'Installed\n'));
 
-      await expect(ensurePlugin()).rejects.toThrow('Plugin clone succeeded but plugin path not found');
-    });
+      await ensurePluginInstalled();
 
-    it('should throw when git clone fails', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // mkdir succeeds
-      mockMkdir.mockResolvedValueOnce(undefined);
-      // git clone fails
-      mockSpawn.mockReturnValueOnce(createMockProcess(128));
-
-      await expect(ensurePlugin()).rejects.toThrow('git clone failed with exit code 128');
-    });
-
-    it('should handle mkdir error gracefully (directory may exist)', async () => {
-      // First access (plugin path) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // Second access (repo dir) fails
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
-      // mkdir fails (directory exists)
-      mockMkdir.mockRejectedValueOnce(new Error('EEXIST'));
-      // git clone succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-      // Final access (plugin path after clone) succeeds
-      mockAccess.mockResolvedValueOnce(undefined);
-
-      // Should not throw
-      const result = await ensurePlugin();
-      expect(result).toBe(expectedPluginPath);
-    });
-  });
-
-  describe('updatePlugin', () => {
-    const expectedPluginDir = '/home/testuser/.contextgraph/claude-code-plugin';
-
-    it('should pull latest when plugin is installed', async () => {
-      // Plugin dir exists
-      mockAccess.mockResolvedValueOnce(undefined);
-      // git pull succeeds
-      mockSpawn.mockReturnValueOnce(createMockProcess(0));
-
-      await updatePlugin();
-
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'git',
-        ['pull'],
-        expect.objectContaining({ cwd: expectedPluginDir })
+      expect(mockSpawn).toHaveBeenCalledTimes(3);
+      expect(mockSpawn).toHaveBeenNthCalledWith(
+        3,
+        'claude',
+        ['plugin', 'install', 'contextgraph'],
+        expect.any(Object)
       );
     });
 
-    it('should throw when plugin is not installed', async () => {
-      // Plugin dir does not exist
-      mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
+    it('should add marketplace then install when marketplace is not configured', async () => {
+      // isPluginInstalled: not installed
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // isMarketplaceConfigured: not found
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'claude-plugins-official\n'));
+      // addMarketplace: succeeds
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // claude plugin install succeeds
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'Installed\n'));
 
-      await expect(updatePlugin()).rejects.toThrow('Plugin not installed');
+      await ensurePluginInstalled();
+
+      expect(mockSpawn).toHaveBeenCalledTimes(4);
+      expect(mockSpawn).toHaveBeenNthCalledWith(
+        3,
+        'claude',
+        ['plugin', 'marketplace', 'add', 'contextgraph/claude-code-plugin'],
+        expect.any(Object)
+      );
+      expect(mockSpawn).toHaveBeenNthCalledWith(
+        4,
+        'claude',
+        ['plugin', 'install', 'contextgraph'],
+        expect.any(Object)
+      );
     });
 
-    it('should throw when git pull fails', async () => {
-      // Plugin dir exists
-      mockAccess.mockResolvedValueOnce(undefined);
-      // git pull fails
+    it('should throw when marketplace add fails', async () => {
+      // isPluginInstalled: not installed
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // isMarketplaceConfigured: not found
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // addMarketplace: fails
       mockSpawn.mockReturnValueOnce(createMockProcess(1));
 
-      await expect(updatePlugin()).rejects.toThrow('git pull failed with exit code 1');
+      await expect(ensurePluginInstalled()).rejects.toThrow(
+        'Failed to add marketplace (exit code 1)'
+      );
     });
-  });
 
-  describe('getPluginPath', () => {
-    it('should return expected plugin path', () => {
-      const result = getPluginPath();
-      expect(result).toBe('/home/testuser/.contextgraph/claude-code-plugin/plugins/contextgraph');
+    it('should throw when plugin install fails', async () => {
+      // isPluginInstalled: not installed
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
+      // isMarketplaceConfigured: exists
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'contextgraph\n'));
+      // claude plugin install fails
+      mockSpawn.mockReturnValueOnce(createMockProcess(1));
+
+      await expect(ensurePluginInstalled()).rejects.toThrow(
+        'Failed to install plugin (exit code 1)'
+      );
     });
   });
 });
