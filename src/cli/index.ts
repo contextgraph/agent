@@ -23,6 +23,18 @@ program
   .version(packageJson.version);
 
 program
+  .command('setup')
+  .description('Interactive setup wizard for new users')
+  .action(async () => {
+    try {
+      await runSetup();
+    } catch (error) {
+      console.error('Error during setup:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
   .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
@@ -43,18 +55,6 @@ program
       } else {
         console.error('Error running agent:', error);
       }
-      process.exit(1);
-    }
-  });
-
-program
-  .command('setup')
-  .description('Interactive setup wizard for new users')
-  .action(async () => {
-    try {
-      await runSetup();
-    } catch (error) {
-      console.error('Error during setup:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
