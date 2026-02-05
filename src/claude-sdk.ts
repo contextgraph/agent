@@ -1,6 +1,5 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
-import { ensurePlugin } from './plugin-setup.js';
 import { transformSDKMessage } from './sdk-event-transformer.js';
 import type { LogEvent } from './log-transport.js';
 
@@ -158,9 +157,6 @@ export async function executeClaude(
   }, EXECUTION_TIMEOUT_MS);
 
   try {
-    // Ensure the contextgraph plugin is available (clones from GitHub if missing)
-    const pluginPath = await ensurePlugin();
-    console.log('[Agent SDK] Loading plugin from:', pluginPath);
     console.log('[Agent SDK] Auth token available:', !!options.authToken);
     console.log('[Agent SDK] Auth token prefix:', options.authToken?.substring(0, 20) + '...');
     console.log('[Agent SDK] Anthropic API key available:', !!process.env.ANTHROPIC_API_KEY);

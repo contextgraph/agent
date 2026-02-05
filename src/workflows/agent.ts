@@ -9,6 +9,7 @@ import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
+import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -61,7 +62,7 @@ function formatDuration(ms: number): string {
 function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
   const total = stats.prepared + stats.executed;
-  console.log(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`);
+  console.log(chalk.dim(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`));
 }
 
 /**
@@ -77,7 +78,7 @@ async function getNextAction(
   // Prevent infinite recursion in case of malformed data
   const maxDepth = 20;
   if (depth >= maxDepth) {
-    console.error(`❌ Tree traversal exceeded maximum depth (${maxDepth}). Possible cycle or malformed data.`);
+    console.error(chalk.red(`Tree traversal exceeded maximum depth (${maxDepth}). Possible cycle or malformed data.`));
     return null;
   }
 
@@ -85,7 +86,7 @@ async function getNextAction(
 
   if (tree.done) {
     if (depth === 0) {
-      console.log('✅ Root action is already complete');
+      console.log(chalk.green('Root action is already complete'));
     }
     return null;
   }
@@ -100,7 +101,7 @@ async function getNextAction(
 
   // If tree was truncated, re-fetch starting from the truncated node
   if (result.truncatedAt) {
-    console.log(`📊 Tree depth limit reached at action ${result.truncatedAt}. Fetching deeper...`);
+    console.log(chalk.dim(`Tree depth limit reached at action ${result.truncatedAt}. Fetching deeper...`));
     return getNextAction(apiClient, result.truncatedAt, depth + 1);
   }
 
@@ -114,18 +115,18 @@ async function getNextAction(
 async function cleanupAndExit(): Promise<void> {
   if (currentClaim && apiClient) {
     try {
-      console.log(`\n🧹 Releasing claim on action ${currentClaim.actionId}...`);
+      console.log(chalk.dim(`\nReleasing claim on action ${currentClaim.actionId}...`));
       await apiClient.releaseClaim({
         action_id: currentClaim.actionId,
         worker_id: currentClaim.workerId,
         claim_id: currentClaim.claimId,
       });
-      console.log('✅ Claim released successfully');
+      console.log(chalk.dim('Claim released successfully'));
     } catch (error) {
-      console.error('⚠️  Failed to release claim:', (error as Error).message);
+      console.error(chalk.yellow('Failed to release claim:'), (error as Error).message);
     }
   }
-  console.log('👋 Shutdown complete');
+  console.log('Shutdown complete');
   process.exit(0);
 }
 
@@ -134,13 +135,13 @@ async function cleanupAndExit(): Promise<void> {
  */
 function setupSignalHandlers(): void {
   process.on('SIGINT', async () => {
-    console.log('\n\n⚠️  Received SIGINT (Ctrl+C). Shutting down gracefully...');
+    console.log(chalk.yellow('\n\nReceived SIGINT (Ctrl+C). Shutting down gracefully...'));
     running = false;
     await cleanupAndExit();
   });
 
   process.on('SIGTERM', async () => {
-    console.log('\n\n⚠️  Received SIGTERM. Shutting down gracefully...');
+    console.log(chalk.yellow('\n\nReceived SIGTERM. Shutting down gracefully...'));
     running = false;
     await cleanupAndExit();
   });
@@ -184,28 +185,28 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
   // Load and validate credentials upfront
   const credentials = await loadCredentials();
   if (!credentials) {
-    console.error('❌ Not authenticated.');
-    console.error('   Set CONTEXTGRAPH_API_TOKEN environment variable or run `contextgraph-agent auth`');
+    console.error(chalk.red('Not authenticated.'));
+    console.error(`   Set CONTEXTGRAPH_API_TOKEN environment variable or run ${chalk.cyan('contextgraph-agent auth')}`);
     process.exit(1);
   }
   if (isExpired(credentials) || isTokenExpired(credentials.clerkToken)) {
-    console.error('❌ Token expired. Run `contextgraph-agent auth` to re-authenticate.');
+    console.error(chalk.red('Token expired.'), `Run ${chalk.cyan('contextgraph-agent auth')} to re-authenticate.`);
     process.exit(1);
   }
 
   // Show authentication method
   const usingApiToken = !!process.env.CONTEXTGRAPH_API_TOKEN;
   if (usingApiToken) {
-    console.log('🔐 Authenticated via CONTEXTGRAPH_API_TOKEN');
+    console.log(chalk.dim('Authenticated via CONTEXTGRAPH_API_TOKEN'));
   }
 
   // Generate unique worker ID for this session
   const workerId = randomUUID();
 
-  console.log(`🤖 ContextGraph Agent v${packageJson.version}`);
-  console.log(`👷 Worker ID: ${workerId}`);
-  console.log(`🔄 Starting continuous worker loop...\n`);
-  console.log(`💡 Press Ctrl+C to gracefully shutdown and release any claimed work\n`);
+  console.log(`${chalk.bold('ContextGraph Agent')} ${chalk.dim(`v${packageJson.version}`)}`);
+  console.log(chalk.dim(`Worker ID: ${workerId}`));
+  console.log('Starting continuous worker loop...\n');
+  console.log(chalk.dim('Press Ctrl+C to gracefully shutdown and release any claimed work\n'));
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
   let lastStatusTime = Date.now();
@@ -229,21 +230,21 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
 
         // Show extended outage warning once
         if (consecutiveApiErrors === OUTAGE_WARNING_THRESHOLD) {
-          console.warn(`\n⚠️  API appears to be experiencing an outage.`);
-          console.warn(`   Will continue retrying indefinitely (every ${MAX_RETRY_DELAY / 1000}s max).`);
-          console.warn(`   Press Ctrl+C to stop.\n`);
+          console.warn(chalk.yellow(`\nAPI appears to be experiencing an outage.`));
+          console.warn(chalk.yellow(`   Will continue retrying indefinitely (every ${MAX_RETRY_DELAY / 1000}s max).`));
+          console.warn(chalk.yellow(`   Press Ctrl+C to stop.\n`));
         }
 
         if (consecutiveApiErrors < OUTAGE_WARNING_THRESHOLD) {
-          console.warn(`⚠️  API error (attempt ${consecutiveApiErrors}): ${err.message}`);
+          console.warn(chalk.yellow(`API error (attempt ${consecutiveApiErrors}):`), err.message);
         } else if (consecutiveApiErrors % 10 === 0) {
           // Only log every 10th retry during extended outage to reduce noise
-          console.warn(`⚠️  Still retrying... (attempt ${consecutiveApiErrors}, last error: ${err.message})`);
+          console.warn(chalk.yellow(`Still retrying... (attempt ${consecutiveApiErrors}, last error: ${err.message})`));
         }
 
         const delaySeconds = Math.round(apiRetryDelay / 1000);
         if (consecutiveApiErrors < OUTAGE_WARNING_THRESHOLD) {
-          console.warn(`   Retrying in ${delaySeconds}s...`);
+          console.warn(chalk.dim(`   Retrying in ${delaySeconds}s...`));
         }
 
         await sleep(apiRetryDelay);
@@ -286,7 +287,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       phase = 'execute';
     } else {
       // Action is already done - nothing to do
-      console.log(`⏭️  Skipping action "${actionDetail.title}" - already completed`);
+      console.log(chalk.dim(`Skipping action "${actionDetail.title}" - already completed`));
       if (currentClaim && apiClient) {
         try {
           await apiClient.releaseClaim({
@@ -295,7 +296,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
             claim_id: currentClaim.claimId,
           });
         } catch (releaseError) {
-          console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+          console.error(chalk.yellow('Failed to release claim:'), (releaseError as Error).message);
         }
       }
       currentClaim = null;
@@ -303,7 +304,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
     }
 
     // Only print "Working" once we've determined there's actual work to do
-    console.log(`Working: ${actionDetail.title}`);
+    console.log(`${chalk.bold('Working:')} ${chalk.cyan(actionDetail.title)}`);
 
     // Set up workspace using shared function
     let workspacePath: string;
@@ -340,7 +341,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
               claim_id: currentClaim.claimId,
             });
           } catch (releaseError) {
-            console.error('⚠️  Failed to release claim after preparation:', (releaseError as Error).message);
+            console.error(chalk.yellow('Failed to release claim after preparation:'), (releaseError as Error).message);
           }
         }
         currentClaim = null;
@@ -350,10 +351,10 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       try {
         await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });
         stats.executed++;
-        console.log(`Completed: ${actionDetail.title}`);
+        console.log(`${chalk.bold.green('Completed:')} ${chalk.cyan(actionDetail.title)}`);
       } catch (executeError) {
         stats.errors++;
-        console.error(`Error: ${(executeError as Error).message}. Continuing...`);
+        console.error(chalk.red('Error:'), `${(executeError as Error).message}. Continuing...`);
       } finally {
         // Release claim after execution completes (success or failure)
         if (currentClaim && apiClient) {
@@ -364,7 +365,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
               claim_id: currentClaim.claimId,
             });
           } catch (releaseError) {
-            console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+            console.error(chalk.yellow('Failed to release claim:'), (releaseError as Error).message);
           }
         }
         currentClaim = null;
@@ -372,20 +373,20 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
     } catch (workspaceError) {
       // Handle workspace preparation or other errors
       stats.errors++;
-      console.error(`Error preparing workspace: ${(workspaceError as Error).message}. Continuing...`);
+      console.error(chalk.red('Error preparing workspace:'), `${(workspaceError as Error).message}. Continuing...`);
 
       // Release claim on workspace/preparation failure
       if (currentClaim && apiClient) {
         try {
-          console.log(`🧹 Releasing claim due to workspace error...`);
+          console.log(chalk.dim('Releasing claim due to workspace error...'));
           await apiClient.releaseClaim({
             action_id: currentClaim.actionId,
             worker_id: currentClaim.workerId,
             claim_id: currentClaim.claimId,
           });
-          console.log('✅ Claim released');
+          console.log(chalk.dim('Claim released'));
         } catch (releaseError) {
-          console.error('⚠️  Failed to release claim:', (releaseError as Error).message);
+          console.error(chalk.yellow('Failed to release claim:'), (releaseError as Error).message);
         }
       }
       currentClaim = null;

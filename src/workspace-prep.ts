@@ -6,6 +6,7 @@ import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
 import { injectSkills } from './skill-injection.js';
 import { fetchSkillsLibrary } from './skills-library-fetch.js';
+import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -111,7 +112,7 @@ export async function prepareWorkspace(
     try {
       await rm(workspacePath, { recursive: true, force: true });
     } catch (error) {
-      console.error(`Warning: Failed to cleanup workspace at ${workspacePath}:`, error);
+      console.error(chalk.yellow(`Warning: Failed to cleanup workspace at ${workspacePath}:`), error);
     }
   };
 
@@ -120,10 +121,10 @@ export async function prepareWorkspace(
     const cloneUrl = buildAuthenticatedUrl(repoUrl, credentials.githubToken, credentials.gitCredentialsUsername);
 
     // Clone the repository
-    console.log(`📂 Cloning ${repoUrl}`);
-    console.log(`   → ${workspacePath}`);
+    console.log(`Cloning ${chalk.cyan(repoUrl)}`);
+    console.log(chalk.dim(`   ${workspacePath}`));
     await runGitCommand(['clone', cloneUrl, workspacePath]);
-    console.log(`✅ Repository cloned`);
+    console.log(chalk.green('Repository cloned'));
 
     // Configure git identity if we have the info
     if (credentials.githubUsername) {
@@ -149,11 +150,11 @@ export async function prepareWorkspace(
 
       if (branchExists) {
         // Checkout existing branch
-        console.log(`🌿 Checking out branch: ${branch}`);
+        console.log(`Checking out branch: ${chalk.cyan(branch)}`);
         await runGitCommand(['checkout', branch], workspacePath);
       } else {
         // Create new branch
-        console.log(`🌱 Creating new branch: ${branch}`);
+        console.log(`Creating new branch: ${chalk.cyan(branch)}`);
         await runGitCommand(['checkout', '-b', branch], workspacePath);
       }
     }
@@ -166,7 +167,7 @@ export async function prepareWorkspace(
     // This happens AFTER repo clone but BEFORE Claude Code starts
     console.log('');  // Blank line for better log readability
     if (skipSkills) {
-      console.log('📚 Skipping skill injection (--no-skills flag)');
+      console.log(chalk.dim('Skipping skill injection (--no-skills flag)'));
     } else {
       try {
         // Fetch user's skills library from ContextGraph API
@@ -176,11 +177,11 @@ export async function prepareWorkspace(
         if (librarySkills.length > 0) {
           await injectSkills(workspacePath, librarySkills);
         } else {
-          console.log('📚 No skills to inject (empty library)');
+          console.log(chalk.dim('No skills to inject (empty library)'));
         }
       } catch (skillError) {
         // Log but don't fail - agent can still work without skills
-        console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
+        console.warn(chalk.yellow('Skill injection failed (agent will continue):'), skillError);
       }
     }
 

@@ -51,6 +51,7 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
     if (url.pathname === '/callback') {
       const token = url.searchParams.get('token');
       const userId = url.searchParams.get('userId');
+      const email = url.searchParams.get('email');
 
       if (!token) {
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -65,7 +66,7 @@ export async function startCallbackServer(): Promise<CallbackServerResult> {
       }
 
       if (callbackResolve) {
-        callbackResolve({ token, userId });
+        callbackResolve({ token, userId, ...(email ? { email } : {}) });
       }
 
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
