@@ -240,6 +240,222 @@ For CI/CD pipelines, cloud deployments, and unattended worker execution, you'll 
 
 For local development, you can set the key in your shell profile (`~/.bashrc`, `~/.zshrc`) or use a `.env` file (with proper `.gitignore` configuration).
 
+## `cg` - ContextGraph Action CLI
+
+The `cg` CLI provides command-line access to the ContextGraph action graph with full parity to the MCP server tools. It's designed for agent execution workflows, outputting JSON that can be piped through `jq` or `grep` for filtering.
+
+### Installation
+
+The `cg` binary is included when you install `@contextgraph/agent`:
+
+```bash
+npm install -g @contextgraph/agent
+```
+
+Or use with npx:
+
+```bash
+npx @contextgraph/agent cg <command>
+```
+
+### Authentication
+
+The `cg` CLI uses the same authentication as `contextgraph-agent`. Run `contextgraph-agent auth` first:
+
+```bash
+npx @contextgraph/agent auth
+```
+
+### Global Options
+
+- `--org <org-id>` - Organization ID (use "personal" for Personal Account)
+
+### Commands
+
+#### Read Operations
+
+**`cg fetch <action-id>`** - Fetch action details
+
+```bash
+cg fetch 203cf7c9-d21d-4a4a-9dfc-7e82540c351a --detail-level medium
+cg fetch 203cf7c9-d21d-4a4a-9dfc-7e82540c351a --org personal
+```
+
+Options:
+- `--detail-level <level>` - Detail level: small, focus (default), medium, large
+
+**`cg search <query>`** - Search for actions
+
+```bash
+cg search "authentication bug" --mode keyword --limit 5
+cg search "login flow" --include-completed --parent-id parent-action-id
+```
+
+Options:
+- `--mode <mode>` - Search mode: vector, keyword, hybrid (default)
+- `--limit <n>` - Maximum results (default: 10)
+- `--include-completed` - Include completed actions
+- `--parent-id <id>` - Search within a specific subtree
+- `--threshold <n>` - Similarity threshold 0-1 (default: 0.3)
+
+**`cg tree [root-id]`** - Fetch hierarchical tree view
+
+```bash
+cg tree --depth 5
+cg tree root-action-id --include-completed
+```
+
+Options:
+- `--depth <n>` - Maximum depth (default: 3)
+- `--include-completed` - Include completed actions
+
+**`cg list-notes <action-id>`** - Retrieve all notes for an action
+
+```bash
+cg list-notes 203cf7c9-d21d-4a4a-9dfc-7e82540c351a
+```
+
+#### Write Operations
+
+**`cg create`** - Create a new action
+
+```bash
+cg create --title "Fix auth bug" --vision "Auth works correctly" --parent-id parent-id
+cg create --stdin < action-data.json
+```
+
+Options:
+- `--title <text>` - Action title (required)
+- `--vision <text>` - Action vision (required)
+- `--parent-id <id>` - Parent action ID (required)
+- `--depends-on <ids>` - Comma-separated dependency IDs
+- `--branch <branch>` - Git branch
+- `--repo <url>` - Repository URL
+- `--freeform <text>` - Freeform input text
+- `--stdin` - Read full JSON payload from stdin
+
+**`cg update <action-id>`** - Update an existing action
+
+```bash
+cg update action-id --title "New title" --prepared
+cg update action-id --stdin < updates.json
+```
+
+Options:
+- `--title <text>` - Action title
+- `--vision <text>` - Action vision
+- `--prepared` - Mark as prepared
+- `--agent-ready` - Mark as ready for agent execution
+- `--branch <branch>` - Git branch
+- `--depends-on <ids>` - Comma-separated dependency IDs
+- `--brief <text>` - Brief/institutional memory
+- `--stdin` - Read full JSON payload from stdin
+
+**`cg complete <action-id>`** - Mark an action as completed
+
+```bash
+cg complete action-id --visibility public
+cg complete action-id --stdin < completion-context.json
+```
+
+Options:
+- `--visibility <level>` - Changelog visibility: private, team, public (required)
+- `--stdin` - Read full completion context from stdin (recommended)
+
+**`cg append-note <action-id>`** - Append a note to an action
+
+```bash
+cg append-note action-id --content "Implementation note"
+cg append-note action-id --content "User note" --author-type user --author-name "John"
+echo '{"content": "Note from stdin"}' | cg append-note action-id
+```
+
+Options:
+- `--content <text>` - Note content (required if not using stdin)
+- `--author-type <type>` - Author type: user, agent (default), system
+- `--author-name <name>` - Author name
+
+**`cg uncomplete <action-id>`** - Mark a completed action as incomplete
+
+```bash
+cg uncomplete action-id
+```
+
+**`cg move <action-id>`** - Move an action to a different parent
+
+```bash
+cg move action-id --new-parent-id new-parent-id
+cg move action-id  # Makes action independent (no parent)
+```
+
+Options:
+- `--new-parent-id <id>` - New parent action ID (omit to make independent)
+
+**`cg delete <action-id>`** - Delete an action
+
+```bash
+cg delete action-id --child-handling reparent --new-parent-id parent-id
+cg delete action-id --child-handling delete_recursive
+```
+
+Options:
+- `--child-handling <mode>` - How to handle children: reparent (default), delete_recursive
+- `--new-parent-id <id>` - New parent for children when reparenting (required for reparent mode)
+
+**`cg report-completed-work`** - Report work that was already completed
+
+```bash
+cg report-completed-work --title "Fixed bug" --parent-id parent-id --visibility team
+cg report-completed-work --stdin < completed-work.json
+```
+
+Options:
+- `--title <text>` - Action title (required)
+- `--parent-id <id>` - Parent action ID (required)
+- `--visibility <level>` - Changelog visibility (required)
+- `--stdin` - Read full payload from stdin (recommended)
+
+### JSON Input/Output
+
+All commands output JSON to stdout. Errors are output as JSON to stderr.
+
+**Using stdin for complex data:**
+
+Many commands support `--stdin` to read JSON from stdin. This is especially useful for complex payloads like completion context:
+
+```bash
+# Create with full payload
+echo '{
+  "title": "New Action",
+  "vision": "Action completed",
+  "parent_id": "parent-id",
+  "depends_on_ids": ["dep-1", "dep-2"]
+}' | cg create --stdin
+
+# Complete with full context
+cat completion.json | cg complete action-id --stdin
+```
+
+**CLI options override stdin:** When both stdin and CLI options are provided, CLI options take precedence:
+
+```bash
+# Title from CLI overrides stdin
+echo '{"title": "From stdin"}' | cg create --stdin --title "Overridden" --vision "Vision" --parent-id "parent"
+```
+
+**Filtering output with jq:**
+
+```bash
+# Get just action titles
+cg search "bug" | jq -r '.results[].title'
+
+# Get action IDs
+cg tree | jq -r '.. | .id? // empty'
+
+# Pretty print
+cg fetch action-id | jq .
+```
+
 ## Development
 
 ```bash
