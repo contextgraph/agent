@@ -354,6 +354,163 @@ program
     }
   });
 
+// uncomplete command
+program
+  .command('uncomplete <action-id>')
+  .description('Mark a completed action as incomplete again')
+  .action(async (actionId) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+      const args: Record<string, any> = {
+        action_id: actionId,
+      };
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+      const result = await client.callTool('actions/uncomplete', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// list-notes command
+program
+  .command('list-notes <action-id>')
+  .description('Retrieve all notes for an action')
+  .action(async (actionId) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+      const args: Record<string, any> = {
+        action_id: actionId,
+      };
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+      const result = await client.callTool('actions/list_notes', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// move command
+program
+  .command('move <action-id>')
+  .description('Move an action to a different parent')
+  .option('--new-parent-id <id>', 'ID of the new parent action (omit to make independent)')
+  .action(async (actionId, options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+      const args: Record<string, any> = {
+        action_id: actionId,
+      };
+      if (options.newParentId) {
+        args.new_parent_id = options.newParentId;
+      }
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+      const result = await client.callTool('actions/move', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// delete command
+program
+  .command('delete <action-id>')
+  .description('Delete an action and handle its children')
+  .option('--child-handling <mode>', 'How to handle children (delete_recursive|reparent)', 'reparent')
+  .option('--new-parent-id <id>', 'New parent for children when reparenting')
+  .action(async (actionId, options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      // Validate that new-parent-id is provided when child-handling is reparent
+      if (options.childHandling === 'reparent' && !options.newParentId) {
+        throw new Error('--new-parent-id is required when --child-handling is "reparent"');
+      }
+
+      const args: Record<string, any> = {
+        action_id: actionId,
+        child_handling: options.childHandling,
+      };
+      if (options.newParentId) {
+        args.new_parent_id = options.newParentId;
+      }
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+      const result = await client.callTool('actions/delete', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// report-completed-work command
+program
+  .command('report-completed-work')
+  .description('Report work that has already been completed')
+  .option('--title <text>', 'Action title')
+  .option('--parent-id <id>', 'Parent action ID')
+  .option('--visibility <level>', 'Changelog visibility (private|team|public)')
+  .option('--stdin', 'Read full JSON payload from stdin (recommended)')
+  .action(async (options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      let args: Record<string, any> = {};
+
+      // If --stdin is provided, read JSON from stdin as base
+      if (options.stdin) {
+        args = await readStdinJson();
+      }
+
+      // CLI options override stdin values
+      if (options.title) args.title = options.title;
+      if (options.parentId) args.parent_id = options.parentId;
+      if (options.visibility) args.changelog_visibility = options.visibility;
+
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+
+      // Validate required fields
+      if (!args.title) {
+        throw new Error('--title is required (or provide via stdin)');
+      }
+      if (!args.parent_id) {
+        throw new Error('--parent-id is required (or provide via stdin)');
+      }
+      if (!args.changelog_visibility) {
+        throw new Error('--visibility is required (or provide via stdin)');
+      }
+
+      const result = await client.callTool('actions/report_completed_work', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
 // Add a placeholder command to show help when no command is provided
 program.action(() => {
   program.help();
