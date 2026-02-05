@@ -115,6 +115,245 @@ program
     }
   });
 
+/**
+ * Helper function to read JSON from stdin
+ */
+async function readStdinJson(): Promise<Record<string, any>> {
+  // Check if stdin is a TTY (terminal) - if so, there's no piped input
+  if (process.stdin.isTTY) {
+    return {};
+  }
+
+  return new Promise((resolve, reject) => {
+    let data = '';
+    process.stdin.on('data', (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on('end', () => {
+      if (data.trim() === '') {
+        resolve({});
+      } else {
+        try {
+          resolve(JSON.parse(data));
+        } catch (error) {
+          reject(new Error(`Invalid JSON in stdin: ${error instanceof Error ? error.message : String(error)}`));
+        }
+      }
+    });
+    process.stdin.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+// append-note command
+program
+  .command('append-note <action-id>')
+  .description('Append a note to an action')
+  .option('--content <text>', 'Note content')
+  .option('--author-type <type>', 'Author type (user|agent|system)', 'agent')
+  .option('--author-name <name>', 'Author name')
+  .action(async (actionId, options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      // Read from stdin if --content is not provided
+      let content = options.content;
+      if (!content) {
+        const stdinData = await readStdinJson();
+        content = stdinData.content || '';
+      }
+
+      if (!content) {
+        throw new Error('Note content is required (via --content or stdin with {"content": "..."})');
+      }
+
+      const args: Record<string, any> = {
+        action_id: actionId,
+        content,
+        author: {
+          type: options.authorType,
+        },
+      };
+
+      if (options.authorName) {
+        args.author.name = options.authorName;
+      }
+
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+
+      const result = await client.callTool('actions/append_note', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// create command
+program
+  .command('create')
+  .description('Create a new action')
+  .option('--title <text>', 'Action title')
+  .option('--vision <text>', 'Action vision')
+  .option('--parent-id <id>', 'Parent action ID (required)')
+  .option('--depends-on <ids>', 'Comma-separated list of dependency action IDs')
+  .option('--branch <branch>', 'Git branch')
+  .option('--repo <url>', 'Repository URL')
+  .option('--freeform <text>', 'Freeform input text')
+  .option('--stdin', 'Read full JSON payload from stdin')
+  .action(async (options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      let args: Record<string, any> = {};
+
+      // If --stdin is provided, read JSON from stdin as base
+      if (options.stdin) {
+        args = await readStdinJson();
+      }
+
+      // CLI options override stdin values
+      if (options.title) args.title = options.title;
+      if (options.vision) args.vision = options.vision;
+      if (options.parentId) args.parent_id = options.parentId;
+      if (options.branch) args.branch = options.branch;
+      if (options.repo) args.repository_url = options.repo;
+      if (options.freeform) args.freeform_input = options.freeform;
+
+      // Handle depends_on as comma-separated list
+      if (options.dependsOn) {
+        args.depends_on_ids = options.dependsOn.split(',').map((id: string) => id.trim());
+      } else if (!args.depends_on_ids) {
+        args.depends_on_ids = [];
+      }
+
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+
+      // Validate required fields
+      if (!args.title) {
+        throw new Error('--title is required');
+      }
+      if (!args.vision) {
+        throw new Error('--vision is required');
+      }
+      if (!args.parent_id) {
+        throw new Error('--parent-id is required');
+      }
+
+      const result = await client.callTool('actions/create', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// update command
+program
+  .command('update <action-id>')
+  .description('Update an existing action')
+  .option('--title <text>', 'Action title')
+  .option('--vision <text>', 'Action vision')
+  .option('--prepared', 'Mark action as prepared')
+  .option('--agent-ready', 'Mark action as ready for agent execution')
+  .option('--branch <branch>', 'Git branch')
+  .option('--depends-on <ids>', 'Comma-separated list of dependency action IDs')
+  .option('--brief <text>', 'Brief/institutional memory')
+  .option('--stdin', 'Read full JSON payload from stdin')
+  .action(async (actionId, options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      let args: Record<string, any> = {
+        action_id: actionId,
+      };
+
+      // If --stdin is provided, read JSON from stdin as base
+      if (options.stdin) {
+        const stdinData = await readStdinJson();
+        args = { ...stdinData, action_id: actionId };
+      }
+
+      // CLI options override stdin values
+      if (options.title) args.title = options.title;
+      if (options.vision) args.vision = options.vision;
+      if (options.prepared !== undefined) args.prepared = options.prepared;
+      if (options.agentReady !== undefined) args.agentReady = options.agentReady;
+      if (options.branch) args.branch = options.branch;
+      if (options.brief) args.brief = options.brief;
+
+      // Handle depends_on as comma-separated list
+      if (options.dependsOn) {
+        args.depends_on_ids = options.dependsOn.split(',').map((id: string) => id.trim());
+      }
+
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+
+      const result = await client.callTool('actions/update', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
+// complete command
+program
+  .command('complete <action-id>')
+  .description('Mark an action as completed')
+  .option('--visibility <level>', 'Changelog visibility (private|team|public)')
+  .option('--stdin', 'Read full completion context JSON from stdin (recommended)')
+  .action(async (actionId, options) => {
+    try {
+      const orgId = program.opts().org;
+      const client = new CgApiClient();
+
+      let args: Record<string, any> = {
+        action_id: actionId,
+      };
+
+      // If --stdin is provided, read JSON from stdin as base
+      if (options.stdin) {
+        const stdinData = await readStdinJson();
+        args = { ...stdinData, action_id: actionId };
+      }
+
+      // CLI options override stdin values
+      if (options.visibility) {
+        args.changelog_visibility = options.visibility;
+      }
+
+      if (orgId) {
+        args.organization_id = orgId;
+      }
+
+      // Validate required fields
+      if (!args.changelog_visibility) {
+        throw new Error('--visibility is required (or provide via stdin)');
+      }
+
+      const result = await client.callTool('actions/complete', args);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ error: errorMessage }));
+      process.exit(1);
+    }
+  });
+
 // Add a placeholder command to show help when no command is provided
 program.action(() => {
   program.help();
