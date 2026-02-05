@@ -7,6 +7,7 @@
 export type Credentials = {
   clerkToken: string;
   userId: string;
+  email?: string;
   expiresAt: string;
   createdAt: string;
 };
@@ -22,6 +23,7 @@ export interface GitHubCredentials {
 export type CallbackResult = {
   token: string;
   userId: string;
+  email?: string;
 };
 
 // ============================================================================

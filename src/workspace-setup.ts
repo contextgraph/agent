@@ -5,6 +5,7 @@ import { prepareWorkspace } from './workspace-prep.js';
 import { LogTransportService } from './log-transport.js';
 import { ApiClient } from './api-client.js';
 import type { ActionDetailResource } from './types/actions.js';
+import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -51,18 +52,18 @@ export async function setupWorkspaceForAction(
   let actionDetail = options.actionDetail;
   if (!actionDetail) {
     const apiClient = new ApiClient();
-    console.log(`Fetching action details for ${actionId}...`);
+    console.log(chalk.dim(`Fetching action details for ${actionId}...`));
     actionDetail = await apiClient.getActionDetail(actionId);
   }
 
   // Create run FIRST so we can track which skills are loaded
   // This enables the "skill refinement signals" feature
   const logTransport = new LogTransportService(API_BASE_URL, authToken);
-  console.log(`[Log Streaming] Creating run for ${phase} phase...`);
+  console.log(chalk.dim(`[Log Streaming] Creating run for ${phase} phase...`));
   const runId = await logTransport.createRun(actionId, phase, {
     startingCommit: startingCommitOverride,
   });
-  console.log(`[Log Streaming] Run created: ${runId}`);
+  console.log(chalk.dim(`[Log Streaming] Run created: ${runId}`));
 
   // Set up workspace based on whether action has a repository
   const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
@@ -86,14 +87,14 @@ export async function setupWorkspaceForAction(
     startingCommit = workspace.startingCommit;
   } else {
     // Create a blank temp directory (no repo configured)
-    console.log(`📂 No repository configured - creating blank workspace`);
+    console.log(chalk.dim('No repository configured - creating blank workspace'));
     workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
-    console.log(`   → ${workspacePath}`);
+    console.log(chalk.dim(`   ${workspacePath}`));
     cleanup = async () => {
       try {
         await rm(workspacePath, { recursive: true, force: true });
       } catch (error) {
-        console.error(`Warning: Failed to cleanup workspace at ${workspacePath}:`, error);
+        console.error(chalk.yellow(`Warning: Failed to cleanup workspace at ${workspacePath}:`), error);
       }
     };
   }

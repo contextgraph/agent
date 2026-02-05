@@ -5,6 +5,7 @@ import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
+import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -20,12 +21,12 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
   const credentials = await loadCredentials();
 
   if (!credentials) {
-    console.error('❌ Not authenticated. Run authentication first.');
+    console.error(chalk.red('Not authenticated.'), 'Run authentication first.');
     process.exit(1);
   }
 
   if (isExpired(credentials) || isTokenExpired(credentials.clerkToken)) {
-    console.error('❌ Token expired. Re-authenticate to continue.');
+    console.error(chalk.red('Token expired.'), 'Re-authenticate to continue.');
     process.exit(1);
   }
 
@@ -52,14 +53,14 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       logTransport = setup.logTransport;
     } else {
       // runId was pre-provided, use the provided cwd (agent loop already set up workspace)
-      console.log(`[Log Streaming] Using pre-created run: ${runId}`);
+      console.log(chalk.dim(`[Log Streaming] Using pre-created run: ${runId}`));
       workspacePath = options?.cwd || process.cwd();
       // Create log transport with existing runId
       logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, runId);
     }
 
     // Now fetch preparation instructions with runId included
-    console.log(`Fetching preparation instructions for action ${actionId}...\n`);
+    console.log(chalk.dim(`Fetching preparation instructions for action ${actionId}...\n`));
 
     const response = await fetchWithRetry(
       `${API_BASE_URL}/api/prompts/prepare`,
@@ -86,7 +87,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     // Start heartbeat manager
     heartbeatManager = new HeartbeatManager(API_BASE_URL, credentials.clerkToken, runId);
     heartbeatManager.start();
-    console.log('[Log Streaming] Heartbeat started');
+    console.log(chalk.dim('[Log Streaming] Heartbeat started'));
 
     // Set up log buffer for non-blocking transmission
     logBuffer = new LogBuffer(logTransport);
@@ -111,13 +112,13 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
         cost: claudeResult.cost,
         usage: claudeResult.usage,
       });
-      console.log('\n✅ Preparation complete');
+      console.log('\n' + chalk.green('Preparation complete'));
     } else {
       await logTransport.finishRun('error', {
         exitCode: claudeResult.exitCode,
         errorMessage: `Claude preparation failed with exit code ${claudeResult.exitCode}`,
       });
-      console.error(`\n❌ Claude preparation failed with exit code ${claudeResult.exitCode}`);
+      console.error('\n' + chalk.red(`Claude preparation failed with exit code ${claudeResult.exitCode}`));
       process.exit(1);
     }
 
@@ -129,7 +130,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
           errorMessage: error instanceof Error ? error.message : String(error),
         });
       } catch (stateError) {
-        console.error('[Log Streaming] Failed to update run state:', stateError);
+        console.error(chalk.dim('[Log Streaming] Failed to update run state:'), stateError);
       }
     }
     throw error;
@@ -138,12 +139,12 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     // Cleanup: stop heartbeat and flush remaining logs
     if (heartbeatManager) {
       heartbeatManager.stop();
-      console.log('[Log Streaming] Heartbeat stopped');
+      console.log(chalk.dim('[Log Streaming] Heartbeat stopped'));
     }
 
     if (logBuffer) {
       await logBuffer.stop();
-      console.log('[Log Streaming] Logs flushed');
+      console.log(chalk.dim('[Log Streaming] Logs flushed'));
     }
 
     // Cleanup workspace if we created it

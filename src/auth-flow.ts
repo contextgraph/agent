@@ -7,6 +7,7 @@ type AuthenticationResult =
       credentials: {
         token: string;
         userId: string;
+        email?: string;
       };
     }
   | {
@@ -59,6 +60,7 @@ export async function authenticateAgent(
     await saveCredentials({
       clerkToken: result.token,
       userId: result.userId,
+      ...(result.email ? { email: result.email } : {}),
       expiresAt,
       createdAt: new Date().toISOString(),
     });
@@ -70,6 +72,7 @@ export async function authenticateAgent(
       credentials: {
         token: result.token,
         userId: result.userId,
+        email: result.email,
       },
     };
   } catch (error) {
