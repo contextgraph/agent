@@ -15,6 +15,7 @@ export interface WorkflowOptions {
   model?: string;
   runId?: string; // Pre-created runId (skips run creation and workspace setup if provided)
   skipSkills?: boolean; // Skip skill injection (for testing)
+  promptPrefix?: string; // Prepended to the server-fetched prompt (e.g. workspace layout)
 }
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
@@ -35,7 +36,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let logBuffer: LogBuffer | undefined;
   let workspacePath: string | undefined;
   let cleanup: (() => Promise<void>) | undefined;
-  let logTransport: LogTransportService;
+  let logTransport!: LogTransportService;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
@@ -79,7 +80,8 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
     }
 
-    const { prompt } = await response.json();
+    const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
+    const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
 
     // Update run state to executing
     await logTransport.updateRunState('executing');

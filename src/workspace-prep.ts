@@ -96,6 +96,106 @@ function buildAuthenticatedUrl(repoUrl: string, token: string, username?: string
   return repoUrl;
 }
 
+export function extractRepoName(url: string): string {
+  const cleaned = url.replace(/\.git\/?$/, '').replace(/\/$/, '');
+  const segments = cleaned.split('/');
+  return segments[segments.length - 1];
+}
+
+export interface MultiRepoWorkspaceResult {
+  rootPath: string;
+  repos: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
+  cleanup: () => Promise<void>;
+}
+
+export async function prepareMultiRepoWorkspace(
+  repositories: Array<{url: string; branch?: string}>,
+  options: PrepareWorkspaceOptions
+): Promise<MultiRepoWorkspaceResult> {
+  const { authToken, runId, skipSkills } = options;
+
+  const credentials = await fetchGitHubCredentials(authToken);
+  const rootPath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
+
+  const cleanup = async () => {
+    try {
+      await rm(rootPath, { recursive: true, force: true });
+    } catch (error) {
+      console.error(`Warning: Failed to cleanup workspace at ${rootPath}:`, error);
+    }
+  };
+
+  try {
+    const repos: MultiRepoWorkspaceResult['repos'] = [];
+
+    for (const repo of repositories) {
+      const name = extractRepoName(repo.url);
+      const repoPath = join(rootPath, name);
+      const cloneUrl = buildAuthenticatedUrl(repo.url, credentials.githubToken, credentials.gitCredentialsUsername);
+
+      console.log(`📂 Cloning ${repo.url}`);
+      console.log(`   → ${repoPath}`);
+      await runGitCommand(['clone', cloneUrl, repoPath]);
+      console.log(`✅ Repository cloned`);
+
+      if (credentials.githubUsername) {
+        await runGitCommand(['config', 'user.name', credentials.githubUsername], repoPath);
+      }
+      if (credentials.githubEmail) {
+        await runGitCommand(['config', 'user.email', credentials.githubEmail], repoPath);
+      }
+
+      await appendFile(join(repoPath, '.git', 'info', 'exclude'), '\n.claude/skills/\n');
+
+      if (repo.branch) {
+        const { stdout } = await runGitCommand(
+          ['ls-remote', '--heads', 'origin', repo.branch],
+          repoPath
+        );
+
+        if (stdout.trim().length > 0) {
+          console.log(`🌿 Checking out branch: ${repo.branch}`);
+          await runGitCommand(['checkout', repo.branch], repoPath);
+        } else {
+          console.log(`🌱 Creating new branch: ${repo.branch}`);
+          await runGitCommand(['checkout', '-b', repo.branch], repoPath);
+        }
+      }
+
+      const { stdout: commitHash } = await runGitCommand(['rev-parse', 'HEAD'], repoPath);
+
+      repos.push({
+        name,
+        path: repoPath,
+        url: repo.url,
+        branch: repo.branch,
+        startingCommit: commitHash.trim(),
+      });
+    }
+
+    console.log('');
+    if (skipSkills) {
+      console.log('📚 Skipping skill injection (--no-skills flag)');
+    } else {
+      try {
+        const librarySkills = await fetchSkillsLibrary({ authToken, runId });
+        if (librarySkills.length > 0) {
+          await injectSkills(rootPath, librarySkills);
+        } else {
+          console.log('📚 No skills to inject (empty library)');
+        }
+      } catch (skillError) {
+        console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
+      }
+    }
+
+    return { rootPath, repos, cleanup };
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
+
 export async function prepareWorkspace(
   repoUrl: string,
   options: PrepareWorkspaceOptions

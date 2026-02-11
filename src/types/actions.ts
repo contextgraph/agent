@@ -95,6 +95,7 @@ export interface ActionDetailResource {
   resolved_repository_url?: string | null;
   branch?: string | null;
   resolved_branch?: string | null;
+  resolved_repositories?: Array<{url: string; branch?: string}>;
   parent_id?: string;
   parent_chain: ActionMetadata[]; // all parent actions up to root
   family_context_summary?: string; // AI-generated summary of family context
