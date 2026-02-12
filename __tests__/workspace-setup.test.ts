@@ -61,6 +61,7 @@ describe('setupWorkspaceForAction', () => {
 
   it('should use prepareWorkspace for single repo via resolved_repositories', async () => {
     const actionDetail = makeActionDetail({
+      graphId: 'graph-abc',
       resolved_repositories: [{ url: 'https://github.com/org/repo', branch: 'main' }],
       resolved_repository_url: 'https://github.com/org/repo',
       resolved_branch: 'main',
@@ -81,13 +82,18 @@ describe('setupWorkspaceForAction', () => {
 
     expect(result.workspacePath).toBe('/tmp/cg-workspace-single');
     expect(result.startingCommit).toBe('abc123');
+    expect(result.graphId).toBe('graph-abc');
     expect(result.repos).toBeUndefined();
-    expect(mockPrepareWorkspace).toHaveBeenCalled();
+    expect(mockPrepareWorkspace).toHaveBeenCalledWith(
+      'https://github.com/org/repo',
+      expect.objectContaining({ graphId: 'graph-abc' })
+    );
     expect(mockPrepareMultiRepo).not.toHaveBeenCalled();
   });
 
   it('should use prepareMultiRepoWorkspace for multiple repos', async () => {
     const actionDetail = makeActionDetail({
+      graphId: 'graph-xyz',
       resolved_repositories: [
         { url: 'https://github.com/org/actions', branch: 'main' },
         { url: 'https://github.com/org/agent', branch: 'develop' },
@@ -121,7 +127,7 @@ describe('setupWorkspaceForAction', () => {
     expect(result.repos![1].startingCommit).toBe('bbb');
     expect(mockPrepareMultiRepo).toHaveBeenCalledWith(
       actionDetail.resolved_repositories!,
-      expect.objectContaining({ authToken: 'token' })
+      expect.objectContaining({ authToken: 'token', graphId: 'graph-xyz' })
     );
     expect(mockPrepareWorkspace).not.toHaveBeenCalled();
   });

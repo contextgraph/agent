@@ -80,6 +80,7 @@ export interface ActionTreeResource {
 
 export interface ActionDetailResource {
   id: string;
+  graphId?: string | null;
   title: string;
   description?: string;
   vision?: string;
