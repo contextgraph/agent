@@ -15,6 +15,7 @@ export interface WorkspaceSetupResult {
   startingCommit: string | undefined;
   runId: string;
   logTransport: LogTransportService;
+  branch?: string;
   repos?: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
 }
 
@@ -119,6 +120,7 @@ export async function setupWorkspaceForAction(
     startingCommit,
     runId,
     logTransport,
+    branch: branch || undefined,
     repos,
   };
 }

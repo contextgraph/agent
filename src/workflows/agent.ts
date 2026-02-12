@@ -335,6 +335,8 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
           return `- ${r.name}/ (${r.url}${branchInfo})`;
         }).join('\n');
         promptPrefix = `## Workspace Layout\nThis workspace contains multiple repositories:\n${repoLines}\n\nYour working directory is the workspace root. Use relative paths to navigate between repos.\nWhen committing changes, cd into each repo directory and commit/push separately.\nCreate separate PRs per repository if needed.`;
+      } else if (setup.branch) {
+        promptPrefix = `## Workspace Branch\nThe workspace has been checked out to branch \`${setup.branch}\`. You MUST use this exact branch name for all git operations (checkout, push, PR creation). Do NOT create a different branch name.`;
       }
 
       if (phase === 'prepare') {
