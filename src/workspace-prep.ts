@@ -121,22 +121,39 @@ export async function prepareMultiRepoWorkspace(
     try {
       await rm(rootPath, { recursive: true, force: true });
     } catch (error) {
-      console.error(`Warning: Failed to cleanup workspace at ${rootPath}:`, error);
+      console.error(chalk.yellow(`Warning: Failed to cleanup workspace at ${rootPath}:`), error);
     }
   };
 
   try {
     const repos: MultiRepoWorkspaceResult['repos'] = [];
 
-    for (const repo of repositories) {
-      const name = extractRepoName(repo.url);
+    // Deduplicate repo names (e.g. org-a/utils and org-b/utils)
+    const rawNames = repositories.map(r => extractRepoName(r.url));
+    const nameOccurrences = new Map<string, number>();
+    for (const n of rawNames) {
+      nameOccurrences.set(n, (nameOccurrences.get(n) || 0) + 1);
+    }
+    const nameIndex = new Map<string, number>();
+    const uniqueNames = rawNames.map(n => {
+      if ((nameOccurrences.get(n) || 0) > 1) {
+        const idx = (nameIndex.get(n) || 0) + 1;
+        nameIndex.set(n, idx);
+        return `${n}-${idx}`;
+      }
+      return n;
+    });
+
+    for (let i = 0; i < repositories.length; i++) {
+      const repo = repositories[i];
+      const name = uniqueNames[i];
       const repoPath = join(rootPath, name);
       const cloneUrl = buildAuthenticatedUrl(repo.url, credentials.githubToken, credentials.gitCredentialsUsername);
 
-      console.log(`📂 Cloning ${repo.url}`);
-      console.log(`   → ${repoPath}`);
+      console.log(`Cloning ${chalk.cyan(repo.url)}`);
+      console.log(chalk.dim(`   ${repoPath}`));
       await runGitCommand(['clone', cloneUrl, repoPath]);
-      console.log(`✅ Repository cloned`);
+      console.log(chalk.green('Repository cloned'));
 
       if (credentials.githubUsername) {
         await runGitCommand(['config', 'user.name', credentials.githubUsername], repoPath);
@@ -154,10 +171,10 @@ export async function prepareMultiRepoWorkspace(
         );
 
         if (stdout.trim().length > 0) {
-          console.log(`🌿 Checking out branch: ${repo.branch}`);
+          console.log(`Checking out branch: ${chalk.cyan(repo.branch)}`);
           await runGitCommand(['checkout', repo.branch], repoPath);
         } else {
-          console.log(`🌱 Creating new branch: ${repo.branch}`);
+          console.log(`Creating new branch: ${chalk.cyan(repo.branch)}`);
           await runGitCommand(['checkout', '-b', repo.branch], repoPath);
         }
       }
@@ -175,17 +192,17 @@ export async function prepareMultiRepoWorkspace(
 
     console.log('');
     if (skipSkills) {
-      console.log('📚 Skipping skill injection (--no-skills flag)');
+      console.log(chalk.dim('Skipping skill injection (--no-skills flag)'));
     } else {
       try {
         const librarySkills = await fetchSkillsLibrary({ authToken, runId });
         if (librarySkills.length > 0) {
           await injectSkills(rootPath, librarySkills);
         } else {
-          console.log('📚 No skills to inject (empty library)');
+          console.log(chalk.dim('No skills to inject (empty library)'));
         }
       } catch (skillError) {
-        console.warn('⚠️  Skill injection failed (agent will continue):', skillError);
+        console.warn(chalk.yellow('Skill injection failed (agent will continue):'), skillError);
       }
     }
 

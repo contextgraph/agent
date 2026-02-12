@@ -1,5 +1,16 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
+jest.mock('chalk', () => ({
+  default: {
+    cyan: (s: string) => s,
+    dim: (s: string) => s,
+    green: (s: string) => s,
+    yellow: (s: string) => s,
+    red: (s: string) => s,
+  },
+  __esModule: true,
+}));
+
 const mockLoadCredentials = jest.fn<() => Promise<unknown>>().mockResolvedValue({
   clerkToken: 'test-token',
   userId: 'user-1',

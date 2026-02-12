@@ -4,6 +4,16 @@ import { EventEmitter } from 'events';
 
 jest.mock('child_process');
 jest.mock('fs/promises');
+jest.mock('chalk', () => ({
+  default: {
+    cyan: (s: string) => s,
+    dim: (s: string) => s,
+    green: (s: string) => s,
+    yellow: (s: string) => s,
+    red: (s: string) => s,
+  },
+  __esModule: true,
+}));
 
 import { spawn } from 'child_process';
 import { mkdtemp, rm, appendFile } from 'fs/promises';
@@ -278,6 +288,47 @@ describe('prepareMultiRepoWorkspace', () => {
     expect(mockAppendFile).toHaveBeenCalledWith(
       '/tmp/cg-workspace-abc123/agent/.git/info/exclude',
       '\n.claude/skills/\n'
+    );
+  });
+
+  it('should deduplicate repos with the same name', async () => {
+    mockCredentials();
+
+    const repos = [
+      { url: 'https://github.com/org-a/utils' },
+      { url: 'https://github.com/org-b/utils' },
+    ];
+
+    mockSpawn
+      // repo 1: utils-1
+      .mockReturnValueOnce(createMockProcess(0)) // git clone
+      .mockReturnValueOnce(createMockProcess(0)) // git config user.name
+      .mockReturnValueOnce(createMockProcess(0)) // git config user.email
+      .mockReturnValueOnce(createMockProcess(0, 'aaa111\n')) // git rev-parse HEAD
+      // repo 2: utils-2
+      .mockReturnValueOnce(createMockProcess(0)) // git clone
+      .mockReturnValueOnce(createMockProcess(0)) // git config user.name
+      .mockReturnValueOnce(createMockProcess(0)) // git config user.email
+      .mockReturnValueOnce(createMockProcess(0, 'bbb222\n')); // git rev-parse HEAD
+
+    const result = await prepareMultiRepoWorkspace(repos, defaultOptions);
+
+    expect(result.repos).toHaveLength(2);
+    expect(result.repos[0].name).toBe('utils-1');
+    expect(result.repos[0].path).toBe('/tmp/cg-workspace-abc123/utils-1');
+    expect(result.repos[1].name).toBe('utils-2');
+    expect(result.repos[1].path).toBe('/tmp/cg-workspace-abc123/utils-2');
+
+    // Verify clone targets deduplicated subdirectories
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', expect.stringContaining('org-a/utils'), '/tmp/cg-workspace-abc123/utils-1'],
+      expect.any(Object)
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', expect.stringContaining('org-b/utils'), '/tmp/cg-workspace-abc123/utils-2'],
+      expect.any(Object)
     );
   });
 

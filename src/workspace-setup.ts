@@ -15,7 +15,7 @@ export interface WorkspaceSetupResult {
   startingCommit: string | undefined;
   runId: string;
   logTransport: LogTransportService;
-  repos?: Array<{name: string; path: string; url: string; branch?: string}>;
+  repos?: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
 }
 
 export interface WorkspaceSetupOptions {
@@ -84,9 +84,11 @@ export async function setupWorkspaceForAction(
     });
     workspacePath = workspace.rootPath;
     cleanup = workspace.cleanup;
+    // Use first repo's commit as the top-level startingCommit for backward compat;
+    // per-repo commits are available via repos[].startingCommit
     startingCommit = workspace.repos[0].startingCommit;
-    repos = workspace.repos.map(({ name, path, url, branch: repoBranch }) => ({
-      name, path, url, branch: repoBranch,
+    repos = workspace.repos.map(({ name, path, url, branch: repoBranch, startingCommit: sc }) => ({
+      name, path, url, branch: repoBranch, startingCommit: sc,
     }));
   } else if (repoUrl) {
     const workspace = await prepareWorkspace(repoUrl, {

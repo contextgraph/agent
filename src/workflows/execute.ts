@@ -6,17 +6,11 @@ import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
 import chalk from 'chalk';
+import type { WorkflowOptions } from './types.js';
+
+export type { WorkflowOptions };
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
-
-export interface WorkflowOptions {
-  cwd?: string;
-  startingCommit?: string;
-  model?: string;
-  runId?: string; // Pre-created runId (skips run creation and workspace setup if provided)
-  skipSkills?: boolean; // Skip skill injection (for testing)
-  promptPrefix?: string; // Prepended to the server-fetched prompt (e.g. workspace layout)
-}
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
   const credentials = await loadCredentials();

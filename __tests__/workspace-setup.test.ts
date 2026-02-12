@@ -1,6 +1,16 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 jest.mock('../src/workspace-prep.js');
+jest.mock('chalk', () => ({
+  default: {
+    cyan: (s: string) => s,
+    dim: (s: string) => s,
+    green: (s: string) => s,
+    yellow: (s: string) => s,
+    red: (s: string) => s,
+  },
+  __esModule: true,
+}));
 const mockCreateRun = jest.fn<() => Promise<string>>().mockResolvedValue('run-123');
 jest.mock('../src/log-transport.js', () => ({
   LogTransportService: jest.fn(() => ({ createRun: mockCreateRun })),
@@ -106,7 +116,9 @@ describe('setupWorkspaceForAction', () => {
     expect(result.startingCommit).toBe('aaa');
     expect(result.repos).toHaveLength(2);
     expect(result.repos![0].name).toBe('actions');
+    expect(result.repos![0].startingCommit).toBe('aaa');
     expect(result.repos![1].name).toBe('agent');
+    expect(result.repos![1].startingCommit).toBe('bbb');
     expect(mockPrepareMultiRepo).toHaveBeenCalledWith(
       actionDetail.resolved_repositories!,
       expect.objectContaining({ authToken: 'token' })
