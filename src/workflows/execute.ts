@@ -6,16 +6,11 @@ import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
 import chalk from 'chalk';
+import type { WorkflowOptions } from './types.js';
+
+export type { WorkflowOptions };
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
-
-export interface WorkflowOptions {
-  cwd?: string;
-  startingCommit?: string;
-  model?: string;
-  runId?: string; // Pre-created runId (skips run creation and workspace setup if provided)
-  skipSkills?: boolean; // Skip skill injection (for testing)
-}
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
   const credentials = await loadCredentials();
@@ -35,7 +30,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let logBuffer: LogBuffer | undefined;
   let workspacePath: string | undefined;
   let cleanup: (() => Promise<void>) | undefined;
-  let logTransport: LogTransportService;
+  let logTransport!: LogTransportService;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
@@ -79,7 +74,8 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
     }
 
-    const { prompt } = await response.json();
+    const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
+    const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
 
     // Update run state to executing
     await logTransport.updateRunState('executing');

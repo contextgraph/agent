@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { prepareWorkspace } from './workspace-prep.js';
+import { prepareWorkspace, prepareMultiRepoWorkspace } from './workspace-prep.js';
 import { LogTransportService } from './log-transport.js';
 import { ApiClient } from './api-client.js';
 import type { ActionDetailResource } from './types/actions.js';
@@ -15,6 +15,7 @@ export interface WorkspaceSetupResult {
   startingCommit: string | undefined;
   runId: string;
   logTransport: LogTransportService;
+  repos?: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
 }
 
 export interface WorkspaceSetupOptions {
@@ -65,17 +66,31 @@ export async function setupWorkspaceForAction(
   });
   console.log(chalk.dim(`[Log Streaming] Run created: ${runId}`));
 
-  // Set up workspace based on whether action has a repository
+  // Set up workspace based on repository configuration
+  const multiRepos = actionDetail.resolved_repositories;
   const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
   const branch = actionDetail.resolved_branch || actionDetail.branch;
 
   let workspacePath: string;
   let cleanup: () => Promise<void>;
   let startingCommit: string | undefined = startingCommitOverride;
+  let repos: WorkspaceSetupResult['repos'];
 
-  if (repoUrl) {
-    // Clone repository and inject skills (unless skipSkills is set)
-    // Pass runId so skills loading is recorded for this run
+  if (multiRepos && multiRepos.length > 1) {
+    const workspace = await prepareMultiRepoWorkspace(multiRepos, {
+      authToken,
+      runId,
+      skipSkills,
+    });
+    workspacePath = workspace.rootPath;
+    cleanup = workspace.cleanup;
+    // Use first repo's commit as the top-level startingCommit for backward compat;
+    // per-repo commits are available via repos[].startingCommit
+    startingCommit = workspace.repos[0].startingCommit;
+    repos = workspace.repos.map(({ name, path, url, branch: repoBranch, startingCommit: sc }) => ({
+      name, path, url, branch: repoBranch, startingCommit: sc,
+    }));
+  } else if (repoUrl) {
     const workspace = await prepareWorkspace(repoUrl, {
       branch: branch || undefined,
       authToken,
@@ -86,7 +101,6 @@ export async function setupWorkspaceForAction(
     cleanup = workspace.cleanup;
     startingCommit = workspace.startingCommit;
   } else {
-    // Create a blank temp directory (no repo configured)
     console.log(chalk.dim('No repository configured - creating blank workspace'));
     workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
     console.log(chalk.dim(`   ${workspacePath}`));
@@ -105,5 +119,6 @@ export async function setupWorkspaceForAction(
     startingCommit,
     runId,
     logTransport,
+    repos,
   };
 }

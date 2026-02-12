@@ -328,8 +328,17 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       startingCommit = setup.startingCommit;
       runId = setup.runId;
 
+      let promptPrefix: string | undefined;
+      if (setup.repos && setup.repos.length > 1) {
+        const repoLines = setup.repos.map(r => {
+          const branchInfo = r.branch ? `, branch: ${r.branch}` : '';
+          return `- ${r.name}/ (${r.url}${branchInfo})`;
+        }).join('\n');
+        promptPrefix = `## Workspace Layout\nThis workspace contains multiple repositories:\n${repoLines}\n\nYour working directory is the workspace root. Use relative paths to navigate between repos.\nWhen committing changes, cd into each repo directory and commit/push separately.\nCreate separate PRs per repository if needed.`;
+      }
+
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });
+        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId, promptPrefix });
         stats.prepared++;
 
         // Release claim after preparation
@@ -349,7 +358,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId });
+        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, runId, promptPrefix });
         stats.executed++;
         console.log(`${chalk.bold.green('Completed:')} ${chalk.cyan(actionDetail.title)}`);
       } catch (executeError) {
