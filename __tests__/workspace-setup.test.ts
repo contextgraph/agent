@@ -161,7 +161,70 @@ describe('setupWorkspaceForAction', () => {
 
     expect(result.workspacePath).toBe('/tmp/cg-workspace-blank');
     expect(result.repos).toBeUndefined();
+    expect(result.branch).toBeUndefined();
     expect(mockPrepareWorkspace).not.toHaveBeenCalled();
     expect(mockPrepareMultiRepo).not.toHaveBeenCalled();
+  });
+
+  it('should return resolved branch for single-repo workspace', async () => {
+    const actionDetail = makeActionDetail({
+      resolved_repository_url: 'https://github.com/org/repo',
+      resolved_branch: 'feature/auth-system',
+    });
+
+    mockPrepareWorkspace.mockResolvedValue({
+      path: '/tmp/cg-workspace-branch',
+      startingCommit: 'def456',
+      cleanup: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    });
+
+    const result = await setupWorkspaceForAction('action-1', {
+      authToken: 'token',
+      phase: 'execute',
+      actionDetail,
+    });
+
+    expect(result.branch).toBe('feature/auth-system');
+  });
+
+  it('should fall back to action branch when resolved_branch is not set', async () => {
+    const actionDetail = makeActionDetail({
+      resolved_repository_url: 'https://github.com/org/repo',
+      branch: 'fix/bug-123',
+    });
+
+    mockPrepareWorkspace.mockResolvedValue({
+      path: '/tmp/cg-workspace-branch',
+      startingCommit: 'ghi789',
+      cleanup: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    });
+
+    const result = await setupWorkspaceForAction('action-1', {
+      authToken: 'token',
+      phase: 'execute',
+      actionDetail,
+    });
+
+    expect(result.branch).toBe('fix/bug-123');
+  });
+
+  it('should not return branch when no branch is configured', async () => {
+    const actionDetail = makeActionDetail({
+      resolved_repository_url: 'https://github.com/org/repo',
+    });
+
+    mockPrepareWorkspace.mockResolvedValue({
+      path: '/tmp/cg-workspace-no-branch',
+      startingCommit: 'jkl012',
+      cleanup: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    });
+
+    const result = await setupWorkspaceForAction('action-1', {
+      authToken: 'token',
+      phase: 'execute',
+      actionDetail,
+    });
+
+    expect(result.branch).toBeUndefined();
   });
 });

@@ -46,6 +46,13 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       cleanup = setup.cleanup;
       runId = setup.runId;
       logTransport = setup.logTransport;
+
+      if (!options?.promptPrefix && setup.branch) {
+        options = {
+          ...options,
+          promptPrefix: `## Workspace Branch\nThe workspace has been checked out to branch \`${setup.branch}\`. You MUST use this exact branch name for all git operations (checkout, push, PR creation). Do NOT create a different branch name.`,
+        };
+      }
     } else {
       // runId was pre-provided, use the provided cwd (agent loop already set up workspace)
       console.log(chalk.dim(`[Log Streaming] Using pre-created run: ${runId}`));
