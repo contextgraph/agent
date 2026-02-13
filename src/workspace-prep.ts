@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { mkdtemp, rm, appendFile } from 'fs/promises';
+import { mkdtemp, rm, appendFile, writeFile, chmod, mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fetchWithRetry } from './fetch-with-retry.js';
@@ -106,6 +106,32 @@ export function extractRepoName(url: string): string {
   return segments[segments.length - 1];
 }
 
+async function installBranchEnforcement(repoPath: string, branch: string): Promise<void> {
+  await writeFile(join(repoPath, '.git', 'EXPECTED_BRANCH'), branch);
+
+  const hooksDir = join(repoPath, '.git', 'hooks');
+  await mkdir(hooksDir, { recursive: true });
+
+  const hookContent = `#!/bin/sh
+EXPECTED_BRANCH=$(cat "$(git rev-parse --git-dir)/EXPECTED_BRANCH" 2>/dev/null)
+if [ -z "$EXPECTED_BRANCH" ]; then exit 0; fi
+
+while read local_ref local_sha remote_ref remote_sha; do
+  PUSH_BRANCH=$(echo "$remote_ref" | sed 's|refs/heads/||')
+  if [ "$PUSH_BRANCH" != "$EXPECTED_BRANCH" ]; then
+    echo "ERROR: This workspace is configured for branch '$EXPECTED_BRANCH'." >&2
+    echo "You are attempting to push branch '$PUSH_BRANCH'." >&2
+    echo "The agent MUST use the action's assigned branch." >&2
+    exit 1
+  fi
+done
+exit 0
+`;
+  const hookPath = join(hooksDir, 'pre-push');
+  await writeFile(hookPath, hookContent);
+  await chmod(hookPath, 0o755);
+}
+
 export interface MultiRepoWorkspaceResult {
   rootPath: string;
   repos: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
@@ -181,6 +207,8 @@ export async function prepareMultiRepoWorkspace(
           console.log(`Creating new branch: ${chalk.cyan(repo.branch)}`);
           await runGitCommand(['checkout', '-b', repo.branch], repoPath);
         }
+
+        await installBranchEnforcement(repoPath, repo.branch);
       }
 
       const { stdout: commitHash } = await runGitCommand(['rev-parse', 'HEAD'], repoPath);
@@ -278,6 +306,8 @@ export async function prepareWorkspace(
         console.log(`Creating new branch: ${chalk.cyan(branch)}`);
         await runGitCommand(['checkout', '-b', branch], workspacePath);
       }
+
+      await installBranchEnforcement(workspacePath, branch);
     }
 
     // Capture starting commit for historical accuracy
