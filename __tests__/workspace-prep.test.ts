@@ -1,27 +1,37 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ChildProcess, spawn as actualSpawn } from 'child_process';
+import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 
-// Mock modules before importing
-jest.mock('child_process');
-jest.mock('fs/promises');
+const mockMkdtemp = jest.fn<(...args: unknown[]) => Promise<string>>();
+const mockRm = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockAppendFile = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockWriteFile = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockChmod = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockMkdir = jest.fn<(...args: unknown[]) => Promise<string | undefined>>();
 
-// Import after mocking
-import { spawn } from 'child_process';
-import { mkdtemp, rm } from 'fs/promises';
-import { prepareWorkspace, type PrepareWorkspaceOptions } from '../src/workspace-prep.js';
+jest.unstable_mockModule('fs/promises', () => ({
+  mkdtemp: mockMkdtemp,
+  rm: mockRm,
+  appendFile: mockAppendFile,
+  writeFile: mockWriteFile,
+  chmod: mockChmod,
+  mkdir: mockMkdir,
+}));
 
-const mockSpawn = spawn as jest.MockedFunction<typeof actualSpawn>;
-const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
-const mockRm = rm as jest.MockedFunction<typeof rm>;
+const mockSpawn = jest.fn<(...args: unknown[]) => ChildProcess>();
 
-// Helper to create a mock child process
+jest.unstable_mockModule('child_process', () => ({
+  spawn: mockSpawn,
+}));
+
+const { prepareWorkspace } = await import('../src/workspace-prep.js');
+import type { PrepareWorkspaceOptions } from '../src/workspace-prep.js';
+
 function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
   const proc = new EventEmitter() as ChildProcess;
   proc.stdout = new EventEmitter() as any;
   proc.stderr = new EventEmitter() as any;
 
-  // Emit data and close asynchronously
   setImmediate(() => {
     if (stdout) {
       (proc.stdout as EventEmitter).emit('data', Buffer.from(stdout));
@@ -35,16 +45,18 @@ function createMockProcess(exitCode: number, stdout: string = '', stderr: string
   return proc;
 }
 
-// Mock fetch globally
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch;
 
 describe('workspace-prep', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default mock implementations
-    mockMkdtemp.mockResolvedValue('/tmp/cg-workspace-abc123' as any);
+    mockMkdtemp.mockResolvedValue('/tmp/cg-workspace-abc123');
     mockRm.mockResolvedValue(undefined);
+    mockAppendFile.mockResolvedValue(undefined);
+    mockWriteFile.mockResolvedValue(undefined);
+    mockChmod.mockResolvedValue(undefined);
+    mockMkdir.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -57,7 +69,6 @@ describe('workspace-prep', () => {
     };
 
     it('should clone repository and return workspace path', async () => {
-      // Mock GitHub credentials API
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -69,7 +80,6 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock git commands: clone, config user.name, config user.email, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
         .mockReturnValueOnce(createMockProcess(0)) // git config user.name
@@ -82,7 +92,6 @@ describe('workspace-prep', () => {
       expect(result.startingCommit).toBe('abc123def456');
       expect(typeof result.cleanup).toBe('function');
 
-      // Verify fetch was called with correct auth header
       expect(mockFetch).toHaveBeenCalledWith(
         'https://www.contextgraph.dev/api/cli/credentials',
         expect.objectContaining({
@@ -92,7 +101,6 @@ describe('workspace-prep', () => {
         })
       );
 
-      // Verify git clone was called with authenticated URL (x-access-token format for GitHub App tokens)
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
         ['clone', 'https://x-access-token:gh-token-123@github.com/test/repo', '/tmp/cg-workspace-abc123'],
@@ -109,10 +117,9 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock: clone, ls-remote (branch exists), checkout, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
-        .mockReturnValueOnce(createMockProcess(0, 'abc123\trefs/heads/feature-branch')) // ls-remote shows branch
+        .mockReturnValueOnce(createMockProcess(0, 'abc123\trefs/heads/feature-branch')) // ls-remote
         .mockReturnValueOnce(createMockProcess(0)) // git checkout
         .mockReturnValueOnce(createMockProcess(0, 'def789ghi012\n')); // git rev-parse HEAD
 
@@ -124,7 +131,6 @@ describe('workspace-prep', () => {
       expect(result.path).toBe('/tmp/cg-workspace-abc123');
       expect(result.startingCommit).toBe('def789ghi012');
 
-      // Verify checkout was called (not checkout -b)
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
         ['checkout', 'feature-branch'],
@@ -141,7 +147,6 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock: clone, ls-remote (empty = no branch), checkout -b, rev-parse
       mockSpawn
         .mockReturnValueOnce(createMockProcess(0)) // git clone
         .mockReturnValueOnce(createMockProcess(0, '')) // ls-remote returns empty
@@ -156,7 +161,6 @@ describe('workspace-prep', () => {
       expect(result.path).toBe('/tmp/cg-workspace-abc123');
       expect(result.startingCommit).toBe('aaa111bbb222');
 
-      // Verify checkout -b was called (create new branch)
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
         ['checkout', '-b', 'new-feature'],
@@ -195,14 +199,12 @@ describe('workspace-prep', () => {
         }),
       } as Response);
 
-      // Mock git clone failure
       mockSpawn.mockReturnValueOnce(createMockProcess(128, '', 'fatal: repository not found'));
 
       await expect(
         prepareWorkspace('https://github.com/test/repo', defaultOptions)
       ).rejects.toThrow('git clone failed');
 
-      // Verify cleanup was called
       expect(mockRm).toHaveBeenCalledWith(
         '/tmp/cg-workspace-abc123',
         { recursive: true, force: true }
@@ -224,7 +226,6 @@ describe('workspace-prep', () => {
 
       await prepareWorkspace('https://gitlab.com/test/repo', defaultOptions);
 
-      // Verify URL was not modified (no token injection for non-GitHub)
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
         ['clone', 'https://gitlab.com/test/repo', '/tmp/cg-workspace-abc123'],
@@ -247,10 +248,8 @@ describe('workspace-prep', () => {
 
       const result = await prepareWorkspace('https://github.com/test/repo', defaultOptions);
 
-      // Call cleanup
       await result.cleanup();
 
-      // Verify rm was called
       expect(mockRm).toHaveBeenCalledWith(
         '/tmp/cg-workspace-abc123',
         { recursive: true, force: true }
@@ -273,10 +272,96 @@ describe('workspace-prep', () => {
 
       const result = await prepareWorkspace('https://github.com/test/repo', defaultOptions);
 
-      // Cleanup should not throw even if rm fails
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       await expect(result.cleanup()).resolves.not.toThrow();
       consoleSpy.mockRestore();
+    });
+
+    describe('branch enforcement', () => {
+      it('should write EXPECTED_BRANCH file when branch is specified', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            githubToken: 'gh-token-123',
+          }),
+        } as Response);
+
+        mockSpawn
+          .mockReturnValueOnce(createMockProcess(0)) // git clone
+          .mockReturnValueOnce(createMockProcess(0, 'abc123\trefs/heads/feat/my-branch')) // ls-remote
+          .mockReturnValueOnce(createMockProcess(0)) // git checkout
+          .mockReturnValueOnce(createMockProcess(0, 'abc123\n')); // git rev-parse HEAD
+
+        await prepareWorkspace('https://github.com/test/repo', {
+          ...defaultOptions,
+          branch: 'feat/my-branch',
+        });
+
+        expect(mockWriteFile).toHaveBeenCalledWith(
+          '/tmp/cg-workspace-abc123/.git/EXPECTED_BRANCH',
+          'feat/my-branch'
+        );
+      });
+
+      it('should install pre-push hook when branch is specified', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            githubToken: 'gh-token-123',
+          }),
+        } as Response);
+
+        mockSpawn
+          .mockReturnValueOnce(createMockProcess(0)) // git clone
+          .mockReturnValueOnce(createMockProcess(0, '')) // ls-remote (new branch)
+          .mockReturnValueOnce(createMockProcess(0)) // git checkout -b
+          .mockReturnValueOnce(createMockProcess(0, 'abc123\n')); // git rev-parse HEAD
+
+        await prepareWorkspace('https://github.com/test/repo', {
+          ...defaultOptions,
+          branch: 'feat/my-branch',
+        });
+
+        expect(mockMkdir).toHaveBeenCalledWith(
+          '/tmp/cg-workspace-abc123/.git/hooks',
+          { recursive: true }
+        );
+
+        const hookWriteCall = mockWriteFile.mock.calls.find(
+          (call) => (call[0] as string).endsWith('pre-push')
+        );
+        expect(hookWriteCall).toBeDefined();
+        expect(hookWriteCall![1]).toContain('EXPECTED_BRANCH');
+        expect(hookWriteCall![1]).toContain('The agent MUST use');
+
+        expect(mockChmod).toHaveBeenCalledWith(
+          '/tmp/cg-workspace-abc123/.git/hooks/pre-push',
+          0o755
+        );
+      });
+
+      it('should not install branch enforcement when no branch is specified', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            githubToken: 'gh-token-123',
+          }),
+        } as Response);
+
+        mockSpawn
+          .mockReturnValueOnce(createMockProcess(0)) // git clone
+          .mockReturnValueOnce(createMockProcess(0, 'abc123\n')); // git rev-parse HEAD
+
+        await prepareWorkspace('https://github.com/test/repo', defaultOptions);
+
+        const expectedBranchWrite = mockWriteFile.mock.calls.find(
+          (call) => (call[0] as string).includes('EXPECTED_BRANCH')
+        );
+        expect(expectedBranchWrite).toBeUndefined();
+      });
     });
   });
 });
