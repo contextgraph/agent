@@ -72,6 +72,7 @@ export async function setupWorkspaceForAction(
   const multiRepos = actionDetail.resolved_repositories;
   const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
   const branch = actionDetail.resolved_branch || actionDetail.branch;
+
   const graphId = actionDetail.graphId || undefined;
 
   let workspacePath: string;
