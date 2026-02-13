@@ -203,7 +203,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
   // Generate unique worker ID for this session
   const workerId = randomUUID();
 
-  console.log(`${chalk.bold('ContextGraph Agent')} ${chalk.dim(`v${packageJson.version}`)}`);
+  console.log(`${chalk.bold('Contextgraph Agent')} ${chalk.dim(`v${packageJson.version}`)}`);
   console.log(chalk.dim(`Worker ID: ${workerId}`));
   console.log('Starting continuous worker loop...\n');
   console.log(chalk.dim('Press Ctrl+C to gracefully shutdown and release any claimed work\n'));

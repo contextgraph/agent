@@ -16,6 +16,7 @@ export interface WorkspaceSetupResult {
   runId: string;
   logTransport: LogTransportService;
   branch?: string;
+  graphId?: string;
   repos?: Array<{name: string; path: string; url: string; branch?: string; startingCommit: string}>;
 }
 
@@ -72,6 +73,8 @@ export async function setupWorkspaceForAction(
   const repoUrl = actionDetail.resolved_repository_url || actionDetail.repository_url;
   const branch = actionDetail.resolved_branch || actionDetail.branch;
 
+  const graphId = actionDetail.graphId || undefined;
+
   let workspacePath: string;
   let cleanup: () => Promise<void>;
   let startingCommit: string | undefined = startingCommitOverride;
@@ -80,6 +83,7 @@ export async function setupWorkspaceForAction(
   if (multiRepos && multiRepos.length > 1) {
     const workspace = await prepareMultiRepoWorkspace(multiRepos, {
       authToken,
+      graphId,
       runId,
       skipSkills,
     });
@@ -95,6 +99,7 @@ export async function setupWorkspaceForAction(
     const workspace = await prepareWorkspace(repoUrl, {
       branch: branch || undefined,
       authToken,
+      graphId,
       runId,
       skipSkills,
     });
@@ -121,6 +126,7 @@ export async function setupWorkspaceForAction(
     runId,
     logTransport,
     branch: branch || undefined,
+    graphId,
     repos,
   };
 }

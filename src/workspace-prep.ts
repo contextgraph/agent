@@ -19,12 +19,16 @@ export interface WorkspaceResult {
 export interface PrepareWorkspaceOptions {
   branch?: string;
   authToken: string;
+  graphId?: string; // Graph ID to scope GitHub credentials to the correct installation
   runId?: string; // Optional runId to record which skills were loaded
   skipSkills?: boolean; // Skip skill injection (for testing)
 }
 
-async function fetchGitHubCredentials(authToken: string): Promise<GitHubCredentials> {
-  const response = await fetchWithRetry(`${API_BASE_URL}/api/cli/credentials`, {
+async function fetchGitHubCredentials(authToken: string, graphId?: string): Promise<GitHubCredentials> {
+  const url = graphId
+    ? `${API_BASE_URL}/api/cli/credentials?graphId=${encodeURIComponent(graphId)}`
+    : `${API_BASE_URL}/api/cli/credentials`;
+  const response = await fetchWithRetry(url, {
     headers: {
       'x-authorization': `Bearer ${authToken}`,
       'Content-Type': 'application/json',
@@ -112,9 +116,9 @@ export async function prepareMultiRepoWorkspace(
   repositories: Array<{url: string; branch?: string}>,
   options: PrepareWorkspaceOptions
 ): Promise<MultiRepoWorkspaceResult> {
-  const { authToken, runId, skipSkills } = options;
+  const { authToken, graphId, runId, skipSkills } = options;
 
-  const credentials = await fetchGitHubCredentials(authToken);
+  const credentials = await fetchGitHubCredentials(authToken, graphId);
   const rootPath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
 
   const cleanup = async () => {
@@ -217,10 +221,10 @@ export async function prepareWorkspace(
   repoUrl: string,
   options: PrepareWorkspaceOptions
 ): Promise<WorkspaceResult> {
-  const { branch, authToken, runId, skipSkills } = options;
+  const { branch, authToken, graphId, runId, skipSkills } = options;
 
   // Fetch GitHub credentials
-  const credentials = await fetchGitHubCredentials(authToken);
+  const credentials = await fetchGitHubCredentials(authToken, graphId);
 
   // Create temp directory
   const workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
