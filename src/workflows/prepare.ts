@@ -82,7 +82,28 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     }
 
     const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
-    const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
+
+    // Add feedback enforcement prefix to prompt
+    // This ensures the agent checks for user feedback before preparing
+    const feedbackEnforcementPrefix = `## ⚠️  CRITICAL: User Feedback Check Required
+
+Before proceeding with preparation work, you MUST:
+
+1. Call the mcp__actions__check_for_user_feedback tool with the current action ID
+2. If the tool returns unaddressed feedback, you MUST:
+   - Read and understand all feedback items
+   - Note the feedback in your analysis
+   - Consider the feedback when making preparation decisions
+
+If the check_for_user_feedback tool throws an error indicating unaddressed feedback exists, acknowledge it in your output but you may still proceed with preparation as feedback may inform the preparation strategy.
+
+---
+`;
+
+    let prompt = feedbackEnforcementPrefix + serverPrompt;
+    if (options?.promptPrefix) {
+      prompt = `${options.promptPrefix}\n\n${prompt}`;
+    }
 
     // Update run state to preparing
     await logTransport.updateRunState('preparing');

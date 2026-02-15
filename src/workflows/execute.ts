@@ -82,7 +82,30 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     }
 
     const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
-    const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
+
+    // Add feedback enforcement prefix to prompt
+    // This ensures the agent MUST call check_for_user_feedback before any implementation work
+    const feedbackEnforcementPrefix = `## ⚠️  CRITICAL: User Feedback Check Required
+
+Before proceeding with ANY implementation work, you MUST:
+
+1. Call the mcp__actions__check_for_user_feedback tool with the current action ID
+2. If the tool returns unaddressed feedback, you MUST:
+   - Read and understand all feedback items
+   - Post substantive responses to each feedback item using gh pr comment
+   - Only after addressing ALL feedback, proceed with implementation
+
+If the check_for_user_feedback tool throws an error indicating unaddressed feedback exists, you MUST NOT proceed with implementation. The error is BLOCKING and cannot be bypassed.
+
+This is enforced at the SDK level - attempting to use other tools before checking for feedback will result in execution failure.
+
+---
+`;
+
+    let prompt = feedbackEnforcementPrefix + serverPrompt;
+    if (options?.promptPrefix) {
+      prompt = `${options.promptPrefix}\n\n${prompt}`;
+    }
 
     // Update run state to executing
     await logTransport.updateRunState('executing');
