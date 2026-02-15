@@ -87,7 +87,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
 
     // Pre-flight feedback check: Ensure no unaddressed user feedback exists before starting execution
     // This is true SDK-level enforcement - the agent cannot start if feedback exists
-    console.log(chalk.dim('Checking for unaddressed user feedback...'));
+    console.log(chalk.dim('Step 4: Checking for unaddressed user feedback...'));
     try {
       const feedbackCheckResponse = await fetchWithRetry(
         'https://mcp.contextgraph.dev/call-tool',
@@ -109,16 +109,28 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
         throw new Error(`Feedback check failed: ${feedbackCheckResponse.statusText}\n${errorText}`);
       }
 
-      const feedbackResult = await feedbackCheckResponse.json();
+      const feedbackResult = (await feedbackCheckResponse.json()) as {
+        isError?: boolean;
+        content?: Array<{ text?: string }>;
+      };
 
       // Check if the tool returned an error indicating unaddressed feedback
       if (feedbackResult.isError) {
+        const errorMessage = feedbackResult.content?.[0]?.text || 'Please address user feedback before execution.';
+
+        // Try to extract count from error message (e.g., "Found 3 unaddressed comments")
+        const countMatch = errorMessage.match(/(\d+)\s+unaddressed\s+comment/i);
+        const count = countMatch ? parseInt(countMatch[1], 10) : null;
+
         console.error(chalk.red('\n⚠️  Unaddressed user feedback detected!\n'));
-        console.error(chalk.yellow(feedbackResult.content?.[0]?.text || 'Please address user feedback before execution.'));
+        if (count !== null) {
+          console.error(chalk.yellow(`Found ${count} unaddressed comment${count === 1 ? '' : 's'}.`));
+        }
+        console.error(chalk.yellow(errorMessage));
         throw new Error('Execution blocked: Unaddressed user feedback exists. Please respond to all feedback before executing.');
       }
 
-      console.log(chalk.green('✓ No unaddressed feedback found'));
+      console.log(chalk.green('✓ No unaddressed feedback found, proceeding to Step 5'));
     } catch (error) {
       // If the feedback check itself fails (not due to unaddressed feedback), log it but don't block
       // This ensures we fail open if the MCP server is unavailable
