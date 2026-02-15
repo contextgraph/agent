@@ -83,28 +83,51 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
 
     const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
 
-    // Add feedback enforcement prefix to prompt
-    // This ensures the agent MUST call check_for_user_feedback before any implementation work
-    const feedbackEnforcementPrefix = `## ⚠️  CRITICAL: User Feedback Check Required
+    const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
 
-Before proceeding with ANY implementation work, you MUST:
+    // Pre-flight feedback check: Ensure no unaddressed user feedback exists before starting execution
+    // This is true SDK-level enforcement - the agent cannot start if feedback exists
+    console.log(chalk.dim('Checking for unaddressed user feedback...'));
+    try {
+      const feedbackCheckResponse = await fetchWithRetry(
+        'https://mcp.contextgraph.dev/call-tool',
+        {
+          method: 'POST',
+          headers: {
+            'x-authorization': `Bearer ${credentials.clerkToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'mcp__actions__check_for_user_feedback',
+            arguments: { action_id: actionId },
+          }),
+        }
+      );
 
-1. Call the mcp__actions__check_for_user_feedback tool with the current action ID
-2. If the tool returns unaddressed feedback, you MUST:
-   - Read and understand all feedback items
-   - Post substantive responses to each feedback item using gh pr comment
-   - Only after addressing ALL feedback, proceed with implementation
+      if (!feedbackCheckResponse.ok) {
+        const errorText = await feedbackCheckResponse.text();
+        throw new Error(`Feedback check failed: ${feedbackCheckResponse.statusText}\n${errorText}`);
+      }
 
-If the check_for_user_feedback tool throws an error indicating unaddressed feedback exists, you MUST NOT proceed with implementation. The error is BLOCKING and cannot be bypassed.
+      const feedbackResult = await feedbackCheckResponse.json();
 
-This is enforced at the SDK level - attempting to use other tools before checking for feedback will result in execution failure.
+      // Check if the tool returned an error indicating unaddressed feedback
+      if (feedbackResult.isError) {
+        console.error(chalk.red('\n⚠️  Unaddressed user feedback detected!\n'));
+        console.error(chalk.yellow(feedbackResult.content?.[0]?.text || 'Please address user feedback before execution.'));
+        throw new Error('Execution blocked: Unaddressed user feedback exists. Please respond to all feedback before executing.');
+      }
 
----
-`;
-
-    let prompt = feedbackEnforcementPrefix + serverPrompt;
-    if (options?.promptPrefix) {
-      prompt = `${options.promptPrefix}\n\n${prompt}`;
+      console.log(chalk.green('✓ No unaddressed feedback found'));
+    } catch (error) {
+      // If the feedback check itself fails (not due to unaddressed feedback), log it but don't block
+      // This ensures we fail open if the MCP server is unavailable
+      if (error instanceof Error && error.message.includes('Execution blocked')) {
+        // This is an intentional block due to unaddressed feedback - re-throw it
+        throw error;
+      }
+      // Other errors (MCP server down, network issues) - log and continue
+      console.warn(chalk.yellow(`Warning: Feedback check failed (${error instanceof Error ? error.message : String(error)}). Proceeding with execution.`));
     }
 
     // Update run state to executing
