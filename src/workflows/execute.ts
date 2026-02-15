@@ -82,7 +82,65 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     }
 
     const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
+
     const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
+
+    // Pre-flight feedback check: Ensure no unaddressed user feedback exists before starting execution
+    // This is true SDK-level enforcement - the agent cannot start if feedback exists
+    console.log(chalk.dim('Step 4: Checking for unaddressed user feedback...'));
+    try {
+      const feedbackCheckResponse = await fetchWithRetry(
+        'https://mcp.contextgraph.dev/call-tool',
+        {
+          method: 'POST',
+          headers: {
+            'x-authorization': `Bearer ${credentials.clerkToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'mcp__actions__check_for_user_feedback',
+            arguments: { action_id: actionId },
+          }),
+        }
+      );
+
+      if (!feedbackCheckResponse.ok) {
+        const errorText = await feedbackCheckResponse.text();
+        throw new Error(`Feedback check failed: ${feedbackCheckResponse.statusText}\n${errorText}`);
+      }
+
+      const feedbackResult = (await feedbackCheckResponse.json()) as {
+        isError?: boolean;
+        content?: Array<{ text?: string }>;
+      };
+
+      // Check if the tool returned an error indicating unaddressed feedback
+      if (feedbackResult.isError) {
+        const errorMessage = feedbackResult.content?.[0]?.text || 'Please address user feedback before execution.';
+
+        // Try to extract count from error message (e.g., "Found 3 unaddressed comments")
+        const countMatch = errorMessage.match(/(\d+)\s+unaddressed\s+comment/i);
+        const count = countMatch ? parseInt(countMatch[1], 10) : null;
+
+        console.error(chalk.red('\n⚠️  Unaddressed user feedback detected!\n'));
+        if (count !== null) {
+          console.error(chalk.yellow(`Found ${count} unaddressed comment${count === 1 ? '' : 's'}.`));
+        }
+        console.error(chalk.yellow(errorMessage));
+        throw new Error('Execution blocked: Unaddressed user feedback exists. Please respond to all feedback before executing.');
+      }
+
+      console.log(chalk.green('✓ No unaddressed feedback found, proceeding to Step 5'));
+    } catch (error) {
+      // If the feedback check itself fails (not due to unaddressed feedback), log it but don't block
+      // This ensures we fail open if the MCP server is unavailable
+      if (error instanceof Error && error.message.includes('Execution blocked')) {
+        // This is an intentional block due to unaddressed feedback - re-throw it
+        throw error;
+      }
+      // Other errors (MCP server down, network issues) - log and continue
+      console.warn(chalk.yellow(`Warning: Feedback check failed (${error instanceof Error ? error.message : String(error)}). Proceeding with execution.`));
+    }
 
     // Update run state to executing
     await logTransport.updateRunState('executing');
