@@ -519,7 +519,11 @@ program.action(() => {
 // Error handling for all commands
 program.exitOverride((err) => {
   // Output errors as JSON to stderr
-  if (err.code !== 'commander.help' && err.code !== 'commander.version') {
+  if (
+    err.code !== 'commander.help' &&
+    err.code !== 'commander.helpDisplayed' &&
+    err.code !== 'commander.version'
+  ) {
     console.error(JSON.stringify({
       error: err.message || 'Unknown error',
       code: err.code
@@ -536,7 +540,11 @@ try {
   // Handle help and version exits gracefully
   if (error instanceof Error) {
     const cmdError = error as any;
-    if (cmdError.code === 'commander.help' || cmdError.code === 'commander.version') {
+    if (
+      cmdError.code === 'commander.help' ||
+      cmdError.code === 'commander.helpDisplayed' ||
+      cmdError.code === 'commander.version'
+    ) {
       process.exit(0);
     }
   }
