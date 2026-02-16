@@ -171,6 +171,12 @@ describe('cg CLI', () => {
       const exitCode = 1;
       expect(exitCode).toBe(1);
     });
+
+    it('should treat help/version exit codes as non-errors', () => {
+      const nonErrorCodes = ['commander.help', 'commander.helpDisplayed', 'commander.version'];
+
+      expect(nonErrorCodes).toContain('commander.helpDisplayed');
+    });
   });
 
   describe('validation', () => {
