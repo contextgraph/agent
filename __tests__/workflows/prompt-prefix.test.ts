@@ -26,9 +26,13 @@ jest.mock('../../src/credentials.js', () => ({
   isTokenExpired: mockIsTokenExpired,
 }));
 
-const mockExecuteClaude = jest.fn<(opts: Record<string, unknown>) => Promise<{ exitCode: number }>>().mockResolvedValue({ exitCode: 0 });
-jest.mock('../../src/claude-sdk.js', () => ({
-  executeClaude: mockExecuteClaude,
+const mockRunnerExecute = jest.fn<(opts: Record<string, unknown>) => Promise<{ exitCode: number }>>().mockResolvedValue({ exitCode: 0 });
+const mockCreateAgentRunner = jest.fn(() => ({
+  provider: 'claude',
+  execute: mockRunnerExecute,
+}));
+jest.mock('../../src/runners/index.js', () => ({
+  createAgentRunner: mockCreateAgentRunner,
 }));
 
 const mockSetupResult = {
@@ -81,7 +85,8 @@ import { runExecute } from '../../src/workflows/execute.js';
 
 describe('promptPrefix in workflows', () => {
   beforeEach(() => {
-    mockExecuteClaude.mockReset().mockResolvedValue({ exitCode: 0 });
+    mockRunnerExecute.mockReset().mockResolvedValue({ exitCode: 0 });
+    mockCreateAgentRunner.mockClear();
     mockFetchResponse.json.mockReset().mockResolvedValue({ prompt: 'Server prompt content' });
     mockFetch.mockReset().mockResolvedValue(mockFetchResponse);
     mockSetupResult.logTransport.updateRunState.mockReset().mockResolvedValue(undefined);
@@ -96,7 +101,7 @@ describe('promptPrefix in workflows', () => {
       promptPrefix: '## Workspace Layout\nMultiple repos here.',
     });
 
-    expect(mockExecuteClaude).toHaveBeenCalledWith(
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: '## Workspace Layout\nMultiple repos here.\n\nServer prompt content',
       })
@@ -110,7 +115,7 @@ describe('promptPrefix in workflows', () => {
       promptPrefix: '## Workspace Layout\nMultiple repos here.',
     });
 
-    expect(mockExecuteClaude).toHaveBeenCalledWith(
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: '## Workspace Layout\nMultiple repos here.\n\nServer prompt content',
       })
@@ -123,7 +128,7 @@ describe('promptPrefix in workflows', () => {
       runId: 'run-1',
     });
 
-    expect(mockExecuteClaude).toHaveBeenCalledWith(
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: 'Server prompt content',
       })
