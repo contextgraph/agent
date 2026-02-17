@@ -78,6 +78,66 @@ function extractNestedText(value: unknown): string | undefined {
   return undefined;
 }
 
+function compactPreview(value: unknown, maxLength: number = 160): string {
+  try {
+    const raw = JSON.stringify(value);
+    if (!raw) return '';
+    return raw.length > maxLength ? `${raw.slice(0, maxLength)}...` : raw;
+  } catch {
+    return '';
+  }
+}
+
+function pickString(obj: JsonObject, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function summarizeItemEvent(type: string, event: JsonObject): string | null {
+  if (!type.startsWith('item.')) return null;
+
+  const item = asObject(event.item) ?? asObject(event.data) ?? asObject(event.payload);
+  if (!item) {
+    return `  [${type}]`;
+  }
+
+  const input = asObject(item.input);
+  const itemType = pickString(item, ['type', 'kind', 'item_type', 'role']) || 'item';
+  const toolName =
+    pickString(item, ['tool_name', 'tool', 'name']) ||
+    (input ? pickString(input, ['tool_name', 'tool', 'name']) : undefined);
+
+  const detail =
+    pickString(item, ['command', 'file_path', 'path', 'pattern', 'title']) ||
+    (input ? pickString(input, ['command', 'file_path', 'path', 'pattern', 'title']) : undefined);
+
+  const icon = type === 'item.started'
+    ? '▶'
+    : type === 'item.completed'
+      ? '✓'
+      : type === 'item.failed'
+        ? '✗'
+        : '•';
+
+  const label = toolName ? `${itemType}/${toolName}` : itemType;
+  if (detail) {
+    return `  ${icon} ${label}: ${detail}`;
+  }
+
+  const nested = extractNestedText(item);
+  if (nested && nested !== itemType) {
+    return `  ${icon} ${label}: ${nested}`;
+  }
+
+  const preview = compactPreview(item);
+  return preview ? `  ${icon} ${label} ${preview}` : `  ${icon} ${label}`;
+}
+
 function formatEventForConsole(event: JsonObject): string | null {
   const type = typeof event.type === 'string' ? event.type : '';
   const text = extractEventText(event);
@@ -96,6 +156,11 @@ function formatEventForConsole(event: JsonObject): string | null {
 
   if (type === 'error') {
     return `❌ ${text}`;
+  }
+
+  const itemSummary = summarizeItemEvent(type, event);
+  if (itemSummary) {
+    return itemSummary;
   }
 
   const nested = extractNestedText(event);
