@@ -5,6 +5,7 @@ import { prepareWorkspace, prepareMultiRepoWorkspace } from './workspace-prep.js
 import { LogTransportService } from './log-transport.js';
 import { ApiClient } from './api-client.js';
 import type { ActionDetailResource } from './types/actions.js';
+import type { AgentProvider } from './runners/index.js';
 import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -31,6 +32,8 @@ export interface WorkspaceSetupOptions {
   startingCommit?: string;
   /** Skip skill injection (for testing) */
   skipSkills?: boolean;
+  /** Agent execution provider for run metadata/log tagging */
+  provider?: AgentProvider;
 }
 
 /**
@@ -49,7 +52,7 @@ export async function setupWorkspaceForAction(
   actionId: string,
   options: WorkspaceSetupOptions
 ): Promise<WorkspaceSetupResult> {
-  const { authToken, phase, startingCommit: startingCommitOverride, skipSkills } = options;
+  const { authToken, phase, startingCommit: startingCommitOverride, skipSkills, provider } = options;
 
   // Fetch action details if not provided
   let actionDetail = options.actionDetail;
@@ -61,7 +64,7 @@ export async function setupWorkspaceForAction(
 
   // Create run FIRST so we can track which skills are loaded
   // This enables the "skill refinement signals" feature
-  const logTransport = new LogTransportService(API_BASE_URL, authToken);
+  const logTransport = new LogTransportService(API_BASE_URL, authToken, undefined, undefined, provider);
   console.log(chalk.dim(`[Log Streaming] Creating run for ${phase} phase...`));
   const runId = await logTransport.createRun(actionId, phase, {
     startingCommit: startingCommitOverride,
