@@ -1,5 +1,5 @@
 import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { ClaudeResult, SpawnClaudeOptions } from './types/actions.js';
+import type { AgentRunResult, AgentRunOptions } from './types/actions.js';
 import { transformSDKMessage } from './sdk-event-transformer.js';
 import type { LogEvent } from './log-transport.js';
 
@@ -128,7 +128,7 @@ function formatMessage(message: SDKMessage): string | null {
 /**
  * Extended options for executeClaude with log streaming support
  */
-export interface ExecuteClaudeOptions extends SpawnClaudeOptions {
+export interface ExecuteClaudeOptions extends AgentRunOptions {
   /** Callback for log events - called for each SDK message transformed into a LogEvent */
   onLogEvent?: (event: LogEvent) => void;
   /** Optional model to use (e.g., 'claude-opus-4-5-20251101'). If not specified, uses SDK default (Sonnet). */
@@ -139,13 +139,13 @@ export interface ExecuteClaudeOptions extends SpawnClaudeOptions {
  * Execute Claude using the Agent SDK
  *
  * This is a drop-in replacement for spawnClaude() that uses the SDK instead of spawning a CLI process.
- * It matches the same interface (SpawnClaudeOptions) and returns the same result type (ClaudeResult).
+ * It matches the same interface (AgentRunOptions) and returns the same result type (AgentRunResult).
  *
  * Optionally accepts onLogEvent callback for real-time log streaming.
  */
 export async function executeClaude(
   options: ExecuteClaudeOptions
-): Promise<ClaudeResult> {
+): Promise<AgentRunResult> {
   let sessionId: string | undefined;
   let totalCost = 0;
   let usage: any;

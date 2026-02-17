@@ -1,5 +1,5 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
-import { executeClaude } from '../claude-sdk.js';
+import { createAgentRunner } from '../runners/index.js';
 import { fetchWithRetry } from '../fetch-with-retry.js';
 import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
@@ -98,7 +98,8 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
 
     console.log('Spawning Claude for execution...\n');
 
-    const claudeResult = await executeClaude({
+    const runner = createAgentRunner(options?.provider);
+    const claudeResult = await runner.execute({
       prompt,
       cwd: workspacePath,
       authToken: credentials.clerkToken,

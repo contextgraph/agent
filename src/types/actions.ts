@@ -27,21 +27,25 @@ export type CallbackResult = {
 };
 
 // ============================================================================
-// Claude CLI Types
+// Agent Runner Types
 // ============================================================================
 
-export type ClaudeResult = {
+export type AgentRunResult = {
   exitCode: number;
   sessionId?: string;  // SDK-specific: session identifier
   usage?: any;         // SDK-specific: token usage stats
   cost?: number;       // SDK-specific: total cost in USD
 };
 
-export type SpawnClaudeOptions = {
+export type AgentRunOptions = {
   prompt: string;
   cwd: string;
   authToken?: string;  // Optional auth token for MCP server
 };
+
+// Backward-compatible aliases for existing Claude-specific naming
+export type ClaudeResult = AgentRunResult;
+export type SpawnClaudeOptions = AgentRunOptions;
 
 // ============================================================================
 // Action Resource Types (from MCP)
