@@ -50,6 +50,34 @@ function extractEventText(event: JsonObject): string {
   return type;
 }
 
+function extractNestedText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractNestedText(item);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  const obj = asObject(value);
+  if (!obj) return undefined;
+
+  const preferredKeys = ['text', 'message', 'summary', 'content', 'delta', 'output'];
+  for (const key of preferredKeys) {
+    if (key in obj) {
+      const found = extractNestedText(obj[key]);
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
+
 function formatEventForConsole(event: JsonObject): string | null {
   const type = typeof event.type === 'string' ? event.type : '';
   const text = extractEventText(event);
@@ -70,9 +98,18 @@ function formatEventForConsole(event: JsonObject): string | null {
     return `❌ ${text}`;
   }
 
+  const nested = extractNestedText(event);
+  if (nested && nested !== type && nested !== text) {
+    return `  ${nested}`;
+  }
+
   // Show readable progress messages when available.
   if (text && text !== type) {
     return `  ${text}`;
+  }
+
+  if (type) {
+    return `  [${type}]`;
   }
 
   return null;
@@ -110,11 +147,20 @@ export const codexRunner: AgentRunner = {
       let cost: number | undefined;
       let sawInit = false;
       let timedOut = false;
+      let lastConsoleActivityAt = Date.now();
 
       const timeout = setTimeout(() => {
         timedOut = true;
         proc.kill('SIGTERM');
       }, EXECUTION_TIMEOUT_MS);
+
+      const activityHeartbeat = setInterval(() => {
+        const idleMs = Date.now() - lastConsoleActivityAt;
+        if (idleMs >= 15000) {
+          console.log('  … Codex is still working');
+          lastConsoleActivityAt = Date.now();
+        }
+      }, 5000);
 
       const processLine = (rawLine: string, stream: 'stdout' | 'stderr'): void => {
         const line = rawLine.trim();
@@ -137,6 +183,7 @@ export const codexRunner: AgentRunner = {
           if (!sawInit) {
             sawInit = true;
             console.log('🚀 Codex session initialized');
+            lastConsoleActivityAt = Date.now();
           }
         } else if (eventType === 'turn.completed' && asObject(event.usage)) {
           usage = event.usage;
@@ -156,6 +203,7 @@ export const codexRunner: AgentRunner = {
         const consoleLine = formatEventForConsole(event);
         if (consoleLine) {
           console.log(consoleLine);
+          lastConsoleActivityAt = Date.now();
         }
       };
 
@@ -167,6 +215,7 @@ export const codexRunner: AgentRunner = {
 
       proc.on('error', (err) => {
         clearTimeout(timeout);
+        clearInterval(activityHeartbeat);
         stdoutRl.close();
         stderrRl.close();
         reject(new Error(`Failed to execute Codex CLI: ${err.message}`));
@@ -174,6 +223,7 @@ export const codexRunner: AgentRunner = {
 
       proc.on('close', (code) => {
         clearTimeout(timeout);
+        clearInterval(activityHeartbeat);
         stdoutRl.close();
         stderrRl.close();
 
