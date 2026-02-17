@@ -50,6 +50,34 @@ function extractEventText(event: JsonObject): string {
   return type;
 }
 
+function formatEventForConsole(event: JsonObject): string | null {
+  const type = typeof event.type === 'string' ? event.type : '';
+  const text = extractEventText(event);
+
+  if (type === 'thread.started' || type === 'turn.started') {
+    return null;
+  }
+
+  if (type === 'turn.completed') {
+    return '✅ Codex turn completed';
+  }
+
+  if (type === 'turn.failed') {
+    return `❌ ${text}`;
+  }
+
+  if (type === 'error') {
+    return `❌ ${text}`;
+  }
+
+  // Show readable progress messages when available.
+  if (text && text !== type) {
+    return `  ${text}`;
+  }
+
+  return null;
+}
+
 export const codexRunner: AgentRunner = {
   provider: 'codex',
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
@@ -124,6 +152,11 @@ export const codexRunner: AgentRunner = {
 
         const text = extractEventText(event);
         emitLogEvent(options.onLogEvent, 'claude_message', text, { provider: 'codex', ...event });
+
+        const consoleLine = formatEventForConsole(event);
+        if (consoleLine) {
+          console.log(consoleLine);
+        }
       };
 
       const stdoutRl = createInterface({ input: proc.stdout });
