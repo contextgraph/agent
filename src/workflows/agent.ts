@@ -26,6 +26,7 @@ const INITIAL_POLL_INTERVAL = parseInt(process.env.WORKER_INITIAL_POLL_INTERVAL 
 const MAX_POLL_INTERVAL = parseInt(process.env.WORKER_MAX_POLL_INTERVAL || '5000', 10);          // 5 seconds default
 const BACKOFF_MULTIPLIER = 1.5;
 const STATUS_INTERVAL_MS = 30000; // Show status every 30 seconds when idle
+const NO_WORK_HINT_INTERVAL_MS = 60000; // Show queue diagnostics every 60 seconds when idle
 
 // Retry configuration for transient API errors
 // For extended outages, we wait indefinitely with a ceiling on delay
@@ -64,6 +65,18 @@ function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
   const total = stats.prepared + stats.executed;
   console.log(chalk.dim(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`));
+}
+
+function printNoWorkHint(): void {
+  console.log(chalk.dim('No claimable action returned by worker queue.'));
+  console.log(chalk.dim('Likely reasons:'));
+  console.log(chalk.dim('  - no open actions in the current org scope'));
+  console.log(chalk.dim('  - open actions are dependency-blocked'));
+  console.log(chalk.dim('  - open actions have agentReady=false'));
+  console.log(chalk.dim('  - open actions are already claimed by another worker'));
+  console.log(chalk.dim('Inspect with:'));
+  console.log(chalk.dim('  - cg tree --depth 4 --include-completed'));
+  console.log(chalk.dim('  - contextgraph.dev action dashboard filters for open / agent-ready / blocked'));
 }
 
 /**
@@ -212,6 +225,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
 
   let currentPollInterval = INITIAL_POLL_INTERVAL;
   let lastStatusTime = Date.now();
+  let lastNoWorkHintTime = 0;
   let consecutiveApiErrors = 0;
   let apiRetryDelay = INITIAL_RETRY_DELAY;
 
@@ -264,6 +278,10 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
         printStatus();
         lastStatusTime = Date.now();
       }
+      if (Date.now() - lastNoWorkHintTime >= NO_WORK_HINT_INTERVAL_MS) {
+        printNoWorkHint();
+        lastNoWorkHintTime = Date.now();
+      }
       await sleep(currentPollInterval);
       currentPollInterval = Math.min(currentPollInterval * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL);
       continue;
@@ -271,6 +289,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
 
     // Reset poll interval on successful claim
     currentPollInterval = INITIAL_POLL_INTERVAL;
+    lastNoWorkHintTime = 0;
 
     // Track current claim for graceful shutdown
     if (actionDetail.claim_id) {
