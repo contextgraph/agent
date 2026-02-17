@@ -1,7 +1,7 @@
 import type { LogEvent } from '../log-transport.js';
 import type { AgentRunOptions, AgentRunResult } from '../types/actions.js';
 
-export type AgentProvider = 'claude';
+export type AgentProvider = 'claude' | 'codex';
 
 export interface RunnerExecuteOptions extends AgentRunOptions {
   onLogEvent?: (event: LogEvent) => void;

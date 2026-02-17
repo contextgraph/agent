@@ -96,10 +96,11 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     logBuffer = new LogBuffer(logTransport);
     logBuffer.start();
 
-    console.log('Spawning Claude for execution...\n');
-
     const runner = createAgentRunner(options?.provider);
-    const claudeResult = await runner.execute({
+    const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
+    console.log(`Spawning ${providerName} for execution...\n`);
+
+    const runResult = await runner.execute({
       prompt,
       cwd: workspacePath,
       authToken: credentials.clerkToken,
@@ -110,19 +111,19 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     });
 
     // Update run state based on execution result
-    if (claudeResult.exitCode === 0) {
+    if (runResult.exitCode === 0) {
       await logTransport.finishRun('success', {
-        exitCode: claudeResult.exitCode,
-        cost: claudeResult.cost,
-        usage: claudeResult.usage,
+        exitCode: runResult.exitCode,
+        cost: runResult.cost,
+        usage: runResult.usage,
       });
       console.log('\n' + chalk.green('Execution complete'));
     } else {
       await logTransport.finishRun('error', {
-        exitCode: claudeResult.exitCode,
-        errorMessage: `Claude execution failed with exit code ${claudeResult.exitCode}`,
+        exitCode: runResult.exitCode,
+        errorMessage: `${providerName} execution failed with exit code ${runResult.exitCode}`,
       });
-      throw new Error(`Claude execution failed with exit code ${claudeResult.exitCode}`);
+      throw new Error(`${providerName} execution failed with exit code ${runResult.exitCode}`);
     }
 
   } catch (error) {

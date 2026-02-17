@@ -27,7 +27,7 @@ jest.mock('../../src/credentials.js', () => ({
 }));
 
 const mockRunnerExecute = jest.fn<(opts: Record<string, unknown>) => Promise<{ exitCode: number }>>().mockResolvedValue({ exitCode: 0 });
-const mockCreateAgentRunner = jest.fn(() => ({
+const mockCreateAgentRunner = jest.fn((_provider?: string) => ({
   provider: 'claude',
   execute: mockRunnerExecute,
 }));
@@ -133,5 +133,15 @@ describe('promptPrefix in workflows', () => {
         prompt: 'Server prompt content',
       })
     );
+  });
+
+  it('should pass provider through to runner factory', async () => {
+    await runExecute('action-1', {
+      cwd: '/tmp/workspace',
+      runId: 'run-1',
+      provider: 'codex',
+    });
+
+    expect(mockCreateAgentRunner).toHaveBeenCalledWith('codex');
   });
 });
