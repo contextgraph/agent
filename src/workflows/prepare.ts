@@ -31,6 +31,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
   let workspacePath: string | undefined;
   let cleanup: (() => Promise<void>) | undefined;
   let logTransport!: LogTransportService;
+  let runFinalized = false;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
@@ -104,7 +105,11 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       prompt,
       cwd: workspacePath,
       authToken: credentials.clerkToken,
-      model: options?.model || 'claude-opus-4-5-20251101',
+      ...(options?.model
+        ? { model: options.model }
+        : runner.provider === 'claude'
+          ? { model: 'claude-opus-4-5-20251101' }
+          : {}),
       onLogEvent: (event) => {
         logBuffer!.push(event);
       },
@@ -117,23 +122,26 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
         cost: runResult.cost,
         usage: runResult.usage,
       });
+      runFinalized = true;
       console.log('\n' + chalk.green('Preparation complete'));
     } else {
       await logTransport.finishRun('error', {
         exitCode: runResult.exitCode,
         errorMessage: `${providerName} preparation failed with exit code ${runResult.exitCode}`,
       });
+      runFinalized = true;
       console.error('\n' + chalk.red(`${providerName} preparation failed with exit code ${runResult.exitCode}`));
       process.exit(1);
     }
 
   } catch (error) {
     // Update run state to failed if we have a run
-    if (runId) {
+    if (runId && !runFinalized) {
       try {
         await logTransport.finishRun('error', {
           errorMessage: error instanceof Error ? error.message : String(error),
         });
+        runFinalized = true;
       } catch (stateError) {
         console.error(chalk.dim('[Log Streaming] Failed to update run state:'), stateError);
       }
