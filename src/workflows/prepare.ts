@@ -96,10 +96,11 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     logBuffer = new LogBuffer(logTransport);
     logBuffer.start();
 
-    console.log('Spawning Claude for preparation...\n');
-
     const runner = createAgentRunner(options?.provider);
-    const claudeResult = await runner.execute({
+    const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
+    console.log(`Spawning ${providerName} for preparation...\n`);
+
+    const runResult = await runner.execute({
       prompt,
       cwd: workspacePath,
       authToken: credentials.clerkToken,
@@ -110,19 +111,19 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
     });
 
     // Update run state based on execution result
-    if (claudeResult.exitCode === 0) {
+    if (runResult.exitCode === 0) {
       await logTransport.finishRun('success', {
-        exitCode: claudeResult.exitCode,
-        cost: claudeResult.cost,
-        usage: claudeResult.usage,
+        exitCode: runResult.exitCode,
+        cost: runResult.cost,
+        usage: runResult.usage,
       });
       console.log('\n' + chalk.green('Preparation complete'));
     } else {
       await logTransport.finishRun('error', {
-        exitCode: claudeResult.exitCode,
-        errorMessage: `Claude preparation failed with exit code ${claudeResult.exitCode}`,
+        exitCode: runResult.exitCode,
+        errorMessage: `${providerName} preparation failed with exit code ${runResult.exitCode}`,
       });
-      console.error('\n' + chalk.red(`Claude preparation failed with exit code ${claudeResult.exitCode}`));
+      console.error('\n' + chalk.red(`${providerName} preparation failed with exit code ${runResult.exitCode}`));
       process.exit(1);
     }
 

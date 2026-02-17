@@ -8,6 +8,7 @@ import { runExecute } from '../workflows/execute.js';
 import { runLocalAgent } from '../workflows/agent.js';
 import { runSetup } from '../workflows/setup.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
+import type { AgentProvider } from '../runners/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,6 +17,7 @@ const packageJson = JSON.parse(
 );
 
 const program = new Command();
+const PROVIDER_VALUES: AgentProvider[] = ['claude', 'codex'];
 
 program
   .name('contextgraph-agent')
@@ -37,12 +39,22 @@ program
 program
   .command('run')
   .description('Run continuous worker loop (claims and executes actions until Ctrl+C)')
+  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
   .option('--force-haiku', 'Force all workflows to use claude-haiku-4-5 instead of default models')
   .option('--skip-skills', 'Skip skill injection (for testing)')
-  .action(async (options) => {
+  .action(async (options: { provider: string; forceHaiku?: boolean; skipSkills?: boolean }) => {
     try {
+      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
+        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+      if (options.forceHaiku && options.provider !== 'claude') {
+        console.warn('--force-haiku is only supported with --provider claude; ignoring flag.');
+      }
+
       await runLocalAgent({
-        forceModel: options.forceHaiku ? 'claude-haiku-4-5-20251001' : undefined,
+        forceModel: options.forceHaiku && options.provider === 'claude' ? 'claude-haiku-4-5-20251001' : undefined,
+        provider: options.provider as AgentProvider,
         skipSkills: options.skipSkills,
       });
     } catch (error) {
@@ -75,10 +87,15 @@ program
   .command('prepare')
   .argument('<action-id>', 'Action ID to prepare')
   .description('Prepare a single action')
+  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
   .option('--skip-skills', 'Skip skill injection (for testing)')
-  .action(async (actionId: string, options: { skipSkills?: boolean }) => {
+  .action(async (actionId: string, options: { provider: string; skipSkills?: boolean }) => {
     try {
-      await runPrepare(actionId, { skipSkills: options.skipSkills });
+      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
+        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+      await runPrepare(actionId, { provider: options.provider as AgentProvider, skipSkills: options.skipSkills });
     } catch (error) {
       console.error('Error preparing action:', error instanceof Error ? error.message : error);
       process.exit(1);
@@ -89,10 +106,15 @@ program
   .command('execute')
   .argument('<action-id>', 'Action ID to execute')
   .description('Execute a single action')
+  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
   .option('--skip-skills', 'Skip skill injection (for testing)')
-  .action(async (actionId: string, options: { skipSkills?: boolean }) => {
+  .action(async (actionId: string, options: { provider: string; skipSkills?: boolean }) => {
     try {
-      await runExecute(actionId, { skipSkills: options.skipSkills });
+      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
+        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+      await runExecute(actionId, { provider: options.provider as AgentProvider, skipSkills: options.skipSkills });
     } catch (error) {
       console.error('Error executing action:', error instanceof Error ? error.message : error);
       process.exit(1);
