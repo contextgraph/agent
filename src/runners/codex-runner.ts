@@ -5,6 +5,7 @@ import type { AgentRunResult } from '../types/actions.js';
 import type { AgentRunner, RunnerExecuteOptions } from './types.js';
 
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+const CONTEXTGRAPH_MCP_URL = 'https://mcp.contextgraph.dev';
 
 type JsonObject = Record<string, unknown>;
 
@@ -185,6 +186,9 @@ export const codexRunner: AgentRunner = {
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {
       const args = [
+        '-c', `mcp_servers.actions.url="${CONTEXTGRAPH_MCP_URL}"`,
+        '-c', 'mcp_servers.actions.bearer_token_env_var="CONTEXTGRAPH_AUTH_TOKEN"',
+        '-c', 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}',
         'exec',
         '--json',
         '--sandbox', 'workspace-write',
@@ -204,6 +208,7 @@ export const codexRunner: AgentRunner = {
         env: {
           ...process.env,
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
+          CONTEXTGRAPH_AUTH_HEADER: `Bearer ${options.authToken || ''}`,
         },
       });
 
