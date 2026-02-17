@@ -268,7 +268,7 @@ export const codexRunner: AgentRunner = {
         }
 
         const text = extractEventText(event);
-        emitLogEvent(options.onLogEvent, 'claude_message', text, { provider: 'codex', ...event });
+        emitLogEvent(options.onLogEvent, 'agent_message', text, { provider: 'codex', ...event });
 
         const consoleLine = formatEventForConsole(event);
         if (consoleLine) {

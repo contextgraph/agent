@@ -42,6 +42,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
         phase: 'prepare',
         startingCommit: options?.startingCommit,
         skipSkills: options?.skipSkills,
+        provider: options?.provider,
       });
       workspacePath = setup.workspacePath;
       cleanup = setup.cleanup;
@@ -59,7 +60,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       console.log(chalk.dim(`[Log Streaming] Using pre-created run: ${runId}`));
       workspacePath = options?.cwd || process.cwd();
       // Create log transport with existing runId
-      logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, runId);
+      logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, runId, undefined, options?.provider);
     }
 
     // Now fetch preparation instructions with runId included

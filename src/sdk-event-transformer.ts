@@ -53,9 +53,10 @@ function transformSystemMessage(
 ): LogEvent {
   // Emit in the format expected by AgentEventMessage
   return {
-    eventType: 'claude_message',
+    eventType: 'agent_message',
     content: message.content || `System: ${message.subtype || 'initialization'}`,
     data: {
+      provider: 'claude',
       type: 'system',
       subtype: message.subtype,
       content: message.content,
@@ -87,9 +88,10 @@ function transformAssistantMessage(
   // Emit the full SDK message structure in data for UI compatibility
   // This matches sandbox-execution.ts line 512-522
   return {
-    eventType: 'claude_message',
+    eventType: 'agent_message',
     content: contentSummary,
     data: {
+      provider: 'claude',
       type: 'assistant',
       message: message.message,
       session_id: message.session_id,
@@ -102,7 +104,7 @@ function transformAssistantMessage(
 /**
  * Transform a result message (completion status)
  *
- * Emits as claude_message with type='result' to match sandbox format.
+ * Emits as provider-neutral agent_message.
  */
 function transformResultMessage(
   message: SDKResultMessage,
@@ -114,11 +116,12 @@ function transformResultMessage(
     : 'unknown';
 
   return {
-    eventType: 'claude_message',
+    eventType: 'agent_message',
     content: isSuccess
       ? `Completed successfully in ${durationSec}s`
       : `Execution ${message.subtype}: ${durationSec}s`,
     data: {
+      provider: 'claude',
       type: 'result',
       subtype: message.subtype,
       duration_ms: message.duration_ms,
@@ -165,9 +168,10 @@ function transformUserMessage(
 
   // Emit full message structure in data for UI rendering
   return {
-    eventType: 'claude_message',
+    eventType: 'agent_message',
     content: summaries.join('\n'),
     data: {
+      provider: 'claude',
       type: 'user',
       message: message.message,
       session_id: message.session_id,

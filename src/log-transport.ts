@@ -13,6 +13,7 @@
 export type LogEventType =
   | 'stdout'
   | 'stderr'
+  | 'agent_message'
   | 'claude_message'
   | 'tool_use'
   | 'tool_result'
@@ -69,7 +70,8 @@ export class LogTransportService {
     private baseUrl: string,
     private authToken: string,
     runId?: string,
-    retryConfig?: Partial<RetryConfig>
+    retryConfig?: Partial<RetryConfig>,
+    private provider?: string
   ) {
     this.runId = runId ?? null;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
@@ -225,11 +227,33 @@ export class LogTransportService {
       return { success: true, eventsReceived: 0 };
     }
 
+    const normalizedEvents = events.map((event) => {
+      const data = {
+        ...(event.data || {}),
+        ...(this.provider ? { provider: (event.data?.provider as string | undefined) || this.provider } : {}),
+      };
+
+      // Backward-compat: keep existing backend/UI pipeline working while
+      // callers migrate to provider-neutral "agent_message".
+      if (event.eventType === 'agent_message') {
+        return {
+          ...event,
+          eventType: 'claude_message' as const,
+          data: {
+            ...data,
+            canonicalEventType: 'agent_message',
+          },
+        };
+      }
+
+      return { ...event, data };
+    });
+
     const response = await this.makeRequest('/api/agents/log/event', {
       method: 'POST',
       body: JSON.stringify({
         runId: this.runId,
-        events,
+        events: normalizedEvents,
         ...(workerId && { workerId }),
       }),
     });

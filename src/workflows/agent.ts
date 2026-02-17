@@ -324,6 +324,7 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
         phase,
         actionDetail, // Pass pre-fetched action detail to avoid redundant API call
         skipSkills: options?.skipSkills,
+        provider: options?.provider,
       });
       workspacePath = setup.workspacePath;
       cleanup = setup.cleanup;
