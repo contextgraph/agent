@@ -6,6 +6,7 @@ import type { AgentRunner, RunnerExecuteOptions } from './types.js';
 
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const CONTEXTGRAPH_MCP_URL = 'https://mcp.contextgraph.dev';
+const DEFAULT_CODEX_SANDBOX_MODE = 'workspace-write';
 
 type JsonObject = Record<string, unknown>;
 
@@ -185,17 +186,22 @@ export const codexRunner: AgentRunner = {
   provider: 'codex',
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {
+      const sandboxMode = process.env.CONTEXTGRAPH_CODEX_SANDBOX_MODE || DEFAULT_CODEX_SANDBOX_MODE;
       const args = [
         '-c', `mcp_servers.actions.url="${CONTEXTGRAPH_MCP_URL}"`,
         '-c', 'mcp_servers.actions.bearer_token_env_var="CONTEXTGRAPH_AUTH_TOKEN"',
         '-c', 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}',
         'exec',
         '--json',
-        '--sandbox', 'workspace-write',
+        '--sandbox', sandboxMode,
         '--full-auto',
         '--skip-git-repo-check',
         '--cd', options.cwd,
       ];
+
+      if (sandboxMode !== DEFAULT_CODEX_SANDBOX_MODE) {
+        console.log(`  Codex sandbox mode: ${sandboxMode}`);
+      }
 
       if (options.model) {
         args.push('--model', options.model);
