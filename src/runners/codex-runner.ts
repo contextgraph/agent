@@ -6,7 +6,7 @@ import type { AgentRunner, RunnerExecuteOptions } from './types.js';
 
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const CONTEXTGRAPH_MCP_URL = 'https://mcp.contextgraph.dev';
-const DEFAULT_CODEX_SANDBOX_MODE = 'workspace-write';
+const DEFAULT_CODEX_SANDBOX_MODE = 'danger-full-access';
 
 type JsonObject = Record<string, unknown>;
 
