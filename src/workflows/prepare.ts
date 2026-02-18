@@ -106,6 +106,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       prompt,
       cwd: workspacePath,
       authToken: credentials.clerkToken,
+      executionActionId: actionId,
       ...(options?.model
         ? { model: options.model }
         : runner.provider === 'claude'

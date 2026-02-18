@@ -41,6 +41,7 @@ export type AgentRunOptions = {
   prompt: string;
   cwd: string;
   authToken?: string;  // Optional auth token for MCP server
+  executionActionId?: string; // Optional execution scope action ID for MCP enforcement
 };
 
 // Backward-compatible aliases for existing Claude-specific naming
