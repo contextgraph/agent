@@ -210,6 +210,9 @@ export async function executeClaude(
             url: 'https://mcp.contextgraph.dev',
             headers: {
               'x-authorization': `Bearer ${options.authToken}`,
+              ...(options.executionActionId
+                ? { 'x-contextgraph-execution-action-id': options.executionActionId }
+                : {}),
             },
           },
         },
