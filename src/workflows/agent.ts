@@ -10,6 +10,7 @@ import { runExecute } from './execute.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
 import type { AgentProvider } from '../runners/index.js';
+import type { RunnerExecutionMode } from '../runners/types.js';
 import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -176,7 +177,12 @@ function isRetryableError(error: Error): boolean {
   );
 }
 
-export async function runLocalAgent(options?: { forceModel?: string; skipSkills?: boolean; provider?: AgentProvider }): Promise<void> {
+export async function runLocalAgent(options?: {
+  forceModel?: string;
+  skipSkills?: boolean;
+  provider?: AgentProvider;
+  executionMode?: RunnerExecutionMode;
+}): Promise<void> {
   // Initialize module-scope apiClient for signal handlers
   apiClient = new ApiClient();
 
@@ -207,6 +213,9 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
   console.log(`${chalk.bold('Contextgraph Agent')} ${chalk.dim(`v${packageJson.version}`)}`);
   console.log(chalk.dim(`Worker ID: ${workerId}`));
   console.log(chalk.dim(`Provider: ${options?.provider || 'claude'}`));
+  if (options?.executionMode) {
+    console.log(chalk.dim(`Execution mode: ${options.executionMode}`));
+  }
   console.log('Starting continuous worker loop...\n');
   console.log(chalk.dim('Press Ctrl+C to gracefully shutdown and release any claimed work\n'));
 
@@ -343,7 +352,15 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       }
 
       if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, provider: options?.provider, runId, promptPrefix });
+        await runPrepare(actionDetail.id, {
+          cwd: workspacePath,
+          startingCommit,
+          model: options?.forceModel,
+          provider: options?.provider,
+          executionMode: options?.executionMode,
+          runId,
+          promptPrefix,
+        });
         stats.prepared++;
 
         // Release claim after preparation
@@ -363,7 +380,15 @@ export async function runLocalAgent(options?: { forceModel?: string; skipSkills?
       }
 
       try {
-        await runExecute(actionDetail.id, { cwd: workspacePath, startingCommit, model: options?.forceModel, provider: options?.provider, runId, promptPrefix });
+        await runExecute(actionDetail.id, {
+          cwd: workspacePath,
+          startingCommit,
+          model: options?.forceModel,
+          provider: options?.provider,
+          executionMode: options?.executionMode,
+          runId,
+          promptPrefix,
+        });
         stats.executed++;
         console.log(`${chalk.bold.green('Completed:')} ${chalk.cyan(actionDetail.title)}`);
       } catch (executeError) {

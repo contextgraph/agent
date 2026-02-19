@@ -7,6 +7,7 @@ import { HeartbeatManager } from '../heartbeat-manager.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
 import chalk from 'chalk';
 import type { WorkflowOptions } from './types.js';
+import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
 
 export type { WorkflowOptions };
 
@@ -100,6 +101,8 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
 
     const runner = createAgentRunner(options?.provider);
     const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
+    const executionMode = resolveExecutionMode(options, runner.provider);
+    assertRunnerCapabilities(runner, executionMode, 'Preparation workflow');
     console.log(`Spawning ${providerName} for preparation...\n`);
 
     const runResult = await runner.execute({
@@ -107,6 +110,7 @@ export async function runPrepare(actionId: string, options?: WorkflowOptions): P
       cwd: workspacePath,
       authToken: credentials.clerkToken,
       executionActionId: actionId,
+      executionMode,
       ...(options?.model
         ? { model: options.model }
         : runner.provider === 'claude'
