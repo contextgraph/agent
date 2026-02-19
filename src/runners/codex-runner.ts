@@ -190,7 +190,7 @@ export const codexRunner: AgentRunner = {
       const mcpHeaderConfig = options.executionActionId
         ? 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}'
         : 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}';
-      const bypassSandbox = process.env.CONTEXTGRAPH_CODEX_BYPASS_SANDBOX === '1';
+      const bypassSandbox = process.env.CONTEXTGRAPH_CODEX_BYPASS_SANDBOX !== '0';
       const args = [
         '-c', `mcp_servers.actions.url="${CONTEXTGRAPH_MCP_URL}"`,
         '-c', 'mcp_servers.actions.bearer_token_env_var="CONTEXTGRAPH_AUTH_TOKEN"',
