@@ -190,19 +190,23 @@ export const codexRunner: AgentRunner = {
       const mcpHeaderConfig = options.executionActionId
         ? 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}'
         : 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}';
+      const bypassSandbox = process.env.CONTEXTGRAPH_CODEX_BYPASS_SANDBOX === '1';
       const args = [
         '-c', `mcp_servers.actions.url="${CONTEXTGRAPH_MCP_URL}"`,
         '-c', 'mcp_servers.actions.bearer_token_env_var="CONTEXTGRAPH_AUTH_TOKEN"',
         '-c', mcpHeaderConfig,
         'exec',
         '--json',
-        '--sandbox', sandboxMode,
-        '--full-auto',
+        ...(bypassSandbox
+          ? ['--dangerously-bypass-approvals-and-sandbox']
+          : ['--sandbox', sandboxMode, '--full-auto']),
         '--skip-git-repo-check',
         '--cd', options.cwd,
       ];
 
-      if (sandboxMode !== DEFAULT_CODEX_SANDBOX_MODE) {
+      if (bypassSandbox) {
+        console.log('  Codex sandbox mode: bypassed');
+      } else if (sandboxMode !== DEFAULT_CODEX_SANDBOX_MODE) {
         console.log(`  Codex sandbox mode: ${sandboxMode}`);
       }
 
@@ -212,10 +216,16 @@ export const codexRunner: AgentRunner = {
 
       args.push(options.prompt);
 
+      const childEnv = { ...process.env } as Record<string, string | undefined>;
+      // Avoid inheriting restrictive sandbox flags from parent environments.
+      delete childEnv.CODEX_SANDBOX_NETWORK_DISABLED;
+      delete childEnv.CODEX_SANDBOX;
+      delete childEnv.CODEX_SANDBOX_POLICY;
+
       const proc = spawn('codex', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
-          ...process.env,
+          ...childEnv,
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
           CONTEXTGRAPH_AUTH_HEADER: `Bearer ${options.authToken || ''}`,
           CONTEXTGRAPH_EXECUTION_ACTION_ID: options.executionActionId || '',
