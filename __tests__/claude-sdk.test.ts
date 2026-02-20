@@ -348,6 +348,70 @@ describe('SDK Wrapper Functions', () => {
           }),
         });
       });
+
+      it('should include execution action ID header when executionActionId is provided', async () => {
+        const mockMessages: SDKMessage[] = [
+          createInitMessage('test-session-exec-id'),
+          createSuccessResult('test-session-exec-id', { duration_ms: 100 }),
+        ];
+
+        mockQuery.mockReturnValue(createMockQuery(mockMessages));
+
+        const optionsWithExecutionId = {
+          ...baseOptions,
+          executionActionId: '12345678-1234-1234-1234-123456789abc',
+          authToken: 'test-token',
+        };
+
+        await executeClaude(optionsWithExecutionId);
+
+        expect(mockQuery).toHaveBeenCalledWith({
+          prompt: 'Test prompt',
+          options: expect.objectContaining({
+            mcpServers: {
+              actions: {
+                type: 'http',
+                url: 'https://mcp.contextgraph.dev',
+                headers: {
+                  'x-authorization': 'Bearer test-token',
+                  'x-contextgraph-execution-action-id': '12345678-1234-1234-1234-123456789abc',
+                },
+              },
+            },
+          }),
+        });
+      });
+
+      it('should omit execution action ID header when executionActionId is not provided', async () => {
+        const mockMessages: SDKMessage[] = [
+          createInitMessage('test-session-no-exec-id'),
+          createSuccessResult('test-session-no-exec-id', { duration_ms: 100 }),
+        ];
+
+        mockQuery.mockReturnValue(createMockQuery(mockMessages));
+
+        const optionsWithoutExecutionId = {
+          ...baseOptions,
+          authToken: 'test-token',
+        };
+
+        await executeClaude(optionsWithoutExecutionId);
+
+        expect(mockQuery).toHaveBeenCalledWith({
+          prompt: 'Test prompt',
+          options: expect.objectContaining({
+            mcpServers: {
+              actions: {
+                type: 'http',
+                url: 'https://mcp.contextgraph.dev',
+                headers: {
+                  'x-authorization': 'Bearer test-token',
+                },
+              },
+            },
+          }),
+        });
+      });
     });
 
     describe('error scenarios', () => {
