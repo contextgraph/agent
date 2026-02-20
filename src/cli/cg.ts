@@ -3,6 +3,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { CgApiClient } from '../cg-api-client.js';
+import { createCommandSchema, updateCommandSchema, completeCommandSchema, formatZodError } from './schemas.js';
+import { ZodError } from 'zod';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -248,6 +250,16 @@ program
         throw new Error('--parent-id is required');
       }
 
+      // Validate schema
+      try {
+        createCommandSchema.parse(args);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new Error(formatZodError(error));
+        }
+        throw error;
+      }
+
       const result = await client.callTool('actions/create', args);
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
@@ -301,6 +313,16 @@ program
         args.organization_id = orgId;
       }
 
+      // Validate schema
+      try {
+        updateCommandSchema.parse(args);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new Error(formatZodError(error));
+        }
+        throw error;
+      }
+
       const result = await client.callTool('actions/update', args);
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
@@ -343,6 +365,16 @@ program
       // Validate required fields
       if (!args.changelog_visibility) {
         throw new Error('--visibility is required (or provide via stdin)');
+      }
+
+      // Validate schema
+      try {
+        completeCommandSchema.parse(args);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new Error(formatZodError(error));
+        }
+        throw error;
       }
 
       const result = await client.callTool('actions/complete', args);
