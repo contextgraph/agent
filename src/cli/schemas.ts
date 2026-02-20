@@ -160,3 +160,32 @@ export function formatZodError(error: z.ZodError): string {
 
   return `Validation failed:\n${errors.join('\n')}`;
 }
+
+/**
+ * Logs structured validation failure data for observability
+ *
+ * Emits machine-readable JSON logs with the [cg-cli-validation-failed] prefix
+ * to enable tracking of validation patterns and agent constraint issues.
+ *
+ * @param command - The CLI command that failed validation (e.g., 'create', 'update')
+ * @param error - The Zod validation error
+ * @param input - The raw input data that failed validation
+ */
+export function logValidationFailure(
+  command: string,
+  error: z.ZodError,
+  input: Record<string, any>
+): void {
+  const payload = {
+    command,
+    timestamp: new Date().toISOString(),
+    issues: error.errors.map((err) => ({
+      path: err.path.join('.'),
+      message: err.message,
+      code: err.code,
+    })),
+    inputKeys: Object.keys(input),
+  };
+
+  console.error('[cg-cli-validation-failed]', JSON.stringify(payload));
+}
