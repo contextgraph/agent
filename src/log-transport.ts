@@ -66,6 +66,46 @@ export class LogTransportService {
   private runId: string | null = null;
   private retryConfig: RetryConfig;
 
+  /**
+   * Creates a new LogTransportService instance
+   *
+   * @param baseUrl - The base URL for the platform API
+   * @param authToken - The authentication token for API requests
+   * @param runId - Optional run ID if continuing an existing run
+   * @param retryConfig - Optional retry configuration overrides
+   * @param provider - Optional provider identifier for multi-agent observability.
+   *
+   * **Provider Semantics:**
+   * The provider parameter enables tracking which agent or service generated each event
+   * in error tracking systems (Sentry, Langfuse, etc.). This is critical for multi-agent
+   * observability where multiple agents may contribute to a single run.
+   *
+   * **Precedence Rules:**
+   * - Transport-level: Set via this constructor parameter, applies to all events by default
+   * - Event-level: Individual events can override via `event.data.provider`
+   * - Resolution: Event-level provider takes precedence over transport-level provider
+   *
+   * **Multi-Agent Observability Contract:**
+   * When multiple agents work on a single action (prepare → execute → review), each agent
+   * should set its own provider identifier. This enables:
+   * - Accurate attribution of errors and tool calls to specific agents
+   * - Cross-agent trace correlation in observability dashboards
+   * - Quality metrics segmented by agent/service type
+   *
+   * **Example Usage:**
+   * ```typescript
+   * // Agent-level provider (applies to all events from this agent)
+   * const transport = new LogTransportService(baseUrl, token, runId, config, 'claude-execute-agent');
+   *
+   * // Event-level override (for specific tool calls or sub-processes)
+   * await transport.sendBatch([{
+   *   eventType: 'tool_use',
+   *   content: 'git commit',
+   *   data: { provider: 'git-subprocess' },  // Overrides 'claude-execute-agent' for this event
+   *   timestamp: new Date().toISOString()
+   * }]);
+   * ```
+   */
   constructor(
     private baseUrl: string,
     private authToken: string,
@@ -211,9 +251,26 @@ export class LogTransportService {
 
   /**
    * Send a batch of log events to the platform
+   *
    * @param events - Array of log events to send
    * @param workerId - Optional worker ID
    * @returns Success status and number of events received
+   *
+   * **Provider Precedence Implementation:**
+   * This method implements the provider precedence contract documented in the constructor:
+   * - If an event has `event.data.provider` set, that value is used (event-level override)
+   * - Otherwise, falls back to `this.provider` (transport-level default)
+   * - If neither is set, no provider field is added to the event
+   *
+   * This allows fine-grained control over provider attribution while maintaining
+   * sensible defaults for the common case where all events share the same provider.
+   *
+   * **Implementation Details:**
+   * The precedence logic is implemented in the normalizedEvents mapping:
+   * ```typescript
+   * provider: (event.data?.provider as string | undefined) || this.provider
+   * ```
+   * This ensures event-level provider takes precedence over transport-level provider.
    */
   async sendBatch(
     events: LogEvent[],
@@ -227,6 +284,7 @@ export class LogTransportService {
       return { success: true, eventsReceived: 0 };
     }
 
+    // Normalize events: apply provider precedence (event-level || transport-level)
     const normalizedEvents = events.map((event) => {
       const data = {
         ...(event.data || {}),
