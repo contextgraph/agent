@@ -219,16 +219,15 @@ export const codexRunner: AgentRunner = {
 
       args.push(options.prompt);
 
-      const childEnv = { ...process.env } as Record<string, string | undefined>;
-      // Avoid inheriting restrictive sandbox flags from parent environments.
-      delete childEnv.CODEX_SANDBOX_NETWORK_DISABLED;
-      delete childEnv.CODEX_SANDBOX;
-      delete childEnv.CODEX_SANDBOX_POLICY;
+      // Environment sanitization is now handled at the workflow layer.
+      // The workflow is responsible for cleaning Codex-specific sandbox flags
+      // before invoking the runner.
+      const baseEnv = options.env || process.env;
 
       const proc = spawn('codex', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
-          ...childEnv,
+          ...(baseEnv as Record<string, string | undefined>),
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
           CONTEXTGRAPH_AUTH_HEADER: `Bearer ${options.authToken || ''}`,
           CONTEXTGRAPH_EXECUTION_ACTION_ID: options.executionActionId || '',
