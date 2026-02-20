@@ -9,4 +9,8 @@ export const claudeRunner: AgentRunner = {
   async execute(options: RunnerExecuteOptions) {
     return executeClaude(options);
   },
+  async isAvailable(): Promise<boolean> {
+    // Claude SDK is bundled with the agent, so it's always available
+    return true;
+  },
 };
