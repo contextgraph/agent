@@ -12,6 +12,7 @@ export interface RunnerExecuteOptions extends AgentRunOptions {
   onLogEvent?: (event: LogEvent) => void;
   model?: string;
   executionMode?: RunnerExecutionMode;
+  env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 }
 
 export interface AgentRunner {

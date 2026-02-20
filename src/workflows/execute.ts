@@ -1,5 +1,6 @@
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { createAgentRunner } from '../runners/index.js';
+import { sanitizeCodexEnv } from '../runners/env-sanitization.js';
 import { fetchWithRetry } from '../fetch-with-retry.js';
 import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
@@ -105,6 +106,9 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     assertRunnerCapabilities(runner, executionMode, 'Execution workflow');
     console.log(`Spawning ${providerName} for execution...\n`);
 
+    // Sanitize environment for Codex to avoid inheriting restrictive sandbox flags
+    const sanitizedEnv = runner.provider === 'codex' ? sanitizeCodexEnv(process.env) : undefined;
+
     const runResult = await runner.execute({
       prompt,
       cwd: workspacePath,
@@ -112,6 +116,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       executionActionId: actionId,
       executionMode,
       ...(options?.model ? { model: options.model } : {}),
+      ...(sanitizedEnv ? { env: sanitizedEnv } : {}),
       onLogEvent: (event) => {
         logBuffer!.push(event);
       },
