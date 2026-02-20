@@ -182,10 +182,29 @@ function formatEventForConsole(event: JsonObject): string | null {
   return null;
 }
 
+import { AGENT_CAPABILITIES } from './capabilities.js';
+
 export const codexRunner: AgentRunner = {
   provider: 'codex',
   capabilities: {
     fullAccessExecution: true,
+    capabilities: [
+      AGENT_CAPABILITIES.FULL_ACCESS_EXECUTION,
+      AGENT_CAPABILITIES.FILE_OPERATIONS,
+      AGENT_CAPABILITIES.SHELL_EXECUTION,
+      AGENT_CAPABILITIES.NETWORK_ACCESS,
+      AGENT_CAPABILITIES.CODE_SEARCH,
+      AGENT_CAPABILITIES.GIT_OPERATIONS,
+      AGENT_CAPABILITIES.GITHUB_PR_OPERATIONS,
+      AGENT_CAPABILITIES.PACKAGE_MANAGEMENT,
+      AGENT_CAPABILITIES.BUILD_AND_TEST,
+      AGENT_CAPABILITIES.MCP_TOOLS,
+      AGENT_CAPABILITIES.MULTI_TURN_EXECUTION,
+      AGENT_CAPABILITIES.ASYNC_EXECUTION,
+      AGENT_CAPABILITIES.STREAMING_LOGS,
+      // Note: Codex supports full access execution with sandbox bypass
+      // Note: No INTERACTIVE_PROMPTS in --full-auto mode
+    ],
   },
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {
