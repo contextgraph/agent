@@ -60,32 +60,124 @@ export class CgApiClient {
       { verbose: false }
     );
 
+    // Protocol error: HTTP-level failure
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`MCP server error ${response.status}: ${errorText}`);
+      this.logError('protocol_error', {
+        toolName,
+        status: response.status,
+        errorText,
+      });
+      throw new Error(`MCP server HTTP error ${response.status}: ${errorText}`);
     }
 
-    const result = await response.json();
+    let result: any;
+    try {
+      result = await response.json();
+    } catch (parseError) {
+      this.logError('json_parse_error', {
+        toolName,
+        parseError: parseError instanceof Error ? parseError.message : String(parseError),
+      });
+      throw new Error('Failed to parse MCP server response as JSON');
+    }
 
-    // Check for JSON-RPC error
+    // JSON-RPC protocol error
     if (result.error) {
-      throw new Error(`MCP tool error: ${result.error.message || JSON.stringify(result.error)}`);
+      this.logError('jsonrpc_error', {
+        toolName,
+        error: result.error,
+      });
+      throw new Error(`MCP JSON-RPC error: ${result.error.message || JSON.stringify(result.error)}`);
     }
 
-    // Return the result data
-    // MCP tools/call returns { result: { content: [...] } }
-    // The content array typically has text items with the actual data
-    if (result.result?.content?.[0]?.text) {
-      try {
-        // Try to parse as JSON if it's a text response
-        return JSON.parse(result.result.content[0].text);
-      } catch {
-        // Return raw text if not JSON
-        return result.result.content[0].text;
-      }
+    // Validate response structure
+    if (!result.result) {
+      this.logError('invalid_response_format', {
+        toolName,
+        receivedKeys: Object.keys(result),
+        expected: 'result field',
+      });
+      throw new Error('Invalid MCP response: missing result field');
     }
 
-    // Fallback: return the entire result
-    return result.result;
+    if (!result.result.content || !Array.isArray(result.result.content)) {
+      this.logError('invalid_response_format', {
+        toolName,
+        receivedResultKeys: Object.keys(result.result),
+        expected: 'result.content array',
+      });
+      throw new Error('Invalid MCP response: result.content is not an array');
+    }
+
+    if (result.result.content.length === 0) {
+      this.logError('empty_content', {
+        toolName,
+      });
+      throw new Error('Invalid MCP response: result.content is empty');
+    }
+
+    const firstContent = result.result.content[0];
+    if (!firstContent.text) {
+      this.logError('invalid_content_format', {
+        toolName,
+        contentType: firstContent.type || 'unknown',
+        receivedKeys: Object.keys(firstContent),
+      });
+      throw new Error('Invalid MCP response: content[0].text is missing');
+    }
+
+    const textContent = firstContent.text;
+
+    // Detect MCP tool errors returned in content
+    // MCP tools may return error messages as text content with "Error: " prefix
+    if (typeof textContent === 'string' && textContent.startsWith('Error: ')) {
+      this.logError('mcp_tool_error', {
+        toolName,
+        errorMessage: textContent,
+      });
+      throw new Error(`MCP tool failed: ${textContent}`);
+    }
+
+    // Try to parse as JSON if it's a text response
+    try {
+      return JSON.parse(textContent);
+    } catch {
+      // Return raw text if not JSON
+      this.logDebug('non_json_response', {
+        toolName,
+        textLength: textContent.length,
+      });
+      return textContent;
+    }
+  }
+
+  /**
+   * Log error information to stderr for debugging
+   * Preserves JSON-only stdout for programmatic consumption
+   */
+  private logError(errorType: string, context: Record<string, any>): void {
+    console.error(JSON.stringify({
+      level: 'error',
+      type: errorType,
+      timestamp: new Date().toISOString(),
+      ...context,
+    }));
+  }
+
+  /**
+   * Log debug information to stderr for debugging
+   * Preserves JSON-only stdout for programmatic consumption
+   */
+  private logDebug(debugType: string, context: Record<string, any>): void {
+    // Only log debug messages if DEBUG env var is set
+    if (process.env.DEBUG) {
+      console.error(JSON.stringify({
+        level: 'debug',
+        type: debugType,
+        timestamp: new Date().toISOString(),
+        ...context,
+      }));
+    }
   }
 }
