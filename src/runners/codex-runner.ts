@@ -1,3 +1,98 @@
+/**
+ * Codex CLI Agent Runner
+ *
+ * This runner integrates with the Codex CLI to execute agent tasks. It differs from the
+ * Claude SDK runner in several important ways that affect execution behavior, configuration,
+ * and capabilities.
+ *
+ * ## Key Architectural Differences
+ *
+ * ### 1. Full-Auto Mode (Bypass Approvals)
+ * - **Codex**: Uses `--full-auto` flag to suppress interactive prompts (unless bypassing sandbox)
+ * - **Claude SDK**: Uses `permissionMode: 'bypassPermissions'` option
+ * - **Impact**: Both achieve non-interactive execution, but through different mechanisms
+ *
+ * ### 2. Git Repository Check
+ * - **Codex**: Uses `--skip-git-repo-check` flag to bypass repository validation
+ * - **Claude SDK**: No equivalent flag (different architecture)
+ * - **Impact**: Codex can execute in non-git directories when needed
+ *
+ * ### 3. Sandbox Behavior
+ * - **Codex**: Configurable sandbox modes via `--sandbox <mode>` or `--dangerously-bypass-approvals-and-sandbox`
+ *   - Default mode: 'danger-full-access'
+ *   - Environment override: CONTEXTGRAPH_CODEX_SANDBOX_MODE
+ *   - Full bypass: when executionMode === 'full-access'
+ * - **Claude SDK**: Uses `permissionMode: 'bypassPermissions'` (no sandbox concept)
+ * - **Impact**: Codex provides granular control over file system and network access
+ *
+ * ### 4. Model Selection
+ * - **Codex**: Uses `--model <model>` flag when options.model is provided
+ * - **Claude SDK**: Uses `model` option in query() config
+ * - **Semantic Difference**: Both support model override, same API surface
+ *
+ * ### 5. Exit Code Semantics
+ * - **Codex**: Returns exit code from spawned process (0 = success, 1+ = failure)
+ * - **Claude SDK**: Returns 0 for successful completion, 1 for errors or timeouts
+ * - **Impact**: Exit codes align but are derived from different execution models
+ *
+ * ### 6. MCP Server Configuration
+ * - **Codex**: Configured via `-c` flags for URL, auth token, and HTTP headers
+ *   - Uses environment variables for token values (CONTEXTGRAPH_AUTH_TOKEN)
+ *   - Supports execution-scoped headers (x-contextgraph-execution-action-id)
+ * - **Claude SDK**: Configured via `mcpServers` option object
+ *   - Direct token embedding in headers object
+ *   - Same execution-scoped header support
+ * - **Impact**: Same capabilities, different configuration syntax
+ *
+ * ### 7. Event Streaming Format
+ * - **Codex**: Emits JSON-formatted events via stdout with types like 'thread.started', 'turn.completed', 'item.*'
+ * - **Claude SDK**: Returns SDK message objects with types like 'system', 'assistant', 'result'
+ * - **Impact**: Both are normalized to LogEvent format for unified processing
+ *
+ * ### 8. Session Identification
+ * - **Codex**: Uses `thread_id` from 'thread.started' event as sessionId
+ * - **Claude SDK**: Uses `session_id` from first message
+ * - **Impact**: Different field names, same purpose
+ *
+ * ### 9. Cost and Usage Tracking
+ * - **Codex**: Extracts from event fields: total_cost_usd, cost_usd, or total_cost
+ *   - Usage extracted from 'turn.completed' event.usage field
+ * - **Claude SDK**: Extracts from result message: total_cost_usd and usage fields
+ * - **Impact**: Same data, different event locations
+ *
+ * ### 10. Environment Cleanup
+ * - **Codex**: Explicitly deletes sandbox-related env vars to avoid inheriting restrictive policies:
+ *   - CODEX_SANDBOX_NETWORK_DISABLED
+ *   - CODEX_SANDBOX
+ *   - CODEX_SANDBOX_POLICY
+ * - **Claude SDK**: No environment cleanup needed (no sandbox inheritance concerns)
+ * - **Impact**: Codex prevents unintended sandbox restrictions from parent processes
+ *
+ * ### 11. Activity Heartbeat
+ * - **Codex**: Implements 15-second idle threshold with "still working" console messages
+ * - **Claude SDK**: No explicit heartbeat (relies on SDK message stream for activity indication)
+ * - **Impact**: Codex provides better user feedback during long-running operations
+ *
+ * ### 12. Capabilities Declaration
+ * - **Codex**: `fullAccessExecution: true` - can bypass all sandbox restrictions
+ * - **Claude SDK**: `fullAccessExecution: false` - operates within SDK permission model
+ * - **Impact**: Codex is preferred for operations requiring unrestricted system access
+ *
+ * ## When to Use Codex vs Claude SDK
+ *
+ * **Use Codex when:**
+ * - Need unrestricted file system or network access
+ * - Executing in non-git environments
+ * - Require specific sandbox mode configuration
+ * - Need activity heartbeat for long operations
+ *
+ * **Use Claude SDK when:**
+ * - Standard agent execution within normal permissions
+ * - Prefer library integration over CLI spawning
+ * - Want tighter TypeScript integration
+ * - Don't need full-access execution mode
+ */
+
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import type { LogEvent } from '../log-transport.js';
