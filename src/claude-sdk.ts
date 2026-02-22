@@ -141,7 +141,27 @@ export interface ExecuteClaudeOptions extends AgentRunOptions {
  * This is a drop-in replacement for spawnClaude() that uses the SDK instead of spawning a CLI process.
  * It matches the same interface (AgentRunOptions) and returns the same result type (AgentRunResult).
  *
- * Optionally accepts onLogEvent callback for real-time log streaming.
+ * ## Model Selection
+ * The `options.model` parameter is optional and flows directly to the Claude SDK's `query()` function:
+ * - **When specified**: The SDK uses the provided model identifier (e.g., 'claude-opus-4-5-20251101')
+ * - **When omitted**: The SDK uses its default model (Claude Sonnet)
+ * - **Validation**: Invalid model identifiers fail at SDK execution time with clear error messages
+ *
+ * Example:
+ * ```typescript
+ * // Use default model (Sonnet)
+ * await executeClaude({ prompt: "..." });
+ *
+ * // Use specific model
+ * await executeClaude({ prompt: "...", model: "claude-haiku-4-5-20251001" });
+ * ```
+ *
+ * See `src/runners/claude-runner.ts` for comprehensive model selection documentation including
+ * CLI flag behavior, cost/performance trade-offs, and cross-provider comparison.
+ *
+ * ## Log Streaming
+ * Optionally accepts onLogEvent callback for real-time log streaming. Each SDK message is
+ * transformed into a LogEvent and passed to the callback for processing.
  */
 export async function executeClaude(
   options: ExecuteClaudeOptions
