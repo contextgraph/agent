@@ -149,6 +149,7 @@ export async function executeClaude(
   let sessionId: string | undefined;
   let totalCost = 0;
   let usage: any;
+  let lastResultSubtype: string | undefined;
 
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -255,27 +256,18 @@ export async function executeClaude(
       // Capture result metadata
       if (message.type === 'result') {
         const resultMsg = message as SDKResultMessage;
+        lastResultSubtype = resultMsg.subtype;
         totalCost = resultMsg.total_cost_usd || 0;
         usage = resultMsg.usage;
-
-        // Check for errors
-        if (resultMsg.subtype.startsWith('error_')) {
-          clearTimeout(timeout);
-          return {
-            exitCode: 1,
-            sessionId,
-            usage,
-            cost: totalCost,
-          };
-        }
       }
     }
 
     clearTimeout(timeout);
 
-    // Return successful result
+    const exitCode = lastResultSubtype?.startsWith('error_') ? 1 : 0;
+
     return {
-      exitCode: 0,
+      exitCode,
       sessionId,
       usage,
       cost: totalCost,
