@@ -1,7 +1,27 @@
 import { z } from 'zod';
 
 /**
+ * CLI Validation Schemas
+ *
+ * These schemas validate complex stdin payloads at the CLI boundary before calling the MCP server.
+ *
+ * IMPORTANT: Schema drift is acceptable technical debt for Phase 1 (per parent brief),
+ * but these schemas should mirror the corresponding MCP tool definitions in:
+ * actions/lib/mcp/tools.ts
+ *
+ * Schema Sync Reference:
+ * - createCommandSchema → server.tool("create", ...) at actions/lib/mcp/tools.ts:~395
+ * - updateCommandSchema → server.tool("update", ...) at actions/lib/mcp/tools.ts:~542
+ * - completeCommandSchema → server.tool("complete", ...) at actions/lib/mcp/tools.ts:~745
+ *
+ * When modifying these schemas, review the corresponding MCP tool definition to ensure
+ * alignment. Follow-up work should add sync tests or schema generation to prevent drift.
+ */
+
+/**
  * Shared sub-schemas for nested structures
+ *
+ * These mirror the nested schema structures defined in the MCP tools.
  */
 
 // Git commit schema for completion context
@@ -106,7 +126,14 @@ const completionContextSchema = z.object({
  * Command-specific schemas
  */
 
-// Schema for the `create` command
+/**
+ * Schema for the `create` command
+ *
+ * Syncs with: server.tool("create", ...) in actions/lib/mcp/tools.ts:~395
+ *
+ * This schema validates the input to the `cg create` command before calling the MCP server.
+ * Field changes should be synchronized with the corresponding MCP tool definition.
+ */
 export const createCommandSchema = z.object({
   title: z.string().min(1).optional(),
   vision: z.string().min(1).optional(),
@@ -121,7 +148,14 @@ export const createCommandSchema = z.object({
   organization_id: z.string().optional(),
 });
 
-// Schema for the `update` command
+/**
+ * Schema for the `update` command
+ *
+ * Syncs with: server.tool("update", ...) in actions/lib/mcp/tools.ts:~542
+ *
+ * This schema validates the input to the `cg update` command before calling the MCP server.
+ * Field changes should be synchronized with the corresponding MCP tool definition.
+ */
 export const updateCommandSchema = z.object({
   action_id: z.string().uuid(),
   title: z.string().min(1).optional(),
@@ -137,7 +171,14 @@ export const updateCommandSchema = z.object({
   organization_id: z.string().optional(),
 });
 
-// Schema for the `complete` command
+/**
+ * Schema for the `complete` command
+ *
+ * Syncs with: server.tool("complete", ...) in actions/lib/mcp/tools.ts:~745
+ *
+ * This schema validates the input to the `cg complete` command before calling the MCP server.
+ * Field changes should be synchronized with the corresponding MCP tool definition.
+ */
 export const completeCommandSchema = z.object({
   action_id: z.string().uuid(),
   changelog_visibility: z.enum(['private', 'team', 'public']),
