@@ -118,6 +118,8 @@ export interface ActionDetailResource {
   dependency_completion_context: DependencyCompletionContext[]; // completion context from dependencies
   completion_context?: DependencyCompletionContext; // action's own completion context if completed
   claim_id?: string; // Claim ID when action is claimed by a worker
+  prompt?: string; // Prompt payload returned by worker queue for loop execution
+  prompt_version?: string | null; // Prompt version identifier for observability
 }
 
 // Relationship flags to help clients avoid duplicate display

@@ -64,27 +64,33 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       logTransport = new LogTransportService(API_BASE_URL, credentials.clerkToken, runId, undefined, options?.provider);
     }
 
-    // Now fetch execution instructions with runId included
-    console.log(chalk.dim(`Fetching execution instructions for action ${actionId}...\n`));
+    let serverPrompt = options?.prompt;
+    if (serverPrompt) {
+      console.log(chalk.dim(`Using queue-provided execution instructions for action ${actionId}...\n`));
+    } else {
+      // Backward-compatible fallback for older worker-next payloads
+      console.log(chalk.dim(`Fetching execution instructions for action ${actionId}...\n`));
+      const response = await fetchWithRetry(
+        `${API_BASE_URL}/api/prompts/execute`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${credentials.clerkToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ actionId, runId }),
+        }
+      );
 
-    const response = await fetchWithRetry(
-      `${API_BASE_URL}/api/prompts/execute`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${credentials.clerkToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ actionId, runId }),
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to fetch execute prompt: ${response.statusText}\n${errorText}`);
+      const result = (await response.json()) as { prompt: string };
+      serverPrompt = result.prompt;
     }
 
-    const { prompt: serverPrompt } = (await response.json()) as { prompt: string };
     const prompt = options?.promptPrefix ? `${options.promptPrefix}\n\n${serverPrompt}` : serverPrompt;
 
     // Update run state to executing

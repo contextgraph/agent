@@ -5,7 +5,6 @@ import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
 import type { ActionNode, ActionMetadata } from '../types/actions.js';
 import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
-import { runPrepare } from './prepare.js';
 import { runExecute } from './execute.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
@@ -43,7 +42,6 @@ let apiClient: ApiClient | null = null;
 // Stats tracking
 const stats = {
   startTime: Date.now(),
-  prepared: 0,
   executed: 0,
   errors: 0,
 };
@@ -63,8 +61,8 @@ function formatDuration(ms: number): string {
 
 function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
-  const total = stats.prepared + stats.executed;
-  console.log(chalk.dim(`Status: ${total} actions (${stats.prepared} prepared, ${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`));
+  const total = stats.executed;
+  console.log(chalk.dim(`Status: ${total} actions (${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`));
 }
 
 /**
@@ -290,13 +288,7 @@ export async function runLocalAgent(options?: {
       };
     }
 
-    // Determine which phase this action needs
-    let phase: 'prepare' | 'execute';
-    if (!actionDetail.prepared) {
-      phase = 'prepare';
-    } else if (!actionDetail.done) {
-      phase = 'execute';
-    } else {
+    if (actionDetail.done) {
       // Action is already done - nothing to do
       console.log(chalk.dim(`Skipping action "${actionDetail.title}" - already completed`));
       if (currentClaim && apiClient) {
@@ -330,7 +322,7 @@ export async function runLocalAgent(options?: {
       // - Creating blank workspace (if no repo)
       const setup = await setupWorkspaceForAction(actionDetail.id, {
         authToken: credentials.clerkToken,
-        phase,
+        phase: 'execute',
         actionDetail, // Pass pre-fetched action detail to avoid redundant API call
         skipSkills: options?.skipSkills,
         provider: options?.provider,
@@ -351,34 +343,6 @@ export async function runLocalAgent(options?: {
         promptPrefix = `## Workspace Branch\nThe workspace has been checked out to branch \`${setup.branch}\`. You MUST use this exact branch name for all git operations (checkout, push, PR creation). Do NOT create a different branch name.`;
       }
 
-      if (phase === 'prepare') {
-        await runPrepare(actionDetail.id, {
-          cwd: workspacePath,
-          startingCommit,
-          model: options?.forceModel,
-          provider: options?.provider,
-          executionMode: options?.executionMode,
-          runId,
-          promptPrefix,
-        });
-        stats.prepared++;
-
-        // Release claim after preparation
-        if (currentClaim && apiClient) {
-          try {
-            await apiClient.releaseClaim({
-              action_id: currentClaim.actionId,
-              worker_id: currentClaim.workerId,
-              claim_id: currentClaim.claimId,
-            });
-          } catch (releaseError) {
-            console.error(chalk.yellow('Failed to release claim after preparation:'), (releaseError as Error).message);
-          }
-        }
-        currentClaim = null;
-        continue;
-      }
-
       try {
         await runExecute(actionDetail.id, {
           cwd: workspacePath,
@@ -388,6 +352,7 @@ export async function runLocalAgent(options?: {
           executionMode: options?.executionMode,
           runId,
           promptPrefix,
+          prompt: actionDetail.prompt,
         });
         stats.executed++;
         console.log(`${chalk.bold.green('Completed:')} ${chalk.cyan(actionDetail.title)}`);
