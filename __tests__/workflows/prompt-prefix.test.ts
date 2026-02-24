@@ -144,4 +144,20 @@ describe('promptPrefix in workflows', () => {
 
     expect(mockCreateAgentRunner).toHaveBeenCalledWith('codex');
   });
+
+  it('should use queue-provided prompt in execute workflow without fetching prompt API', async () => {
+    await runExecute('action-1', {
+      cwd: '/tmp/workspace',
+      runId: 'run-1',
+      prompt: 'Queue prompt content',
+      promptPrefix: '## Workspace Branch\nUse cg/test-branch.',
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: '## Workspace Branch\nUse cg/test-branch.\n\nQueue prompt content',
+      })
+    );
+  });
 });
