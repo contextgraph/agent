@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { createAgentRunner } from '../runners/index.js';
 import { fetchWithRetry } from '../fetch-with-retry.js';
@@ -33,14 +34,59 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let cleanup: (() => Promise<void>) | undefined;
   let logTransport!: LogTransportService;
   let runFinalized = false;
+  let claimToRelease: { actionId: string; workerId: string; claimId: string } | null = null;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
     // This matches the behavior of the agent loop
     if (!runId) {
+      // Standalone execute should use the same worker queue payload path as loop mode.
+      // Claim the requested action so we receive the canonical prompt and claim metadata.
+      const standaloneWorkerId = randomUUID();
+      let claimedActionDetail: any = null;
+      if (!options?.prompt) {
+        const claimResponse = await fetchWithRetry(
+          `${API_BASE_URL}/api/worker/next`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${credentials.clerkToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              worker_id: standaloneWorkerId,
+              action_id: actionId,
+            }),
+          }
+        );
+        if (!claimResponse.ok) {
+          const errorText = await claimResponse.text();
+          throw new Error(`Failed to claim action from worker queue: ${claimResponse.statusText}\n${errorText}`);
+        }
+        const claimResult = (await claimResponse.json()) as { success: boolean; data: any; error?: string };
+        if (!claimResult.success) {
+          throw new Error(claimResult.error || 'Worker queue returned unsuccessful response');
+        }
+        claimedActionDetail = claimResult.data;
+      }
+      if (!claimedActionDetail && !options?.prompt) {
+        throw new Error(`Action ${actionId} is not currently claimable via worker queue`);
+      }
+      if (claimedActionDetail?.id && claimedActionDetail.id !== actionId) {
+        throw new Error(`Worker queue claimed unexpected action ${claimedActionDetail.id} while targeting ${actionId}`);
+      }
+      if (claimedActionDetail?.claim_id) {
+        claimToRelease = {
+          actionId,
+          workerId: standaloneWorkerId,
+          claimId: claimedActionDetail.claim_id,
+        };
+      }
+
       const setup = await setupWorkspaceForAction(actionId, {
         authToken: credentials.clerkToken,
         phase: 'execute',
+        actionDetail: claimedActionDetail || undefined,
         startingCommit: options?.startingCommit,
         skipSkills: options?.skipSkills,
         provider: options?.provider,
@@ -54,6 +100,12 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
         options = {
           ...options,
           promptPrefix: `## Workspace Branch\nThe workspace has been checked out to branch \`${setup.branch}\`. You MUST use this exact branch name for all git operations (checkout, push, PR creation). Do NOT create a different branch name.`,
+        };
+      }
+      if (!options?.prompt && claimedActionDetail?.prompt) {
+        options = {
+          ...options,
+          prompt: claimedActionDetail.prompt,
         };
       }
     } else {
@@ -170,6 +222,32 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     // Cleanup workspace if we created it
     if (cleanup) {
       await cleanup();
+    }
+
+    if (claimToRelease) {
+      try {
+        const releaseResponse = await fetchWithRetry(
+          `${API_BASE_URL}/api/worker/release`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${credentials.clerkToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action_id: claimToRelease.actionId,
+              worker_id: claimToRelease.workerId,
+              claim_id: claimToRelease.claimId,
+            }),
+          }
+        );
+        if (!releaseResponse.ok) {
+          const errorText = await releaseResponse.text();
+          throw new Error(`Failed to release claim: ${releaseResponse.statusText}\n${errorText}`);
+        }
+      } catch (releaseError) {
+        console.error(chalk.yellow('Failed to release standalone execute claim:'), (releaseError as Error).message);
+      }
     }
   }
 }
