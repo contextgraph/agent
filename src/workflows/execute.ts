@@ -129,8 +129,14 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       // deployed in contextgraph/actions PR #1260. This fallback can be removed
       // after confirming no telemetry shows this code path being hit.
       //
-      // TODO(contextgraph/actions#1260): Remove this fallback after monitoring
-      // confirms it's no longer needed.
+      // TODO(contextgraph/actions#1260): Remove this fallback when these signals
+      // confirm it's no longer needed:
+      //
+      // Removal criteria (all must be true for 7+ days):
+      // 1. Zero hits on /api/prompts/execute endpoint in Vercel request logs
+      // 2. No "Fetching execution instructions" console output in agent logs
+      //    (this message below indicates fallback usage)
+      // 3. PR #1260 has been deployed to production for at least 7 days
       console.log(chalk.dim(`Fetching execution instructions for action ${actionId}...\n`));
       const response = await fetchWithRetry(
         `${API_BASE_URL}/api/prompts/execute`,
