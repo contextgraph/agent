@@ -120,7 +120,17 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     if (serverPrompt) {
       console.log(chalk.dim(`Using queue-provided execution instructions for action ${actionId}...\n`));
     } else {
-      // Backward-compatible fallback for older worker-next payloads
+      // TEMPORARY: Backward-compatible fallback for edge cases where worker/next
+      // doesn't return a prompt. This is kept for robustness during the transition
+      // period, but should be removed once we're confident all execution paths
+      // go through worker/next with prompt embedding.
+      //
+      // The server-side change to embed prompts in worker/next responses was
+      // deployed in contextgraph/actions PR #1260. This fallback can be removed
+      // after confirming no telemetry shows this code path being hit.
+      //
+      // TODO(contextgraph/actions#1260): Remove this fallback after monitoring
+      // confirms it's no longer needed.
       console.log(chalk.dim(`Fetching execution instructions for action ${actionId}...\n`));
       const response = await fetchWithRetry(
         `${API_BASE_URL}/api/prompts/execute`,
