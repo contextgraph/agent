@@ -182,6 +182,34 @@ function formatEventForConsole(event: JsonObject): string | null {
   return null;
 }
 
+/**
+ * Builds the MCP server header configuration string for Codex CLI.
+ *
+ * Generates a configuration string that specifies which HTTP headers the MCP server
+ * should include when making requests. The configuration uses Codex's config format:
+ * `mcp_servers.actions.env_http_headers={"header-name"="ENV_VAR_NAME"}`
+ *
+ * @param options - Configuration options
+ * @param options.includeExecutionActionId - Whether to include the execution action ID header
+ * @returns A Codex CLI configuration string for MCP HTTP headers
+ *
+ * @example
+ * // Without execution action ID
+ * buildMcpHeaderConfig({ includeExecutionActionId: false })
+ * // Returns: 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}'
+ *
+ * @example
+ * // With execution action ID
+ * buildMcpHeaderConfig({ includeExecutionActionId: true })
+ * // Returns: 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}'
+ */
+export function buildMcpHeaderConfig(options: { includeExecutionActionId: boolean }): string {
+  if (options.includeExecutionActionId) {
+    return 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}';
+  }
+  return 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}';
+}
+
 export const codexRunner: AgentRunner = {
   provider: 'codex',
   capabilities: {
@@ -190,9 +218,9 @@ export const codexRunner: AgentRunner = {
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {
       const sandboxMode = process.env.CONTEXTGRAPH_CODEX_SANDBOX_MODE || DEFAULT_CODEX_SANDBOX_MODE;
-      const mcpHeaderConfig = options.executionActionId
-        ? 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}'
-        : 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER"}';
+      const mcpHeaderConfig = buildMcpHeaderConfig({
+        includeExecutionActionId: Boolean(options.executionActionId),
+      });
       const bypassSandbox = options.executionMode === 'full-access';
       const args = [
         '-c', `mcp_servers.actions.url="${CONTEXTGRAPH_MCP_URL}"`,
