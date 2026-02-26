@@ -14,3 +14,14 @@ export function createAgentRunner(provider: AgentProvider = 'claude'): AgentRunn
 }
 
 export type { AgentProvider, AgentRunner, RunnerExecuteOptions } from './types.js';
+export type { AgentCapability, CapabilityMetadata } from './capabilities.js';
+export {
+  AGENT_CAPABILITIES,
+  CAPABILITY_METADATA,
+  hasCapability,
+  satisfiesCapabilities,
+  getMissingCapabilities,
+  validateCapabilityDependencies,
+  legacyToCapabilities,
+  capabilitiesToLegacy,
+} from './capabilities.js';
