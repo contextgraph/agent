@@ -108,6 +108,10 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
           prompt: claimedActionDetail.prompt,
         };
       }
+      // Log prompt version for observability in standalone execution mode
+      if (claimedActionDetail?.prompt_version) {
+        console.log(chalk.dim(`Prompt version: ${claimedActionDetail.prompt_version}`));
+      }
     } else {
       // runId was pre-provided, use the provided cwd (agent loop already set up workspace)
       console.log(chalk.dim(`[Log Streaming] Using pre-created run: ${runId}`));

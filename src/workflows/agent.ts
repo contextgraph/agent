@@ -308,6 +308,9 @@ export async function runLocalAgent(options?: {
 
     // Only print "Working" once we've determined there's actual work to do
     console.log(`${chalk.bold('Working:')} ${chalk.cyan(actionDetail.title)}`);
+    if (actionDetail.prompt_version) {
+      console.log(chalk.dim(`Prompt version: ${actionDetail.prompt_version}`));
+    }
 
     // Set up workspace using shared function
     let workspacePath: string;
