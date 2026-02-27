@@ -133,6 +133,8 @@ export interface ExecuteClaudeOptions extends AgentRunOptions {
   onLogEvent?: (event: LogEvent) => void;
   /** Optional model to use (e.g., 'claude-opus-4-5-20251101'). If not specified, uses SDK default (Sonnet). */
   model?: string;
+  /** Session ID from loop wrapper for trace correlation */
+  loopRunSessionId?: string;
 }
 
 /**
@@ -202,6 +204,8 @@ export async function executeClaude(
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
           ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
           CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '',
+          // Session ID from loop wrapper for trace correlation in observation infrastructure
+          ...(options.loopRunSessionId ? { LOOP_RUN_SESSION_ID: options.loopRunSessionId } : {}),
         },
         // Configure MCP server directly with auth header (not via plugin, which has no auth)
         // Vercel strips Authorization header, so use x-authorization

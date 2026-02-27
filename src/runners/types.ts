@@ -12,6 +12,7 @@ export interface RunnerExecuteOptions extends AgentRunOptions {
   onLogEvent?: (event: LogEvent) => void;
   model?: string;
   executionMode?: RunnerExecutionMode;
+  loopRunSessionId?: string; // Session ID from loop wrapper for trace correlation
 }
 
 export interface AgentRunner {

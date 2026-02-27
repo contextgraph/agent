@@ -186,6 +186,7 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
       executionActionId: actionId,
       executionMode,
       ...(options?.model ? { model: options.model } : {}),
+      ...(options?.loopRunSessionId ? { loopRunSessionId: options.loopRunSessionId } : {}),
       onLogEvent: (event) => {
         logBuffer!.push(event);
       },
