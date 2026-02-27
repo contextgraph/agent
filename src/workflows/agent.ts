@@ -208,8 +208,13 @@ export async function runLocalAgent(options?: {
   // Generate unique worker ID for this session
   const workerId = randomUUID();
 
+  // Generate unique session ID for trace correlation across all actions executed in this loop run.
+  // This enables clean grouping of wrapper invocations in observation infrastructure (e.g., Langfuse).
+  const loopRunSessionId = randomUUID();
+
   console.log(`${chalk.bold('Contextgraph Agent')} ${chalk.dim(`v${packageJson.version}`)}`);
   console.log(chalk.dim(`Worker ID: ${workerId}`));
+  console.log(chalk.dim(`Session ID: ${loopRunSessionId}`));
   console.log(chalk.dim(`Provider: ${options?.provider || 'claude'}`));
   if (options?.executionMode) {
     console.log(chalk.dim(`Execution mode: ${options.executionMode}`));
@@ -356,6 +361,7 @@ export async function runLocalAgent(options?: {
           runId,
           promptPrefix,
           prompt: actionDetail.prompt,
+          loopRunSessionId,
         });
         stats.executed++;
         console.log(`${chalk.bold.green('Completed:')} ${chalk.cyan(actionDetail.title)}`);

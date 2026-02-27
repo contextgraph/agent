@@ -232,6 +232,8 @@ export const codexRunner: AgentRunner = {
           CONTEXTGRAPH_AUTH_TOKEN: options.authToken || '',
           CONTEXTGRAPH_AUTH_HEADER: `Bearer ${options.authToken || ''}`,
           CONTEXTGRAPH_EXECUTION_ACTION_ID: options.executionActionId || '',
+          // Session ID from loop wrapper for trace correlation in observation infrastructure
+          ...(options.loopRunSessionId ? { LOOP_RUN_SESSION_ID: options.loopRunSessionId } : {}),
         },
       });
 

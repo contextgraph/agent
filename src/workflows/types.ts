@@ -11,4 +11,5 @@ export interface WorkflowOptions {
   skipSkills?: boolean; // Skip skill injection (for testing)
   promptPrefix?: string; // Prepended to the server-fetched prompt (e.g. workspace layout)
   prompt?: string; // Server-provided prompt payload (preferred in loop execution mode)
+  loopRunSessionId?: string; // Session ID from loop wrapper for trace correlation
 }
