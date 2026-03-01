@@ -23,7 +23,11 @@ export interface StewardStepOptions {
   baseUrl?: string;
 }
 
-export async function runStewardStep(options: StewardStepOptions = {}): Promise<void> {
+export interface StewardStepResult {
+  claimed: boolean;
+}
+
+export async function runStewardStep(options: StewardStepOptions = {}): Promise<StewardStepResult> {
   const credentials = await loadCredentials();
 
   if (!credentials) {
@@ -52,7 +56,7 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
       } else {
         console.log(chalk.yellow('No claimable steward work right now.'));
       }
-      return;
+      return { claimed: false };
     }
 
     console.log(chalk.bold(`Steward:`), chalk.cyan(`${claim.steward.name} (${claim.steward.id})`));
@@ -63,7 +67,7 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
 
     if (options.dryRun) {
       console.log(chalk.dim('Dry run complete. Agent execution skipped.'));
-      return;
+      return { claimed: true };
     }
 
     const repoCandidates = claim.backlog_candidates.filter((candidate) => candidate.repositoryUrl?.length > 0);
@@ -135,6 +139,7 @@ When your selected item includes a proposed branch, you MUST use that exact bran
     }
 
     console.log('\n' + chalk.green('Steward step complete'));
+    return { claimed: true };
   } finally {
     if (cleanupWorkspace) {
       await cleanupWorkspace();

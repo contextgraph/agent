@@ -61,11 +61,10 @@ export async function runStewardLoop(options: StewardRunOptions = {}): Promise<v
 
   try {
     while (!shouldStop) {
-      stepCount += 1;
-      console.log(chalk.bold(`\n[steward:run] Step ${stepCount}`));
+      console.log(chalk.bold('\n[steward:run] Checking for claimable steward work...'));
 
       try {
-        await runStewardStep({
+        const stepResult = await runStewardStep({
           stewardId: options.stewardId,
           workerId,
           dryRun: options.dryRun,
@@ -74,9 +73,13 @@ export async function runStewardLoop(options: StewardRunOptions = {}): Promise<v
           skipSkills: options.skipSkills,
           baseUrl: options.baseUrl,
         });
+        if (stepResult.claimed) {
+          stepCount += 1;
+          console.log(chalk.bold(`[steward:run] Completed step ${stepCount}`));
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(chalk.red(`[steward:run] Step ${stepCount} failed: ${message}`));
+        console.error(chalk.red(`[steward:run] Step ${stepCount + 1} failed: ${message}`));
         if (options.stopOnError) {
           break;
         }
@@ -92,7 +95,7 @@ export async function runStewardLoop(options: StewardRunOptions = {}): Promise<v
       }
 
       if (intervalSeconds > 0) {
-        console.log(chalk.dim(`[steward:run] Waiting ${intervalSeconds}s before next step...`));
+        console.log(chalk.dim(`[steward:run] Waiting ${intervalSeconds}s before next check...`));
         await waitWithStopCheck(intervalSeconds * 1000, () => shouldStop);
       }
     }
