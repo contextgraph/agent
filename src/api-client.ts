@@ -3,9 +3,33 @@ import { fetchWithRetry } from './fetch-with-retry.js';
 import type { ActionDetailResource, ActionNode } from './types/actions.js';
 import packageJson from '../package.json' assert { type: 'json' };
 
+export interface StewardBacklogCandidate {
+  id: string;
+  repositoryUrl: string;
+  title: string;
+  objective: string;
+  rationale: string;
+  proposedBranch: string | null;
+  priorityScore: number;
+}
+
+export interface StewardClaimResource {
+  steward: {
+    id: string;
+    name: string;
+    mission: string;
+    brief: string | null;
+    organization_id: string | null;
+  };
+  backlog_candidates: StewardBacklogCandidate[];
+  prompt: string;
+  prompt_version: string | null;
+  claim_id: string;
+}
+
 export class ApiClient {
   constructor(
-    private baseUrl: string = 'https://www.contextgraph.dev'
+    private baseUrl: string = process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev'
   ) {}
 
   private async getAuthToken(): Promise<string> {
@@ -136,6 +160,72 @@ export class ApiClient {
     }
 
     const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+  }
+
+  async claimNextSteward(workerId: string, stewardId?: string): Promise<StewardClaimResource | null> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/worker/steward/next?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          worker_id: workerId,
+          ...(stewardId ? { steward_id: stewardId } : {}),
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardClaimResource | null;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async releaseStewardClaim(params: { steward_id: string; worker_id: string; claim_id: string }): Promise<void> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/worker/steward/release?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      error?: string;
+    };
 
     if (!result.success) {
       throw new Error(result.error || 'API returned unsuccessful response');

@@ -7,6 +7,8 @@ import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
 import { runLocalAgent } from '../workflows/agent.js';
 import { runSetup } from '../workflows/setup.js';
+import { runStewardStep } from '../workflows/steward-step.js';
+import { runStewardLoop } from '../workflows/steward-run.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
@@ -143,6 +145,119 @@ program
       });
     } catch (error) {
       console.error('Error executing action:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+const steward = program
+  .command('steward')
+  .description('Steward execution workflows');
+
+steward
+  .command('step')
+  .description('Run one steward execution pass (claim -> execute -> release)')
+  .option('--steward-id <stewardId>', 'Target a specific steward ID')
+  .option('--worker-id <workerId>', 'Optional worker ID for claim/release correlation')
+  .option('--dry-run', 'Claim and fetch prompt, but skip agent execution')
+  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
+  .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
+  .option('--skip-skills', 'Skip skill injection (for testing)')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev')
+  .action(async (options: {
+    stewardId?: string;
+    workerId?: string;
+    dryRun?: boolean;
+    provider: string;
+    executionMode?: string;
+    skipSkills?: boolean;
+    baseUrl?: string;
+  }) => {
+    try {
+      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
+        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+      if (options.executionMode && !EXECUTION_MODE_VALUES.includes(options.executionMode as RunnerExecutionMode)) {
+        console.error(`Invalid execution mode "${options.executionMode}". Expected one of: ${EXECUTION_MODE_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+
+      await runStewardStep({
+        stewardId: options.stewardId,
+        workerId: options.workerId,
+        dryRun: options.dryRun,
+        provider: options.provider as AgentProvider,
+        executionMode: options.executionMode as RunnerExecutionMode | undefined,
+        skipSkills: options.skipSkills,
+        baseUrl: options.baseUrl,
+      });
+    } catch (error) {
+      console.error('Error running steward step:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+steward
+  .command('run')
+  .description('Run steward execution loop (repeated steward step until stopped)')
+  .option('--steward-id <stewardId>', 'Target a specific steward ID')
+  .option('--worker-id <workerId>', 'Optional worker ID for claim/release correlation')
+  .option('--dry-run', 'Claim and fetch prompt each loop, but skip agent execution')
+  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
+  .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
+  .option('--skip-skills', 'Skip skill injection (for testing)')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev')
+  .option('--interval-seconds <seconds>', 'Delay between loop steps (default: 30)', '30')
+  .option('--max-steps <count>', 'Maximum number of steps before exiting')
+  .option('--stop-on-error', 'Exit loop on first step error')
+  .action(async (options: {
+    stewardId?: string;
+    workerId?: string;
+    dryRun?: boolean;
+    provider: string;
+    executionMode?: string;
+    skipSkills?: boolean;
+    baseUrl?: string;
+    intervalSeconds: string;
+    maxSteps?: string;
+    stopOnError?: boolean;
+  }) => {
+    try {
+      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
+        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+      if (options.executionMode && !EXECUTION_MODE_VALUES.includes(options.executionMode as RunnerExecutionMode)) {
+        console.error(`Invalid execution mode "${options.executionMode}". Expected one of: ${EXECUTION_MODE_VALUES.join(', ')}`);
+        process.exit(1);
+      }
+
+      const intervalSeconds = Number.parseInt(options.intervalSeconds, 10);
+      if (!Number.isFinite(intervalSeconds) || intervalSeconds < 0) {
+        console.error(`Invalid interval-seconds "${options.intervalSeconds}". Expected a non-negative integer.`);
+        process.exit(1);
+      }
+
+      const maxSteps = options.maxSteps !== undefined ? Number.parseInt(options.maxSteps, 10) : undefined;
+      if (options.maxSteps !== undefined && (maxSteps === undefined || !Number.isInteger(maxSteps) || maxSteps <= 0)) {
+        console.error(`Invalid max-steps "${options.maxSteps}". Expected a positive integer.`);
+        process.exit(1);
+      }
+
+      await runStewardLoop({
+        stewardId: options.stewardId,
+        workerId: options.workerId,
+        dryRun: options.dryRun,
+        provider: options.provider as AgentProvider,
+        executionMode: options.executionMode as RunnerExecutionMode | undefined,
+        skipSkills: options.skipSkills,
+        baseUrl: options.baseUrl,
+        intervalSeconds,
+        maxSteps,
+        stopOnError: options.stopOnError,
+      });
+    } catch (error) {
+      console.error('Error running steward loop:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
