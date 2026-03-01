@@ -1,9 +1,10 @@
 {
   "name": "@contextgraph/agent",
-  "version": "0.4.32",
+  "version": "0.4.33",
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
+    "agent": "dist/index.js",
     "contextgraph-agent": "dist/index.js",
     "cg": "dist/cg.js"
   },
