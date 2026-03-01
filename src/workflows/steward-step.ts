@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import chalk from 'chalk';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { ApiClient, type StewardClaimResource } from '../api-client.js';
-import { prepareWorkspace } from '../workspace-prep.js';
+import { prepareMultiRepoWorkspace } from '../workspace-prep.js';
 import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
@@ -66,24 +66,44 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
       return;
     }
 
-    const primaryCandidate = claim.backlog_candidates.find((candidate) => candidate.repositoryUrl?.length > 0);
+    const repoCandidates = claim.backlog_candidates.filter((candidate) => candidate.repositoryUrl?.length > 0);
+    const repositories = Array.from(
+      repoCandidates.reduce((acc, candidate) => {
+        const key = candidate.repositoryUrl!;
+        const existing = acc.get(key);
+        if (!existing) {
+          acc.set(key, { url: key, branch: candidate.proposedBranch ?? undefined });
+        } else if (!existing.branch && candidate.proposedBranch) {
+          // Prefer the first non-empty proposed branch for this repository.
+          existing.branch = candidate.proposedBranch;
+        }
+        return acc;
+      }, new Map<string, { url: string; branch?: string }>())
+        .values()
+    );
 
     let workspacePath: string;
     let promptPrefix = '';
 
-    if (primaryCandidate) {
-      const workspace = await prepareWorkspace(primaryCandidate.repositoryUrl, {
-        branch: primaryCandidate.proposedBranch ?? undefined,
+    if (repositories.length > 0) {
+      const workspace = await prepareMultiRepoWorkspace(repositories, {
         authToken: credentials.clerkToken,
         skipSkills: options.skipSkills,
       });
 
-      workspacePath = workspace.path;
+      workspacePath = workspace.rootPath;
       cleanupWorkspace = workspace.cleanup;
 
-      if (primaryCandidate.proposedBranch) {
-        promptPrefix = `## Workspace Branch\nThe workspace has been checked out to branch \`${primaryCandidate.proposedBranch}\`. You MUST use this exact branch name for all git operations (checkout, push, PR creation). Do NOT create a different branch name.`;
-      }
+      const repoLines = workspace.repos
+        .map((repo) => `- ${repo.url} -> \`${repo.name}\`${repo.branch ? ` (branch \`${repo.branch}\`)` : ''}`)
+        .join('\n');
+
+      promptPrefix = `## Workspace Repositories
+The workspace root contains one directory per backlog repository. Use the repository that matches your selected backlog item.
+
+${repoLines}
+
+When your selected item includes a proposed branch, you MUST use that exact branch for git operations in that repository.`;
     } else {
       workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
       cleanupWorkspace = async () => {
