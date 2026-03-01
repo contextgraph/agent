@@ -208,7 +208,7 @@ steward
   .option('--skip-skills', 'Skip skill injection (for testing)')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev')
   .option('--interval-seconds <seconds>', 'Delay between loop steps (default: 30)', '30')
-  .option('--max-steps <count>', 'Maximum number of steps before exiting')
+  .option('--max-steps <count>', 'Maximum number of claimed steps before exiting')
   .option('--stop-on-error', 'Exit loop on first step error')
   .action(async (options: {
     stewardId?: string;
