@@ -10,6 +10,7 @@ import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
+import { initializeStewardSession, type StewardSessionContext } from '../langfuse-session.js';
 
 const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -119,6 +120,19 @@ When your selected item includes a proposed branch, you MUST use that exact bran
 
     const prompt = promptPrefix ? `${promptPrefix}\n\n${claim.prompt}` : claim.prompt;
 
+    // Initialize Langfuse session for observability
+    const sessionContext: StewardSessionContext = {
+      stewardId: claim.steward.id,
+      claimId: claim.claim_id,
+      workerId,
+      metadata: {
+        promptVersion: claim.prompt_version,
+        backlogCandidatesCount: claim.backlog_candidates.length,
+      },
+    };
+
+    const langfuse = initializeStewardSession(sessionContext);
+
     const runner = createAgentRunner(options.provider);
     const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
     const executionMode = resolveExecutionMode({ executionMode: options.executionMode }, runner.provider);
@@ -132,6 +146,8 @@ When your selected item includes a proposed branch, you MUST use that exact bran
       authToken: credentials.clerkToken,
       executionActionId: claim.steward.id,
       executionMode,
+      langfuse,
+      sessionContext,
     });
 
     if (runResult.exitCode !== 0) {

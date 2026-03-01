@@ -2,6 +2,8 @@ import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage
 import type { AgentRunResult, AgentRunOptions } from './types/actions.js';
 import { transformSDKMessage } from './sdk-event-transformer.js';
 import type { LogEvent } from './log-transport.js';
+import type { Langfuse } from 'langfuse';
+import type { StewardSessionContext } from './langfuse-session.js';
 
 // Constants for timeouts and truncation
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -135,6 +137,10 @@ export interface ExecuteClaudeOptions extends AgentRunOptions {
   model?: string;
   /** Session ID from loop wrapper for trace correlation */
   loopRunSessionId?: string;
+  /** Langfuse client for observability tracing */
+  langfuse?: Langfuse | null;
+  /** Session context for Langfuse metadata */
+  sessionContext?: StewardSessionContext;
 }
 
 /**
@@ -152,6 +158,32 @@ export async function executeClaude(
   let totalCost = 0;
   let usage: any;
   let lastResultSubtype: string | undefined;
+
+  // Initialize Langfuse trace if client is provided
+  const trace = options.langfuse?.trace({
+    name: 'steward-agent-execution',
+    metadata: {
+      ...(options.sessionContext ? {
+        stewardId: options.sessionContext.stewardId,
+        claimId: options.sessionContext.claimId,
+        workerId: options.sessionContext.workerId,
+        executionType: 'steward-loop-v2',
+      } : {}),
+      model: options.model || 'default',
+      executionActionId: options.executionActionId,
+    },
+  });
+
+  const generation = trace?.generation({
+    name: 'claude-sdk-query',
+    model: options.model || 'claude-sonnet-4',
+    input: options.prompt,
+    metadata: {
+      cwd: options.cwd,
+      maxTurns: 100,
+      permissionMode: 'bypassPermissions',
+    },
+  });
 
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -260,6 +292,23 @@ export async function executeClaude(
 
     const exitCode = lastResultSubtype?.startsWith('error_') ? 1 : 0;
 
+    // Complete Langfuse trace
+    if (generation) {
+      generation.end({
+        output: lastResultSubtype,
+        metadata: {
+          exitCode,
+          totalCostUsd: totalCost,
+          usage,
+        },
+      });
+    }
+
+    // Flush traces before returning
+    if (options.langfuse) {
+      await options.langfuse.flushAsync();
+    }
+
     return {
       exitCode,
       sessionId,
@@ -269,6 +318,19 @@ export async function executeClaude(
 
   } catch (error) {
     clearTimeout(timeout);
+
+    // Complete Langfuse trace with error
+    if (generation) {
+      generation.end({
+        level: 'ERROR',
+        statusMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Flush traces even on error
+    if (options.langfuse) {
+      await options.langfuse.flushAsync();
+    }
 
     // Handle abort/timeout
     if (abortController.signal.aborted) {
