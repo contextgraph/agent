@@ -66,7 +66,14 @@ export function captureEvent(
  */
 export async function shutdownPostHog(): Promise<void> {
   if (posthogClient) {
-    await posthogClient.shutdown();
-    posthogClient = null;
+    try {
+      await posthogClient.shutdown();
+    } catch (error) {
+      // Log shutdown failure for operational visibility but don't propagate
+      // We still want to nullify the client to prevent stale references
+      console.error('[PostHog] Shutdown failed:', error);
+    } finally {
+      posthogClient = null;
+    }
   }
 }
