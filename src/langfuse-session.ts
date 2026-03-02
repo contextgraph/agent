@@ -107,7 +107,7 @@ export function initializeStewardSession(context: StewardSessionContext): Langfu
 
   try {
     const sessionId = buildStewardSessionId(context);
-    const sessionMetadata = buildStewardSessionMetadata(context);
+    const metadata = buildStewardSessionMetadata(context);
 
     // Create Langfuse client with session context
     const langfuse = new Langfuse({
@@ -118,9 +118,7 @@ export function initializeStewardSession(context: StewardSessionContext): Langfu
     });
 
     console.log(`[LangfuseSession] Initialized session: ${sessionId}`, {
-      stewardId: context.stewardId,
-      claimId: context.claimId,
-      ...(context.prNumber ? { prNumber: context.prNumber } : {}),
+      ...metadata,
     });
 
     return langfuse;

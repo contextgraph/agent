@@ -3,7 +3,11 @@ import type { AgentRunResult, AgentRunOptions } from './types/actions.js';
 import { transformSDKMessage } from './sdk-event-transformer.js';
 import type { LogEvent } from './log-transport.js';
 import type { Langfuse } from 'langfuse';
-import type { StewardSessionContext } from './langfuse-session.js';
+import {
+  buildStewardSessionId,
+  buildStewardSessionMetadata,
+  type StewardSessionContext,
+} from './langfuse-session.js';
 
 // Constants for timeouts and truncation
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -158,17 +162,19 @@ export async function executeClaude(
   let totalCost = 0;
   let usage: any;
   let lastResultSubtype: string | undefined;
+  const langfuseSessionId = options.sessionContext
+    ? buildStewardSessionId(options.sessionContext)
+    : undefined;
+  const langfuseSessionMetadata = options.sessionContext
+    ? buildStewardSessionMetadata(options.sessionContext)
+    : {};
 
   // Initialize Langfuse trace if client is provided
   const trace = options.langfuse?.trace({
     name: 'steward-agent-execution',
+    ...(langfuseSessionId ? { sessionId: langfuseSessionId } : {}),
     metadata: {
-      ...(options.sessionContext ? {
-        stewardId: options.sessionContext.stewardId,
-        claimId: options.sessionContext.claimId,
-        workerId: options.sessionContext.workerId,
-        executionType: 'steward-loop-v2',
-      } : {}),
+      ...langfuseSessionMetadata,
       model: options.model || 'default',
       executionActionId: options.executionActionId,
     },
