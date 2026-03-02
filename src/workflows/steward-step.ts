@@ -9,7 +9,7 @@ import { prepareMultiRepoWorkspace } from '../workspace-prep.js';
 import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
-import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
+import { assertRunnerCapabilities, resolveExecutionMode, resolveExecutionModeWithContext } from './execution-policy.js';
 import { initializeStewardSession, type StewardSessionContext } from '../langfuse-session.js';
 import { captureEvent, shutdownPostHog } from '../posthog-client.js';
 
@@ -229,8 +229,24 @@ When your selected item includes a proposed branch, you MUST use that exact bran
 
     const runner = createAgentRunner(options.provider);
     const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
-    const executionMode = resolveExecutionMode({ executionMode: options.executionMode }, runner.provider);
+    const executionModeResolution = resolveExecutionModeWithContext({ executionMode: options.executionMode }, runner.provider);
+    const executionMode = executionModeResolution.mode;
     assertRunnerCapabilities(runner, executionMode, 'Steward step workflow');
+
+    // Capture provider and execution mode selection - user experiences different agent behaviors
+    captureEvent(workerId, 'steward_execution_strategy_selected', {
+      steward_id: claim.steward.id,
+      claim_id: claim.claim_id,
+      worker_id: workerId,
+      provider: runner.provider,
+      provider_name: providerName,
+      execution_mode: executionMode,
+      execution_mode_source: executionModeResolution.source,
+      sandbox_bypass_enabled: executionModeResolution.bypassEnabled,
+      explicitly_requested_provider: !!options.provider,
+      explicitly_requested_mode: !!options.executionMode,
+      supports_full_access: runner.capabilities.fullAccessExecution,
+    });
 
     console.log(`Spawning ${providerName} for steward step...\n`);
 
