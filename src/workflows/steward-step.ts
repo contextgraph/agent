@@ -127,6 +127,35 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
     }
     console.log(chalk.dim(`Backlog candidates: ${claim.backlog_candidates.length}`));
 
+    // Analyze backlog composition for repository routing insights
+    const repositoriesInBacklog = new Set(
+      claim.backlog_candidates
+        .filter((c) => c.repositoryUrl)
+        .map((c) => c.repositoryUrl)
+    );
+    const candidatesWithBranches = claim.backlog_candidates.filter((c) => c.proposedBranch);
+    const candidatesWithPRs = claim.backlog_candidates.filter((c) => c.prNumber || c.pullRequest);
+    const priorityScores = claim.backlog_candidates
+      .filter((c) => typeof c.priorityScore === 'number')
+      .map((c) => c.priorityScore);
+    const avgPriority = priorityScores.length > 0
+      ? priorityScores.reduce((sum, score) => sum + score, 0) / priorityScores.length
+      : null;
+
+    // Capture backlog discovery event - what work characteristics are presented
+    captureEvent(workerId, 'steward_backlog_discovered', {
+      steward_id: claim.steward.id,
+      claim_id: claim.claim_id,
+      worker_id: workerId,
+      total_candidates: claim.backlog_candidates.length,
+      unique_repositories: repositoriesInBacklog.size,
+      candidates_with_branches: candidatesWithBranches.length,
+      candidates_with_prs: candidatesWithPRs.length,
+      avg_priority_score: avgPriority,
+      has_multi_repo_backlog: repositoriesInBacklog.size > 1,
+      organization_id: claim.steward.organization_id,
+    });
+
     // Capture claim submission event - user has accepted a steward claim
     captureEvent(workerId, 'steward_claim_accepted', {
       steward_id: claim.steward.id,
