@@ -36,6 +36,7 @@
     "langfuse": "^3.30.3",
     "listr2": "^9.0.5",
     "open": "^10.0.0",
+    "posthog-node": "^5.26.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
