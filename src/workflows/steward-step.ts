@@ -10,6 +10,7 @@ import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
+import { captureEvent } from '../posthog.js';
 
 const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -64,6 +65,15 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
       console.log(chalk.dim(`Prompt version: ${claim.prompt_version}`));
     }
     console.log(chalk.dim(`Backlog candidates: ${claim.backlog_candidates.length}`));
+
+    // Track work acquisition
+    await captureEvent(workerId, 'steward_work_acquired', {
+      steward_id: claim.steward.id,
+      steward_name: claim.steward.name,
+      backlog_count: claim.backlog_candidates.length,
+      prompt_version: claim.prompt_version,
+      claim_id: claim.claim_id,
+    });
 
     if (options.dryRun) {
       console.log(chalk.dim('Dry run complete. Agent execution skipped.'));
@@ -126,6 +136,7 @@ When your selected item includes a proposed branch, you MUST use that exact bran
 
     console.log(`Spawning ${providerName} for steward step...\n`);
 
+    const startTime = Date.now();
     const runResult = await runner.execute({
       prompt,
       cwd: workspacePath,
@@ -133,10 +144,33 @@ When your selected item includes a proposed branch, you MUST use that exact bran
       executionActionId: claim.steward.id,
       executionMode,
     });
+    const duration = Date.now() - startTime;
 
     if (runResult.exitCode !== 0) {
+      // Track task failure
+      await captureEvent(workerId, 'steward_task_completed', {
+        steward_id: claim.steward.id,
+        steward_name: claim.steward.name,
+        claim_id: claim.claim_id,
+        outcome: 'failed',
+        exit_code: runResult.exitCode,
+        duration_ms: duration,
+        provider: runner.provider,
+        execution_mode: executionMode,
+      });
       throw new Error(`${providerName} execution failed with exit code ${runResult.exitCode}`);
     }
+
+    // Track task success
+    await captureEvent(workerId, 'steward_task_completed', {
+      steward_id: claim.steward.id,
+      steward_name: claim.steward.name,
+      claim_id: claim.claim_id,
+      outcome: 'success',
+      duration_ms: duration,
+      provider: runner.provider,
+      execution_mode: executionMode,
+    });
 
     console.log('\n' + chalk.green('Steward step complete'));
     return { claimed: true };
