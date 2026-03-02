@@ -10,6 +10,7 @@ import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
+import { initializeStewardSession, type StewardSessionContext } from '../langfuse-session.js';
 
 const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -25,6 +26,66 @@ export interface StewardStepOptions {
 
 export interface StewardStepResult {
   claimed: boolean;
+}
+
+function parseGitHubRepoFromUrl(url: string | null | undefined): { owner?: string; repo?: string } {
+  if (!url) return {};
+  const match = url.match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/|$)/i);
+  if (!match) return {};
+  return {
+    owner: match[1],
+    repo: match[2],
+  };
+}
+
+function parsePrContextFromUrl(url: string | null | undefined): { owner?: string; repo?: string; prNumber?: number } {
+  if (!url) return {};
+  const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)/i);
+  if (!match) return {};
+  const parsed = Number.parseInt(match[3], 10);
+  return {
+    owner: match[1],
+    repo: match[2],
+    prNumber: Number.isInteger(parsed) ? parsed : undefined,
+  };
+}
+
+function inferPrContext(claim: StewardClaimResource): { owner?: string; repo?: string; prNumber?: number } {
+  const fromClaim = claim.pr_context;
+  if (fromClaim) {
+    const prNumber = typeof fromClaim.prNumber === 'number' && Number.isInteger(fromClaim.prNumber)
+      ? fromClaim.prNumber
+      : undefined;
+    const owner = fromClaim.owner || undefined;
+    const repo = fromClaim.repo || undefined;
+    if (owner && repo && prNumber) {
+      return { owner, repo, prNumber };
+    }
+    const fromClaimUrl = parsePrContextFromUrl(fromClaim.url || undefined);
+    if (fromClaimUrl.owner && fromClaimUrl.repo && fromClaimUrl.prNumber) {
+      return fromClaimUrl;
+    }
+  }
+
+  for (const candidate of claim.backlog_candidates) {
+    const parsedCandidateNumber = typeof candidate.prNumber === 'number' && Number.isInteger(candidate.prNumber)
+      ? candidate.prNumber
+      : undefined;
+    const owner = candidate.pullRequest?.owner || candidate.repositoryOwner || parseGitHubRepoFromUrl(candidate.repositoryUrl).owner;
+    const repo = candidate.pullRequest?.repo || candidate.repositoryName || parseGitHubRepoFromUrl(candidate.repositoryUrl).repo;
+    const prNumber = (typeof candidate.pullRequest?.number === 'number' && Number.isInteger(candidate.pullRequest.number))
+      ? candidate.pullRequest.number
+      : parsedCandidateNumber;
+    if (owner && repo && prNumber) {
+      return { owner, repo, prNumber };
+    }
+    const fromCandidatePrUrl = parsePrContextFromUrl(candidate.pullRequest?.url || undefined);
+    if (fromCandidatePrUrl.owner && fromCandidatePrUrl.repo && fromCandidatePrUrl.prNumber) {
+      return fromCandidatePrUrl;
+    }
+  }
+
+  return parsePrContextFromUrl(claim.prompt);
 }
 
 export async function runStewardStep(options: StewardStepOptions = {}): Promise<StewardStepResult> {
@@ -118,6 +179,27 @@ When your selected item includes a proposed branch, you MUST use that exact bran
     }
 
     const prompt = promptPrefix ? `${promptPrefix}\n\n${claim.prompt}` : claim.prompt;
+    const inferredPrContext = inferPrContext(claim);
+
+    // Initialize Langfuse session for observability
+    const sessionContext: StewardSessionContext = {
+      stewardId: claim.steward.id,
+      claimId: claim.claim_id,
+      workerId,
+      ...(inferredPrContext.owner && inferredPrContext.repo && inferredPrContext.prNumber
+        ? {
+          owner: inferredPrContext.owner,
+          repo: inferredPrContext.repo,
+          prNumber: inferredPrContext.prNumber,
+        }
+        : {}),
+      metadata: {
+        promptVersion: claim.prompt_version,
+        backlogCandidatesCount: claim.backlog_candidates.length,
+      },
+    };
+
+    const langfuse = initializeStewardSession(sessionContext);
 
     const runner = createAgentRunner(options.provider);
     const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';
@@ -132,6 +214,8 @@ When your selected item includes a proposed branch, you MUST use that exact bran
       authToken: credentials.clerkToken,
       executionActionId: claim.steward.id,
       executionMode,
+      langfuse,
+      sessionContext,
     });
 
     if (runResult.exitCode !== 0) {

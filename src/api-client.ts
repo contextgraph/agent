@@ -11,6 +11,22 @@ export interface StewardBacklogCandidate {
   rationale: string;
   proposedBranch: string | null;
   priorityScore: number;
+  repositoryOwner?: string | null;
+  repositoryName?: string | null;
+  prNumber?: number | null;
+  pullRequest?: {
+    number?: number | null;
+    owner?: string | null;
+    repo?: string | null;
+    url?: string | null;
+  } | null;
+}
+
+export interface StewardClaimPrContext {
+  prNumber?: number | null;
+  owner?: string | null;
+  repo?: string | null;
+  url?: string | null;
 }
 
 export interface StewardClaimResource {
@@ -25,6 +41,7 @@ export interface StewardClaimResource {
   prompt: string;
   prompt_version: string | null;
   claim_id: string;
+  pr_context?: StewardClaimPrContext | null;
 }
 
 export class ApiClient {
