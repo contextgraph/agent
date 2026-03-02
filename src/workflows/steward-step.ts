@@ -11,6 +11,7 @@ import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
 import { initializeStewardSession, type StewardSessionContext } from '../langfuse-session.js';
+import { captureEvent, shutdownPostHog } from '../posthog-client.js';
 
 const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
 
@@ -126,6 +127,18 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
     }
     console.log(chalk.dim(`Backlog candidates: ${claim.backlog_candidates.length}`));
 
+    // Capture claim submission event - user has accepted a steward claim
+    captureEvent(workerId, 'steward_claim_accepted', {
+      steward_id: claim.steward.id,
+      steward_name: claim.steward.name,
+      claim_id: claim.claim_id,
+      worker_id: workerId,
+      backlog_candidate_count: claim.backlog_candidates.length,
+      organization_id: claim.steward.organization_id,
+      prompt_version: claim.prompt_version,
+      explicitly_selected: !!options.stewardId,
+    });
+
     if (options.dryRun) {
       console.log(chalk.dim('Dry run complete. Agent execution skipped.'));
       return { claimed: true };
@@ -169,6 +182,19 @@ The workspace root contains one directory per backlog repository. Use the reposi
 ${repoLines}
 
 When your selected item includes a proposed branch, you MUST use that exact branch for git operations in that repository.`;
+
+      // Capture repository routing decision - track which repositories are prepared
+      captureEvent(workerId, 'steward_repositories_prepared', {
+        steward_id: claim.steward.id,
+        claim_id: claim.claim_id,
+        worker_id: workerId,
+        repository_count: repositories.length,
+        repositories: repositories.map((r) => ({
+          url: r.url,
+          branch: r.branch,
+        })),
+        has_proposed_branches: repositories.some((r) => r.branch),
+      });
     } else {
       workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
       cleanupWorkspace = async () => {
@@ -219,8 +245,27 @@ When your selected item includes a proposed branch, you MUST use that exact bran
     });
 
     if (runResult.exitCode !== 0) {
+      // Capture execution failure event
+      captureEvent(workerId, 'steward_execution_failed', {
+        steward_id: claim.steward.id,
+        claim_id: claim.claim_id,
+        worker_id: workerId,
+        provider: runner.provider,
+        execution_mode: executionMode,
+        exit_code: runResult.exitCode,
+      });
       throw new Error(`${providerName} execution failed with exit code ${runResult.exitCode}`);
     }
+
+    // Capture successful execution completion
+    captureEvent(workerId, 'steward_execution_completed', {
+      steward_id: claim.steward.id,
+      claim_id: claim.claim_id,
+      worker_id: workerId,
+      provider: runner.provider,
+      execution_mode: executionMode,
+      exit_code: runResult.exitCode,
+    });
 
     console.log('\n' + chalk.green('Steward step complete'));
     return { claimed: true };
@@ -241,5 +286,8 @@ When your selected item includes a proposed branch, you MUST use that exact bran
         console.error(chalk.yellow('Failed to release steward claim:'), (releaseError as Error).message);
       }
     }
+
+    // Flush PostHog events before process exit
+    await shutdownPostHog();
   }
 }
