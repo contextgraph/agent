@@ -464,4 +464,26 @@ describe('prepareMultiRepoWorkspace', () => {
       expect.any(Object)
     );
   });
+
+  it('should trim authenticated clone URLs before cloning', async () => {
+    const repos = [
+      {
+        url: 'https://github.com/contextgraph/actions',
+        authenticatedCloneUrl: '  https://x-access-token:token-a@github.com/contextgraph/actions.git  ',
+      },
+    ];
+
+    mockSpawn
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0, 'aaa111\n'));
+
+    await prepareMultiRepoWorkspace(repos, defaultOptions);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', 'https://x-access-token:token-a@github.com/contextgraph/actions.git', '/tmp/cg-workspace-abc123/actions'],
+      expect.any(Object)
+    );
+  });
 });
