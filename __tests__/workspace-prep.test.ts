@@ -8,6 +8,8 @@ const mockAppendFile = jest.fn<(...args: unknown[]) => Promise<void>>();
 const mockWriteFile = jest.fn<(...args: unknown[]) => Promise<void>>();
 const mockChmod = jest.fn<(...args: unknown[]) => Promise<void>>();
 const mockMkdir = jest.fn<(...args: unknown[]) => Promise<string | undefined>>();
+const mockReaddir = jest.fn<(...args: unknown[]) => Promise<any[]>>();
+const mockStat = jest.fn<(...args: unknown[]) => Promise<{ mtimeMs: number }>>();
 
 jest.unstable_mockModule('fs/promises', () => ({
   mkdtemp: mockMkdtemp,
@@ -16,6 +18,8 @@ jest.unstable_mockModule('fs/promises', () => ({
   writeFile: mockWriteFile,
   chmod: mockChmod,
   mkdir: mockMkdir,
+  readdir: mockReaddir,
+  stat: mockStat,
 }));
 
 const mockSpawn = jest.fn<(...args: unknown[]) => ChildProcess>();
@@ -57,6 +61,8 @@ describe('workspace-prep', () => {
     mockWriteFile.mockResolvedValue(undefined);
     mockChmod.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
+    mockReaddir.mockResolvedValue([]);
+    mockStat.mockResolvedValue({ mtimeMs: Date.now() });
   });
 
   afterEach(() => {

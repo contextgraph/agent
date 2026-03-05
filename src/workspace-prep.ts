@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { mkdtemp, rm, appendFile, writeFile, chmod, mkdir } from 'fs/promises';
+import { mkdtemp, rm, appendFile, writeFile, chmod, mkdir, readdir, stat } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fetchWithRetry } from './fetch-with-retry.js';
@@ -9,6 +9,9 @@ import { fetchSkillsLibrary } from './skills-library-fetch.js';
 import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
+const WORKSPACE_PREFIX = 'cg-workspace-';
+const STALE_WORKSPACE_TTL_HOURS = 12;
+let staleWorkspaceSweepDone = false;
 
 export interface WorkspaceResult {
   path: string;
@@ -22,6 +25,39 @@ export interface PrepareWorkspaceOptions {
   graphId?: string; // Graph ID to scope GitHub credentials to the correct installation
   runId?: string; // Optional runId to record which skills were loaded
   skipSkills?: boolean; // Skip skill injection (for testing)
+}
+
+async function cleanupStaleWorkspacesOnce(): Promise<void> {
+  if (staleWorkspaceSweepDone) return;
+  staleWorkspaceSweepDone = true;
+
+  const tmpRoot = tmpdir();
+  const cutoffMs = Date.now() - STALE_WORKSPACE_TTL_HOURS * 60 * 60 * 1000;
+
+  try {
+    const entries = await readdir(tmpRoot, { withFileTypes: true });
+    let removed = 0;
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith(WORKSPACE_PREFIX)) continue;
+
+      const candidatePath = join(tmpRoot, entry.name);
+      try {
+        const info = await stat(candidatePath);
+        if (info.mtimeMs > cutoffMs) continue;
+        await rm(candidatePath, { recursive: true, force: true });
+        removed++;
+      } catch {
+        // Best effort cleanup only; avoid blocking active runs.
+      }
+    }
+
+    if (removed > 0) {
+      console.log(chalk.dim(`Cleaned up ${removed} stale workspace(s) from ${tmpRoot}`));
+    }
+  } catch {
+    // Ignore temp directory scan errors; this is opportunistic cleanup.
+  }
 }
 
 async function fetchGitHubCredentials(authToken: string, graphId?: string): Promise<GitHubCredentials> {
@@ -143,6 +179,7 @@ export async function prepareMultiRepoWorkspace(
   options: PrepareWorkspaceOptions
 ): Promise<MultiRepoWorkspaceResult> {
   const { authToken, graphId, runId, skipSkills } = options;
+  await cleanupStaleWorkspacesOnce();
   const requiresCredentials = repositories.some((repo) => !repo.authenticatedCloneUrl);
   const credentials = requiresCredentials
     ? await fetchGitHubCredentials(authToken, graphId)
@@ -258,6 +295,7 @@ export async function prepareWorkspace(
 ): Promise<WorkspaceResult> {
   const { branch, authToken, graphId, runId, skipSkills } = options;
 
+  await cleanupStaleWorkspacesOnce();
   // Fetch GitHub credentials
   const credentials = await fetchGitHubCredentials(authToken, graphId);
 

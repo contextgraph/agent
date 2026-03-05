@@ -16,7 +16,7 @@ jest.mock('chalk', () => ({
 }));
 
 import { spawn } from 'child_process';
-import { mkdtemp, rm, appendFile } from 'fs/promises';
+import { mkdtemp, rm, appendFile, readdir, stat } from 'fs/promises';
 import {
   extractRepoName,
   prepareMultiRepoWorkspace,
@@ -27,6 +27,8 @@ const mockSpawn = spawn as jest.MockedFunction<typeof actualSpawn>;
 const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
 const mockRm = rm as jest.MockedFunction<typeof rm>;
 const mockAppendFile = appendFile as jest.MockedFunction<typeof appendFile>;
+const mockReaddir = readdir as jest.MockedFunction<typeof readdir>;
+const mockStat = stat as jest.MockedFunction<typeof stat>;
 
 function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
   const proc = new EventEmitter() as ChildProcess;
@@ -99,6 +101,8 @@ describe('prepareMultiRepoWorkspace', () => {
     mockMkdtemp.mockResolvedValue('/tmp/cg-workspace-abc123' as any);
     mockRm.mockResolvedValue(undefined);
     mockAppendFile.mockResolvedValue(undefined);
+    mockReaddir.mockResolvedValue([] as any);
+    mockStat.mockResolvedValue({ mtimeMs: Date.now() } as any);
   });
 
   afterEach(() => {
