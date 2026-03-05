@@ -29,6 +29,11 @@ export interface StewardStepResult {
   claimed: boolean;
 }
 
+function normalizeAuthenticatedCloneUrl(url: string | null | undefined): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function parseGitHubRepoFromUrl(url: string | null | undefined): { owner?: string; repo?: string } {
   if (!url) return {};
   const match = url.match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/|$)/i);
@@ -153,14 +158,17 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
           acc.set(key, {
             url: key,
             branch: candidate.proposedBranch ?? undefined,
-            authenticatedCloneUrl: candidate.authenticatedCloneUrl ?? undefined,
+            authenticatedCloneUrl: normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl),
           });
         } else if (!existing.branch && candidate.proposedBranch) {
           // Prefer the first non-empty proposed branch for this repository.
           existing.branch = candidate.proposedBranch;
-        } else if (!existing.authenticatedCloneUrl && candidate.authenticatedCloneUrl) {
+        } else if (!existing.authenticatedCloneUrl) {
+          const normalized = normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl);
           // Preserve a usable authenticated clone URL when available.
-          existing.authenticatedCloneUrl = candidate.authenticatedCloneUrl;
+          if (normalized) {
+            existing.authenticatedCloneUrl = normalized;
+          }
         }
         return acc;
       }, new Map<string, { url: string; branch?: string; authenticatedCloneUrl?: string }>())

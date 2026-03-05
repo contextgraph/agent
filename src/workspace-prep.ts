@@ -174,13 +174,20 @@ export interface MultiRepoWorkspaceResult {
   cleanup: () => Promise<void>;
 }
 
+function normalizeAuthenticatedCloneUrl(url?: string): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export async function prepareMultiRepoWorkspace(
   repositories: Array<{url: string; branch?: string; authenticatedCloneUrl?: string}>,
   options: PrepareWorkspaceOptions
 ): Promise<MultiRepoWorkspaceResult> {
   const { authToken, graphId, runId, skipSkills } = options;
   await cleanupStaleWorkspacesOnce();
-  const requiresCredentials = repositories.some((repo) => !repo.authenticatedCloneUrl);
+  const requiresCredentials = repositories.some(
+    (repo) => !normalizeAuthenticatedCloneUrl(repo.authenticatedCloneUrl)
+  );
   const credentials = requiresCredentials
     ? await fetchGitHubCredentials(authToken, graphId)
     : null;
@@ -217,7 +224,8 @@ export async function prepareMultiRepoWorkspace(
       const repo = repositories[i];
       const name = uniqueNames[i];
       const repoPath = join(rootPath, name);
-      const cloneUrl = repo.authenticatedCloneUrl
+      const authenticatedCloneUrl = normalizeAuthenticatedCloneUrl(repo.authenticatedCloneUrl);
+      const cloneUrl = authenticatedCloneUrl
         ?? buildAuthenticatedUrl(
           repo.url,
           credentials?.githubToken ?? '',
