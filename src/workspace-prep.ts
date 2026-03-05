@@ -139,12 +139,14 @@ export interface MultiRepoWorkspaceResult {
 }
 
 export async function prepareMultiRepoWorkspace(
-  repositories: Array<{url: string; branch?: string}>,
+  repositories: Array<{url: string; branch?: string; authenticatedCloneUrl?: string}>,
   options: PrepareWorkspaceOptions
 ): Promise<MultiRepoWorkspaceResult> {
   const { authToken, graphId, runId, skipSkills } = options;
-
-  const credentials = await fetchGitHubCredentials(authToken, graphId);
+  const requiresCredentials = repositories.some((repo) => !repo.authenticatedCloneUrl);
+  const credentials = requiresCredentials
+    ? await fetchGitHubCredentials(authToken, graphId)
+    : null;
   const rootPath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
 
   const cleanup = async () => {
@@ -178,17 +180,22 @@ export async function prepareMultiRepoWorkspace(
       const repo = repositories[i];
       const name = uniqueNames[i];
       const repoPath = join(rootPath, name);
-      const cloneUrl = buildAuthenticatedUrl(repo.url, credentials.githubToken, credentials.gitCredentialsUsername);
+      const cloneUrl = repo.authenticatedCloneUrl
+        ?? buildAuthenticatedUrl(
+          repo.url,
+          credentials?.githubToken ?? '',
+          credentials?.gitCredentialsUsername
+        );
 
       console.log(`Cloning ${chalk.cyan(repo.url)}`);
       console.log(chalk.dim(`   ${repoPath}`));
       await runGitCommand(['clone', cloneUrl, repoPath]);
       console.log(chalk.green('Repository cloned'));
 
-      if (credentials.githubUsername) {
+      if (credentials?.githubUsername) {
         await runGitCommand(['config', 'user.name', credentials.githubUsername], repoPath);
       }
-      if (credentials.githubEmail) {
+      if (credentials?.githubEmail) {
         await runGitCommand(['config', 'user.email', credentials.githubEmail], repoPath);
       }
 

@@ -150,13 +150,20 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
         const key = candidate.repositoryUrl!;
         const existing = acc.get(key);
         if (!existing) {
-          acc.set(key, { url: key, branch: candidate.proposedBranch ?? undefined });
+          acc.set(key, {
+            url: key,
+            branch: candidate.proposedBranch ?? undefined,
+            authenticatedCloneUrl: candidate.authenticatedCloneUrl ?? undefined,
+          });
         } else if (!existing.branch && candidate.proposedBranch) {
           // Prefer the first non-empty proposed branch for this repository.
           existing.branch = candidate.proposedBranch;
+        } else if (!existing.authenticatedCloneUrl && candidate.authenticatedCloneUrl) {
+          // Preserve a usable authenticated clone URL when available.
+          existing.authenticatedCloneUrl = candidate.authenticatedCloneUrl;
         }
         return acc;
-      }, new Map<string, { url: string; branch?: string }>())
+      }, new Map<string, { url: string; branch?: string; authenticatedCloneUrl?: string }>())
         .values()
     );
 

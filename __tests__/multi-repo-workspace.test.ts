@@ -385,4 +385,79 @@ describe('prepareMultiRepoWorkspace', () => {
     expect(result.repos[1].url).toBe('https://github.com/contextgraph/agent');
     expect(result.repos[1].branch).toBeUndefined();
   });
+
+  it('should skip /api/cli/credentials when all repositories have authenticated clone URLs', async () => {
+    const repos = [
+      {
+        url: 'https://github.com/contextgraph/actions',
+        authenticatedCloneUrl: 'https://x-access-token:token-a@github.com/contextgraph/actions.git',
+      },
+      {
+        url: 'https://github.com/contextgraph/agent',
+        authenticatedCloneUrl: 'https://x-access-token:token-b@github.com/contextgraph/agent.git',
+      },
+    ];
+
+    mockSpawn
+      // repo 1: clone, rev-parse
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0, 'aaa111\n'))
+      // repo 2: clone, rev-parse
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0, 'bbb222\n'));
+
+    await prepareMultiRepoWorkspace(repos, defaultOptions);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', repos[0].authenticatedCloneUrl!, '/tmp/cg-workspace-abc123/actions'],
+      expect.any(Object)
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', repos[1].authenticatedCloneUrl!, '/tmp/cg-workspace-abc123/agent'],
+      expect.any(Object)
+    );
+  });
+
+  it('should fetch /api/cli/credentials as fallback when any repository lacks authenticated clone URL', async () => {
+    mockCredentials();
+
+    const repos = [
+      {
+        url: 'https://github.com/contextgraph/actions',
+        authenticatedCloneUrl: 'https://x-access-token:token-a@github.com/contextgraph/actions.git',
+      },
+      {
+        url: 'https://github.com/contextgraph/agent',
+      },
+    ];
+
+    mockSpawn
+      // repo 1: clone (with authenticated URL), config name/email, rev-parse
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0, 'aaa111\n'))
+      // repo 2: clone (fallback credentials), config name/email, rev-parse
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0))
+      .mockReturnValueOnce(createMockProcess(0, 'bbb222\n'));
+
+    await prepareMultiRepoWorkspace(repos, defaultOptions);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', repos[0].authenticatedCloneUrl!, '/tmp/cg-workspace-abc123/actions'],
+      expect.any(Object)
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['clone', 'https://x-access-token:gh-token-123@github.com/contextgraph/agent', '/tmp/cg-workspace-abc123/agent'],
+      expect.any(Object)
+    );
+  });
 });

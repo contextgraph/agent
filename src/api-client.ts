@@ -6,6 +6,7 @@ import packageJson from '../package.json' assert { type: 'json' };
 export interface StewardBacklogCandidate {
   id: string;
   repositoryUrl: string;
+  authenticatedCloneUrl?: string | null;
   title: string;
   objective: string;
   rationale: string;
