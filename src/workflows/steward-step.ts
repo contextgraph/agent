@@ -160,14 +160,17 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
             branch: candidate.proposedBranch ?? undefined,
             authenticatedCloneUrl: normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl),
           });
-        } else if (!existing.branch && candidate.proposedBranch) {
-          // Prefer the first non-empty proposed branch for this repository.
-          existing.branch = candidate.proposedBranch;
-        } else if (!existing.authenticatedCloneUrl) {
-          const normalized = normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl);
-          // Preserve a usable authenticated clone URL when available.
-          if (normalized) {
-            existing.authenticatedCloneUrl = normalized;
+        } else {
+          if (!existing.branch && candidate.proposedBranch) {
+            // Prefer the first non-empty proposed branch for this repository.
+            existing.branch = candidate.proposedBranch;
+          }
+          if (!existing.authenticatedCloneUrl) {
+            const normalized = normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl);
+            // Preserve a usable authenticated clone URL when available.
+            if (normalized) {
+              existing.authenticatedCloneUrl = normalized;
+            }
           }
         }
         return acc;
