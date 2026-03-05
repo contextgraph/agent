@@ -34,6 +34,16 @@ function normalizeAuthenticatedCloneUrl(url: string | null | undefined): string 
   return trimmed ? trimmed : undefined;
 }
 
+function canonicalizeRepositoryUrl(url: string): string {
+  const trimmed = url.trim();
+  const parsed = parseGitHubRepoFromUrl(trimmed);
+  if (parsed.owner && parsed.repo) {
+    return `https://github.com/${parsed.owner}/${parsed.repo}`;
+  }
+
+  return trimmed.replace(/\.git\/?$/i, '').replace(/\/+$/, '');
+}
+
 function parseGitHubRepoFromUrl(url: string | null | undefined): { owner?: string; repo?: string } {
   if (!url) return {};
   const match = url.match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/|$)/i);
@@ -152,11 +162,11 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
     const repoCandidates = claim.backlog_candidates.filter((candidate) => candidate.repositoryUrl?.length > 0);
     const repositories = Array.from(
       repoCandidates.reduce((acc, candidate) => {
-        const key = candidate.repositoryUrl!;
+        const key = canonicalizeRepositoryUrl(candidate.repositoryUrl!);
         const existing = acc.get(key);
         if (!existing) {
           acc.set(key, {
-            url: key,
+            url: candidate.repositoryUrl!,
             branch: candidate.proposedBranch ?? undefined,
             authenticatedCloneUrl: normalizeAuthenticatedCloneUrl(candidate.authenticatedCloneUrl),
           });

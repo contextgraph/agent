@@ -234,6 +234,7 @@ export async function prepareMultiRepoWorkspace(
 
       console.log(`Cloning ${chalk.cyan(repo.url)}`);
       console.log(chalk.dim(`   ${repoPath}`));
+      console.log(chalk.dim(`   auth mode: ${authenticatedCloneUrl ? 'authenticated clone URL' : 'generated credentials fallback'}`));
       await runGitCommand(['clone', cloneUrl, repoPath]);
       console.log(chalk.green('Repository cloned'));
 

@@ -118,4 +118,42 @@ describe('runStewardStep repository reduction', () => {
       expect.objectContaining({ authToken: 'test-token' })
     );
   });
+
+  it('canonicalizes repo URLs so auth URLs are merged across .git and trailing-slash variants', async () => {
+    (mockClaimNextSteward as any).mockResolvedValue({
+      steward: {
+        id: 'a18b1ae8-4f4f-4a14-8e45-a4a3d0347cd4',
+        name: 'Github App Integration',
+        organization_id: 'org-1',
+      },
+      claim_id: 'claim-2',
+      prompt: 'test prompt',
+      prompt_version: 'steward-loop/v2',
+      backlog_candidates: [
+        {
+          repositoryUrl: 'https://github.com/jettyio/mise/',
+          proposedBranch: 'feature/add-pr-comment-webhook',
+          authenticatedCloneUrl: null,
+        },
+        {
+          repositoryUrl: 'https://github.com/jettyio/mise.git',
+          proposedBranch: 'feature/add-pr-comment-webhook',
+          authenticatedCloneUrl: 'https://x-access-token:abc@github.com/jettyio/mise.git',
+        },
+      ],
+    });
+
+    await runStewardStep({ workerId: 'worker-2' });
+
+    expect(mockPrepareMultiRepoWorkspace).toHaveBeenCalledWith(
+      [
+        {
+          url: 'https://github.com/jettyio/mise/',
+          branch: 'feature/add-pr-comment-webhook',
+          authenticatedCloneUrl: 'https://x-access-token:abc@github.com/jettyio/mise.git',
+        },
+      ],
+      expect.objectContaining({ authToken: 'test-token' })
+    );
+  });
 });
