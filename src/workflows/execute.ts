@@ -9,6 +9,7 @@ import { setupWorkspaceForAction } from '../workspace-setup.js';
 import chalk from 'chalk';
 import type { WorkflowOptions } from './types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
+import { captureEvent, shutdownPostHog } from '../posthog-client.js';
 
 export type { WorkflowOptions };
 
@@ -35,6 +36,9 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
   let logTransport!: LogTransportService;
   let runFinalized = false;
   let claimToRelease: { actionId: string; workerId: string; claimId: string } | null = null;
+  let executionStartTime: number | undefined;
+  let runnerProvider: string | undefined;
+  let executionModeValue: string | undefined;
 
   try {
     // If no pre-created runId, set up workspace from scratch using shared function
@@ -183,6 +187,19 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
     assertRunnerCapabilities(runner, executionMode, 'Execution workflow');
     console.log(`Spawning ${providerName} for execution...\n`);
 
+    // Capture execution start event - user has initiated an agent execution
+    executionStartTime = Date.now();
+    runnerProvider = runner.provider;
+    executionModeValue = executionMode;
+    captureEvent(credentials.userId, 'agent_execution_started', {
+      action_id: actionId,
+      run_id: runId,
+      provider: runnerProvider,
+      execution_mode: executionModeValue,
+      has_custom_prompt: !!options?.prompt,
+      model: options?.model,
+    });
+
     const runResult = await runner.execute({
       prompt,
       cwd: workspacePath,
@@ -204,6 +221,20 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
         usage: runResult.usage,
       });
       runFinalized = true;
+
+      // Capture successful execution completion
+      const executionDurationSeconds = Math.round((Date.now() - executionStartTime) / 1000);
+      captureEvent(credentials.userId, 'agent_execution_completed', {
+        action_id: actionId,
+        run_id: runId,
+        provider: runner.provider,
+        execution_mode: executionMode,
+        exit_code: runResult.exitCode,
+        duration_seconds: executionDurationSeconds,
+        cost_usd: runResult.cost,
+        status: 'success',
+      });
+
       console.log('\n' + chalk.green('Execution complete'));
     } else {
       await logTransport.finishRun('error', {
@@ -211,10 +242,39 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
         errorMessage: `${providerName} execution failed with exit code ${runResult.exitCode}`,
       });
       runFinalized = true;
+
+      // Capture failed execution
+      const executionDurationSeconds = Math.round((Date.now() - executionStartTime) / 1000);
+      captureEvent(credentials.userId, 'agent_execution_completed', {
+        action_id: actionId,
+        run_id: runId,
+        provider: runner.provider,
+        execution_mode: executionMode,
+        exit_code: runResult.exitCode,
+        duration_seconds: executionDurationSeconds,
+        cost_usd: runResult.cost,
+        status: 'failed',
+        error_message: `${providerName} execution failed with exit code ${runResult.exitCode}`,
+      });
+
       throw new Error(`${providerName} execution failed with exit code ${runResult.exitCode}`);
     }
 
   } catch (error) {
+    // Capture execution error for unexpected failures
+    if (executionStartTime && !runFinalized) {
+      const executionDurationSeconds = Math.round((Date.now() - executionStartTime) / 1000);
+      captureEvent(credentials.userId, 'agent_execution_completed', {
+        action_id: actionId,
+        run_id: runId,
+        provider: runnerProvider,
+        execution_mode: executionModeValue,
+        duration_seconds: executionDurationSeconds,
+        status: 'error',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // Update run state to failed if we have a run
     if (runId && !runFinalized) {
       try {
@@ -270,5 +330,8 @@ export async function runExecute(actionId: string, options?: WorkflowOptions): P
         console.error(chalk.yellow('Failed to release standalone execute claim:'), (releaseError as Error).message);
       }
     }
+
+    // Flush PostHog events before process exit
+    await shutdownPostHog();
   }
 }
