@@ -6,6 +6,8 @@ import { LogTransportService } from './log-transport.js';
 import { ApiClient } from './api-client.js';
 import type { ActionDetailResource } from './types/actions.js';
 import type { AgentProvider } from './runners/index.js';
+import { captureEvent } from './posthog-client.js';
+import { loadCredentials } from './credentials.js';
 import chalk from 'chalk';
 
 const API_BASE_URL = 'https://www.contextgraph.dev';
@@ -82,8 +84,10 @@ export async function setupWorkspaceForAction(
   let cleanup: () => Promise<void>;
   let startingCommit: string | undefined = startingCommitOverride;
   let repos: WorkspaceSetupResult['repos'];
+  let workspaceType: 'multi_repo' | 'single_repo' | 'blank';
 
   if (multiRepos && multiRepos.length > 1) {
+    workspaceType = 'multi_repo';
     const workspace = await prepareMultiRepoWorkspace(multiRepos, {
       authToken,
       graphId,
@@ -99,6 +103,7 @@ export async function setupWorkspaceForAction(
       name, path, url, branch: repoBranch, startingCommit: sc,
     }));
   } else if (repoUrl) {
+    workspaceType = 'single_repo';
     const workspace = await prepareWorkspace(repoUrl, {
       branch: branch || undefined,
       authToken,
@@ -110,6 +115,7 @@ export async function setupWorkspaceForAction(
     cleanup = workspace.cleanup;
     startingCommit = workspace.startingCommit;
   } else {
+    workspaceType = 'blank';
     console.log(chalk.dim('No repository configured - creating blank workspace'));
     workspacePath = await mkdtemp(join(tmpdir(), 'cg-workspace-'));
     console.log(chalk.dim(`   ${workspacePath}`));
@@ -120,6 +126,22 @@ export async function setupWorkspaceForAction(
         console.error(chalk.yellow(`Warning: Failed to cleanup workspace at ${workspacePath}:`), error);
       }
     };
+  }
+
+  // Capture workspace initialization event
+  const credentials = await loadCredentials();
+  if (credentials) {
+    captureEvent(credentials.userId, 'workspace_initialized', {
+      action_id: actionId,
+      run_id: runId,
+      phase,
+      workspace_type: workspaceType,
+      graph_id: graphId,
+      ...(workspaceType === 'single_repo' && repoUrl ? { repository_url: repoUrl } : {}),
+      ...(workspaceType === 'single_repo' && branch ? { branch } : {}),
+      ...(workspaceType === 'multi_repo' && repos ? { repos_count: repos.length } : {}),
+      ...(startingCommit ? { has_starting_commit: true } : {}),
+    });
   }
 
   return {
