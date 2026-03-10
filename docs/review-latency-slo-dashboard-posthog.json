@@ -1,0 +1,272 @@
+{
+  "name": "Agent Review Latency SLO",
+  "description": "Real-time observability dashboard for agent execution latency using workspace_initialized, agent_execution_started, and agent_execution_completed events",
+  "tags": ["steward", "slo", "latency", "agent"],
+  "tiles": [
+    {
+      "id": 1,
+      "name": "SLO Status - P95 End-to-End Latency",
+      "type": "insight",
+      "insight": {
+        "name": "P95 Review Latency",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed",
+              "math": "p95",
+              "math_property": "duration_seconds"
+            }
+          ],
+          "date_from": "-24h",
+          "filter_test_accounts": true
+        },
+        "display": "BigNumber"
+      },
+      "color": "green",
+      "layouts": {
+        "sm": { "x": 0, "y": 0, "w": 4, "h": 4 },
+        "md": { "x": 0, "y": 0, "w": 4, "h": 4 }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Workspace Initialization Latency (P50/P95/P99)",
+      "type": "insight",
+      "insight": {
+        "name": "Workspace Init Trends",
+        "filters": {
+          "events": [
+            {
+              "id": "workspace_initialized",
+              "math": "p50",
+              "math_property": "checkout_duration_ms",
+              "name": "P50"
+            },
+            {
+              "id": "workspace_initialized",
+              "math": "p95",
+              "math_property": "checkout_duration_ms",
+              "name": "P95"
+            },
+            {
+              "id": "workspace_initialized",
+              "math": "p99",
+              "math_property": "checkout_duration_ms",
+              "name": "P99"
+            }
+          ],
+          "date_from": "-24h",
+          "interval": "hour",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsLineGraph"
+      },
+      "layouts": {
+        "sm": { "x": 4, "y": 0, "w": 8, "h": 4 },
+        "md": { "x": 4, "y": 0, "w": 8, "h": 4 }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Execution Success Rate",
+      "type": "insight",
+      "insight": {
+        "name": "Success Rate Gauge",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed",
+              "properties": [
+                {
+                  "key": "status",
+                  "value": ["success"],
+                  "operator": "exact",
+                  "type": "event"
+                }
+              ]
+            }
+          ],
+          "date_from": "-24h",
+          "filter_test_accounts": true
+        },
+        "formula": "(A / total(agent_execution_completed)) * 100",
+        "display": "BigNumber"
+      },
+      "color": "blue",
+      "layouts": {
+        "sm": { "x": 0, "y": 4, "w": 4, "h": 4 },
+        "md": { "x": 0, "y": 4, "w": 4, "h": 4 }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Execution Duration Distribution",
+      "type": "insight",
+      "insight": {
+        "name": "Duration Histogram",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed",
+              "properties": [
+                {
+                  "key": "status",
+                  "value": ["success"],
+                  "operator": "exact",
+                  "type": "event"
+                }
+              ],
+              "math": "property_distribution",
+              "math_property": "duration_seconds"
+            }
+          ],
+          "date_from": "-24h",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsBar"
+      },
+      "layouts": {
+        "sm": { "x": 4, "y": 4, "w": 8, "h": 4 },
+        "md": { "x": 4, "y": 4, "w": 8, "h": 4 }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Execution Status Breakdown",
+      "type": "insight",
+      "insight": {
+        "name": "Status Pie Chart",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed"
+            }
+          ],
+          "breakdown": "status",
+          "breakdown_type": "event",
+          "date_from": "-24h",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsPie"
+      },
+      "layouts": {
+        "sm": { "x": 0, "y": 8, "w": 6, "h": 4 },
+        "md": { "x": 0, "y": 8, "w": 6, "h": 4 }
+      }
+    },
+    {
+      "id": 6,
+      "name": "Executions Per Hour",
+      "type": "insight",
+      "insight": {
+        "name": "Throughput Bar Chart",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed"
+            }
+          ],
+          "breakdown": "status",
+          "breakdown_type": "event",
+          "date_from": "-24h",
+          "interval": "hour",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsBar"
+      },
+      "layouts": {
+        "sm": { "x": 6, "y": 8, "w": 6, "h": 4 },
+        "md": { "x": 6, "y": 8, "w": 6, "h": 4 }
+      }
+    },
+    {
+      "id": 7,
+      "name": "Workspace Complexity vs. Init Time",
+      "type": "insight",
+      "insight": {
+        "name": "Complexity Scatter",
+        "filters": {
+          "events": [
+            {
+              "id": "workspace_initialized"
+            }
+          ],
+          "date_from": "-7d",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsTable",
+        "breakdown": "repository_count",
+        "breakdown_type": "property"
+      },
+      "layouts": {
+        "sm": { "x": 0, "y": 12, "w": 6, "h": 4 },
+        "md": { "x": 0, "y": 12, "w": 6, "h": 4 }
+      }
+    },
+    {
+      "id": 8,
+      "name": "Top Slow Executions (Last 24h)",
+      "type": "insight",
+      "insight": {
+        "name": "Slow Executions Table",
+        "filters": {
+          "events": [
+            {
+              "id": "agent_execution_completed",
+              "properties": [
+                {
+                  "key": "status",
+                  "value": ["success"],
+                  "operator": "exact",
+                  "type": "event"
+                }
+              ]
+            }
+          ],
+          "date_from": "-24h",
+          "filter_test_accounts": true
+        },
+        "display": "ActionsTable",
+        "columns": [
+          "timestamp",
+          "properties.action_id",
+          "properties.run_id",
+          "properties.duration_seconds",
+          "properties.execution_mode",
+          "properties.runner_provider"
+        ],
+        "order": "properties.duration_seconds DESC",
+        "limit": 20
+      },
+      "layouts": {
+        "sm": { "x": 6, "y": 12, "w": 6, "h": 4 },
+        "md": { "x": 6, "y": 12, "w": 6, "h": 4 }
+      }
+    }
+  ],
+  "filters": {
+    "date_from": "-24h",
+    "properties": []
+  },
+  "variables": [
+    {
+      "name": "execution_mode",
+      "type": "event_property",
+      "property": "execution_mode",
+      "default": "All"
+    },
+    {
+      "name": "runner_provider",
+      "type": "event_property",
+      "property": "runner_provider",
+      "default": "All"
+    }
+  ],
+  "metadata": {
+    "created_by": "Time-to-review Steward",
+    "created_at": "2026-03-10",
+    "version": "1.0",
+    "repository": "contextgraph/agent",
+    "branch": "metrics/review-latency-dashboard"
+  }
+}
