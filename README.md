@@ -456,6 +456,12 @@ cg tree | jq -r '.. | .id? // empty'
 cg fetch action-id | jq .
 ```
 
+## Documentation
+
+- [Logging Schema](./docs/LOGGING_SCHEMA.md) - Structured logging conventions and field naming standards for Axiom
+- [Agent Execution Instrumentation](./docs/AGENT_EXECUTION_INSTRUMENTATION.md) - Run tracking and event streaming
+- [Worker Completion Architecture](./docs/WORKER_COMPLETION_ARCHITECTURE.md) - Distributed system observability patterns
+
 ## Development
 
 ```bash
@@ -467,6 +473,9 @@ pnpm build
 
 # Development mode
 pnpm dev
+
+# Run tests
+pnpm test
 ```
 
 ## License
