@@ -8,6 +8,7 @@ const makeRunner = (overrides?: Partial<AgentRunner>): AgentRunner => ({
     fullAccessExecution: true,
   },
   execute: async () => ({ exitCode: 0 }),
+  isAvailable: async () => true,
   ...overrides,
 });
 
