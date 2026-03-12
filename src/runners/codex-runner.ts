@@ -208,9 +208,15 @@ export const codexRunner: AgentRunner = {
       ];
 
       if (bypassSandbox) {
-        console.log('  Codex sandbox mode: bypassed');
+        emitLogEvent(options.onLogEvent, 'system', 'Codex sandbox mode: bypassed', {
+          provider: 'codex',
+          sandboxBypassed: true
+        });
       } else if (sandboxMode !== DEFAULT_CODEX_SANDBOX_MODE) {
-        console.log(`  Codex sandbox mode: ${sandboxMode}`);
+        emitLogEvent(options.onLogEvent, 'system', `Codex sandbox mode: ${sandboxMode}`, {
+          provider: 'codex',
+          sandboxMode
+        });
       }
 
       if (options.model) {
