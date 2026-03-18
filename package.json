@@ -11,7 +11,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:coverage:json": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --coverageReporters=json-summary --coverageReporters=text"
   },
   "keywords": [
     "contextgraph",
