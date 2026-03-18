@@ -109,19 +109,160 @@ describe('executeClaude result ordering', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  it('uses the final result subtype when mixed result messages are emitted (error then success)', async () => {
-    const sessionId = 'test-result-order';
-    const messages: SDKMessage[] = [
-      createInitMessage(sessionId),
-      createErrorResult(sessionId),
-      createSuccessResult(sessionId),
-    ];
+  describe('mixed result streams', () => {
+    it('uses the final result subtype when mixed result messages are emitted (error then success)', async () => {
+      const sessionId = 'test-result-order';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createErrorResult(sessionId),
+        createSuccessResult(sessionId),
+      ];
 
-    mockQuery.mockReturnValue(createMockQuery(messages));
+      mockQuery.mockReturnValue(createMockQuery(messages));
 
-    const result = await executeClaude(baseOptions);
+      const result = await executeClaude(baseOptions);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.sessionId).toBe(sessionId);
+      expect(result.exitCode).toBe(0);
+      expect(result.sessionId).toBe(sessionId);
+    });
+
+    it('uses the final result subtype when mixed result messages are emitted (success then error)', async () => {
+      const sessionId = 'test-success-then-error';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createSuccessResult(sessionId),
+        createErrorResult(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.sessionId).toBe(sessionId);
+    });
+
+    it('handles multiple error messages followed by success', async () => {
+      const sessionId = 'test-multiple-errors-success';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createErrorResult(sessionId),
+        createErrorResult(sessionId),
+        createSuccessResult(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.sessionId).toBe(sessionId);
+    });
+
+    it('handles multiple success messages followed by error', async () => {
+      const sessionId = 'test-multiple-success-error';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createSuccessResult(sessionId),
+        createSuccessResult(sessionId),
+        createErrorResult(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.sessionId).toBe(sessionId);
+    });
+  });
+
+  describe('single result streams', () => {
+    it('handles stream with only success result', async () => {
+      const sessionId = 'test-only-success';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createSuccessResult(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.sessionId).toBe(sessionId);
+    });
+
+    it('handles stream with only error result', async () => {
+      const sessionId = 'test-only-error';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        createErrorResult(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.sessionId).toBe(sessionId);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles stream with no result messages', async () => {
+      const sessionId = 'test-no-result';
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      // No result subtype means lastResultSubtype is undefined, which doesn't start with 'error_'
+      expect(result.exitCode).toBe(0);
+      expect(result.sessionId).toBe(sessionId);
+    });
+
+    it('preserves cost and usage from the final result message', async () => {
+      const sessionId = 'test-final-metadata';
+      const firstResult = createErrorResult(sessionId);
+      firstResult.total_cost_usd = 0.01;
+      firstResult.usage = {
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      };
+
+      const finalResult = createSuccessResult(sessionId);
+      finalResult.total_cost_usd = 0.05;
+      finalResult.usage = {
+        input_tokens: 500,
+        output_tokens: 250,
+        cache_creation_input_tokens: 10,
+        cache_read_input_tokens: 200,
+      };
+
+      const messages: SDKMessage[] = [
+        createInitMessage(sessionId),
+        firstResult,
+        finalResult,
+      ];
+
+      mockQuery.mockReturnValue(createMockQuery(messages));
+
+      const result = await executeClaude(baseOptions);
+
+      // Should use metadata from the final result
+      expect(result.cost).toBe(0.05);
+      expect(result.usage).toEqual({
+        input_tokens: 500,
+        output_tokens: 250,
+        cache_creation_input_tokens: 10,
+        cache_read_input_tokens: 200,
+      });
+    });
   });
 });
