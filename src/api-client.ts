@@ -1,5 +1,6 @@
 import { loadCredentials, isExpired, isTokenExpired } from './credentials.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
+import { PRIMARY_WEB_BASE_URL } from './platform-urls.js';
 import type { ActionDetailResource, ActionNode } from './types/actions.js';
 import packageJson from '../package.json' assert { type: 'json' };
 
@@ -47,7 +48,7 @@ export interface StewardClaimResource {
 
 export class ApiClient {
   constructor(
-    private baseUrl: string = process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev'
+    private baseUrl: string = PRIMARY_WEB_BASE_URL
   ) {}
 
   private async getAuthToken(): Promise<string> {

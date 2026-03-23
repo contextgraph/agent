@@ -1,7 +1,6 @@
 import { fetchWithRetry } from './fetch-with-retry.js';
+import { PRIMARY_WEB_BASE_URL as API_BASE_URL } from './platform-urls.js';
 import type { SkillToInject } from './skill-injection.js';
-
-const API_BASE_URL = 'https://www.contextgraph.dev';
 
 /**
  * Response format from the skills library API

@@ -6,14 +6,13 @@ import { LogTransportService } from '../log-transport.js';
 import { LogBuffer } from '../log-buffer.js';
 import { HeartbeatManager } from '../heartbeat-manager.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
+import { PRIMARY_WEB_BASE_URL as API_BASE_URL } from '../platform-urls.js';
 import chalk from 'chalk';
 import type { WorkflowOptions } from './types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
 import { captureEvent, shutdownPostHog } from '../posthog-client.js';
 
 export type { WorkflowOptions };
-
-const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export async function runExecute(actionId: string, options?: WorkflowOptions): Promise<void> {
   const credentials = await loadCredentials();

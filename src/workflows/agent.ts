@@ -8,11 +8,10 @@ import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runExecute } from './execute.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
+import { PRIMARY_WEB_BASE_URL as API_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import chalk from 'chalk';
-
-const API_BASE_URL = 'https://www.contextgraph.dev';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

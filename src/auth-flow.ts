@@ -1,5 +1,6 @@
 import { startCallbackServer } from './callback-server.js';
 import { saveCredentials } from './credentials.js';
+import { PRIMARY_WEB_BASE_URL } from './platform-urls.js';
 
 type AuthenticationResult =
   | {
@@ -22,7 +23,7 @@ type AuthenticationOptions = {
 };
 
 const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
+const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
 async function defaultOpenBrowser(url: string): Promise<void> {
   const open = (await import('open')).default;

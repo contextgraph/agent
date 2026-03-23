@@ -1,15 +1,16 @@
 import { loadCredentials, isExpired, isTokenExpired } from './credentials.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
+import { PRIMARY_MCP_BASE_URL } from './platform-urls.js';
 
 /**
  * API client for the ContextGraph CLI (`cg`)
  *
- * This client calls the MCP server at mcp.contextgraph.dev using HTTP transport.
+ * This client calls the MCP server using HTTP transport.
  * All methods return raw JSON responses from the MCP server.
  */
 export class CgApiClient {
   constructor(
-    private mcpServerUrl: string = 'https://mcp.contextgraph.dev'
+    private mcpServerUrl: string = PRIMARY_MCP_BASE_URL
   ) {}
 
   private async getAuthToken(): Promise<string> {

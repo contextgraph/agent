@@ -19,6 +19,52 @@ export interface StewardRunOptions {
 
 const DEFAULT_INTERVAL_SECONDS = 30;
 
+export interface StewardRunModeInfo {
+  authSource: 'env-api-token' | 'stored-credentials';
+  inferredScopeMode: 'global-worker' | 'user-scoped';
+  detail: string;
+}
+
+function trimEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
+export function getStewardRunModeInfo(): StewardRunModeInfo {
+  const apiToken = trimEnv('CONTEXTGRAPH_API_TOKEN');
+  const globalWorkerToken = trimEnv('STEWARD_GLOBAL_WORKER_TOKEN');
+
+  if (!apiToken) {
+    return {
+      authSource: 'stored-credentials',
+      inferredScopeMode: 'user-scoped',
+      detail: 'No CONTEXTGRAPH_API_TOKEN set; using stored credentials.',
+    };
+  }
+
+  if (globalWorkerToken && apiToken === globalWorkerToken) {
+    return {
+      authSource: 'env-api-token',
+      inferredScopeMode: 'global-worker',
+      detail: 'CONTEXTGRAPH_API_TOKEN matches STEWARD_GLOBAL_WORKER_TOKEN.',
+    };
+  }
+
+  if (globalWorkerToken) {
+    return {
+      authSource: 'env-api-token',
+      inferredScopeMode: 'user-scoped',
+      detail: 'CONTEXTGRAPH_API_TOKEN differs from STEWARD_GLOBAL_WORKER_TOKEN.',
+    };
+  }
+
+  return {
+    authSource: 'env-api-token',
+    inferredScopeMode: 'user-scoped',
+    detail: 'STEWARD_GLOBAL_WORKER_TOKEN is not set locally.',
+  };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -47,6 +93,11 @@ export async function runStewardLoop(options: StewardRunOptions = {}): Promise<v
   const workerId = options.workerId || randomUUID();
   let shouldStop = false;
   let stepCount = 0;
+  const modeInfo = getStewardRunModeInfo();
+
+  console.log(chalk.dim(`[steward:run] Mode (inferred): ${modeInfo.inferredScopeMode}`));
+  console.log(chalk.dim(`[steward:run] Auth source: ${modeInfo.authSource}`));
+  console.log(chalk.dim(`[steward:run] ${modeInfo.detail}`));
 
   const handleSignal = (signal: NodeJS.Signals) => {
     if (shouldStop) {
