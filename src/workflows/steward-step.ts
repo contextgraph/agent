@@ -12,8 +12,9 @@ import type { RunnerExecutionMode } from '../runners/types.js';
 import { assertRunnerCapabilities, resolveExecutionMode } from './execution-policy.js';
 import { initializeStewardSession, type StewardSessionContext } from '../langfuse-session.js';
 import { captureEvent, shutdownPostHog } from '../posthog-client.js';
+import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 
-const DEFAULT_BASE_URL = 'https://www.contextgraph.dev';
+const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
 export interface StewardStepOptions {
   stewardId?: string;

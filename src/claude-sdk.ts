@@ -3,6 +3,7 @@ import type { AgentRunResult, AgentRunOptions } from './types/actions.js';
 import { transformSDKMessage } from './sdk-event-transformer.js';
 import type { LogEvent } from './log-transport.js';
 import type { Langfuse } from 'langfuse';
+import { PRIMARY_MCP_BASE_URL } from './platform-urls.js';
 import {
   buildStewardSessionId,
   buildStewardSessionMetadata,
@@ -240,7 +241,7 @@ export async function executeClaude(
         mcpServers: {
           actions: {
             type: 'http',
-            url: 'https://mcp.contextgraph.dev',
+            url: PRIMARY_MCP_BASE_URL,
             headers: {
               'x-authorization': `Bearer ${options.authToken}`,
               ...(options.executionActionId

@@ -6,9 +6,8 @@ import { fetchWithRetry } from './fetch-with-retry.js';
 import type { GitHubCredentials } from './types/actions.js';
 import { injectSkills } from './skill-injection.js';
 import { fetchSkillsLibrary } from './skills-library-fetch.js';
+import { PRIMARY_WEB_BASE_URL, PRIMARY_WEB_BASE_URL as API_BASE_URL } from './platform-urls.js';
 import chalk from 'chalk';
-
-const API_BASE_URL = 'https://www.contextgraph.dev';
 const WORKSPACE_PREFIX = 'cg-workspace-';
 const STALE_WORKSPACE_TTL_HOURS = 12;
 let staleWorkspaceSweepDone = false;
@@ -77,7 +76,7 @@ async function fetchGitHubCredentials(authToken: string, graphId?: string): Prom
 
   if (response.status === 404) {
     throw new Error(
-      'GitHub not connected. Please connect your GitHub account at https://contextgraph.dev/settings.'
+      `GitHub not connected. Please connect your GitHub account at ${PRIMARY_WEB_BASE_URL}/settings.`
     );
   }
 

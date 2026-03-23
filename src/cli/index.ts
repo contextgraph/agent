@@ -10,6 +10,7 @@ import { runSetup } from '../workflows/setup.js';
 import { runStewardStep } from '../workflows/steward-step.js';
 import { runStewardLoop } from '../workflows/steward-run.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
+import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 
@@ -83,7 +84,7 @@ program
 
 program
   .command('auth')
-  .description('Authenticate with contextgraph.dev')
+  .description('Authenticate with steward.foo')
   .action(async () => {
     try {
       await runAuth();
@@ -162,7 +163,7 @@ steward
   .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
   .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
   .option('--skip-skills', 'Skip skill injection (for testing)')
-  .option('--base-url <baseUrl>', 'ContextGraph API base URL', process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(async (options: {
     stewardId?: string;
     workerId?: string;
@@ -206,7 +207,7 @@ steward
   .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
   .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
   .option('--skip-skills', 'Skip skill injection (for testing)')
-  .option('--base-url <baseUrl>', 'ContextGraph API base URL', process.env.CONTEXTGRAPH_BASE_URL || 'https://www.contextgraph.dev')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .option('--interval-seconds <seconds>', 'Delay between loop steps (default: 30)', '30')
   .option('--max-steps <count>', 'Maximum number of claimed steps before exiting')
   .option('--stop-on-error', 'Exit loop on first step error')

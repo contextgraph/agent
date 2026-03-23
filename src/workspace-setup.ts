@@ -4,13 +4,12 @@ import { join } from 'path';
 import { prepareWorkspace, prepareMultiRepoWorkspace } from './workspace-prep.js';
 import { LogTransportService } from './log-transport.js';
 import { ApiClient } from './api-client.js';
+import { PRIMARY_WEB_BASE_URL as API_BASE_URL } from './platform-urls.js';
 import type { ActionDetailResource } from './types/actions.js';
 import type { AgentProvider } from './runners/index.js';
 import { captureEvent } from './posthog-client.js';
 import { loadCredentials } from './credentials.js';
 import chalk from 'chalk';
-
-const API_BASE_URL = 'https://www.contextgraph.dev';
 
 export interface WorkspaceSetupResult {
   workspacePath: string;

@@ -3,6 +3,7 @@ import { Listr } from 'listr2';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { authenticateAgent } from '../auth-flow.js';
 import { isClaudeCodeAvailable, isPluginInstalled, ensurePluginInstalled } from '../plugin-setup.js';
+import { PRIMARY_MCP_BASE_URL, PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 
 interface SetupCtx {
   needsAuth: boolean;
@@ -120,11 +121,11 @@ export async function runSetup(): Promise<void> {
 
     console.log(chalk.bold('3. Integrate the MCP server into other platforms'));
     console.log('   Add the ContextGraph MCP server to any compatible tool.\n');
-    console.log(`   MCP Server URL: ${chalk.cyan('https://mcp.contextgraph.dev')}\n`);
+    console.log(`   MCP Server URL: ${chalk.cyan(PRIMARY_MCP_BASE_URL)}\n`);
     console.log(chalk.dim('   Works with: Cursor, Claude.ai, ChatGPT, Codex CLI, Windsurf,'));
     console.log(chalk.dim('   and any other MCP-compatible client.'));
     console.log('');
-    console.log(`  Web dashboard:  ${chalk.cyan('https://contextgraph.dev')}`);
+    console.log(`  Web dashboard:  ${chalk.cyan(PRIMARY_WEB_BASE_URL)}`);
   } else {
     console.log('You have a few options:\n');
 
@@ -139,14 +140,14 @@ export async function runSetup(): Promise<void> {
     console.log(`   - Windsurf: See ${chalk.cyan('https://docs.windsurf.ai/mcp')}`);
     console.log(`   - Other: See ${chalk.cyan('https://modelcontextprotocol.io/clients')}\n`);
     console.log('   MCP Server URL:');
-    console.log(`   ${chalk.cyan('https://mcp.contextgraph.dev')}\n`);
+    console.log(`   ${chalk.cyan(PRIMARY_MCP_BASE_URL)}\n`);
 
     console.log(chalk.bold('Option 3: Use the agent CLI directly'));
     console.log(`   Run autonomous agent: ${chalk.cyan('npx @contextgraph/agent run')}`);
     console.log(`   Execute specific action: ${chalk.cyan('npx @contextgraph/agent execute <action-id>')}`);
     console.log(`   Prepare an action: ${chalk.cyan('npx @contextgraph/agent prepare <action-id>')}\n`);
 
-    console.log(`Authentication complete! Visit ${chalk.cyan('https://contextgraph.dev')} to get started!`);
+    console.log(`Authentication complete! Visit ${chalk.cyan(PRIMARY_WEB_BASE_URL)} to get started!`);
   }
 
   console.log('');

@@ -99,7 +99,7 @@ describe('workspace-prep', () => {
       expect(typeof result.cleanup).toBe('function');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://www.contextgraph.dev/api/cli/credentials',
+        'https://www.steward.foo/api/cli/credentials',
         expect.objectContaining({
           headers: expect.objectContaining({
             'x-authorization': 'Bearer test-auth-token',
