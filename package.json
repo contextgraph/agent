@@ -30,7 +30,7 @@
     "url": "https://github.com/contextgraph/agent/issues"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.50",
+    "@anthropic-ai/claude-agent-sdk": "0.1.50",
     "chalk": "^5.6.2",
     "commander": "^11.0.0",
     "langfuse": "^3.30.3",
