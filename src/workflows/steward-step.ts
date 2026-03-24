@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import chalk from 'chalk';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { ApiClient, type StewardClaimResource } from '../api-client.js';
-import { prepareMultiRepoWorkspace } from '../workspace-prep.js';
+import { normalizeRepositoryUrlForClone, prepareMultiRepoWorkspace } from '../workspace-prep.js';
 import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
@@ -153,7 +153,11 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
     const repoCandidates = claim.backlog_candidates.filter((candidate) => candidate.repositoryUrl?.length > 0);
     const repositories = Array.from(
       repoCandidates.reduce((acc, candidate) => {
-        const key = candidate.repositoryUrl!;
+        const originalUrl = candidate.repositoryUrl!;
+        const key = normalizeRepositoryUrlForClone(originalUrl);
+        if (key !== originalUrl) {
+          console.log(chalk.dim(`Normalized repository URL: ${originalUrl} -> ${key}`));
+        }
         const existing = acc.get(key);
         if (!existing) {
           acc.set(key, {
@@ -288,6 +292,11 @@ When your selected item includes a proposed branch, you MUST use that exact bran
 
     console.log('\n' + chalk.green('Steward step complete'));
     return { claimed: true };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('placeholder GitHub repository URL')) {
+      throw new Error(`Steward backlog contains an invalid repository URL: ${error.message}`);
+    }
+    throw error;
   } finally {
     if (cleanupWorkspace) {
       await cleanupWorkspace();

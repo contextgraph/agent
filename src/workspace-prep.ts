@@ -141,6 +141,48 @@ export function extractRepoName(url: string): string {
   return segments[segments.length - 1];
 }
 
+const PLACEHOLDER_GITHUB_OWNERS = new Set([
+  'org',
+  'owner',
+  'your-org',
+  'example-org',
+]);
+
+const PLACEHOLDER_GITHUB_REPOS = new Set([
+  'repo',
+  'repository',
+  'your-repo',
+  'example-repo',
+]);
+
+export function normalizeRepositoryUrlForClone(url: string): string {
+  const trimmed = url.trim();
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname !== 'github.com') {
+      return trimmed.replace(/\.git\/?$/, '').replace(/\/$/, '');
+    }
+
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length < 2) {
+      throw new Error(`Invalid GitHub repository URL: ${url}`);
+    }
+
+    const [owner, repo] = segments;
+    if (PLACEHOLDER_GITHUB_OWNERS.has(owner.toLowerCase()) || PLACEHOLDER_GITHUB_REPOS.has(repo.toLowerCase())) {
+      throw new Error(`Backlog candidate uses placeholder GitHub repository URL: ${url}`);
+    }
+
+    return `https://github.com/${owner}/${repo.replace(/\.git$/, '')}`;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Invalid repository URL: ${url}`);
+  }
+}
+
 async function installBranchEnforcement(repoPath: string, branch: string): Promise<void> {
   await writeFile(join(repoPath, '.git', 'EXPECTED_BRANCH'), branch);
 
@@ -204,7 +246,12 @@ export async function prepareMultiRepoWorkspace(
     const repos: MultiRepoWorkspaceResult['repos'] = [];
 
     // Deduplicate repo names (e.g. org-a/utils and org-b/utils)
-    const rawNames = repositories.map(r => extractRepoName(r.url));
+    const normalizedRepositories = repositories.map((repo) => ({
+      ...repo,
+      url: normalizeRepositoryUrlForClone(repo.url),
+    }));
+
+    const rawNames = normalizedRepositories.map(r => extractRepoName(r.url));
     const nameOccurrences = new Map<string, number>();
     for (const n of rawNames) {
       nameOccurrences.set(n, (nameOccurrences.get(n) || 0) + 1);
@@ -219,8 +266,8 @@ export async function prepareMultiRepoWorkspace(
       return n;
     });
 
-    for (let i = 0; i < repositories.length; i++) {
-      const repo = repositories[i];
+    for (let i = 0; i < normalizedRepositories.length; i++) {
+      const repo = normalizedRepositories[i];
       const name = uniqueNames[i];
       const repoPath = join(rootPath, name);
       const authenticatedCloneUrl = normalizeAuthenticatedCloneUrl(repo.authenticatedCloneUrl);
