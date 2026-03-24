@@ -244,7 +244,8 @@ When your selected item includes a proposed branch, you MUST use that exact bran
       },
     };
 
-    const langfuse = initializeStewardSession(sessionContext);
+    const langfuseResult = initializeStewardSession(sessionContext);
+    const langfuse = langfuseResult.status === 'success' ? langfuseResult.client : null;
 
     const runner = createAgentRunner(options.provider);
     const providerName = runner.provider === 'codex' ? 'Codex' : 'Claude';

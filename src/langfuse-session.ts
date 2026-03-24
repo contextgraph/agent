@@ -25,6 +25,23 @@ export type StewardSessionContext = {
   metadata?: Record<string, unknown>;
 };
 
+export type LangfuseSessionResult =
+  | {
+      status: 'success';
+      client: Langfuse;
+      sessionId: string;
+      metadata: Record<string, unknown>;
+    }
+  | {
+      status: 'unconfigured';
+      reason: 'missing_credentials';
+    }
+  | {
+      status: 'error';
+      reason: 'initialization_failed';
+      error: string;
+    };
+
 /**
  * Generate a session ID for Langfuse that groups all traces within a steward
  * execution step. The session ID format ensures:
@@ -74,27 +91,27 @@ export function buildStewardSessionMetadata(context: StewardSessionContext): Rec
  * to establish session context for all subsequent LLM calls.
  *
  * @param context Steward and PR context for this execution
- * @returns Configured Langfuse client with session context, or null if Langfuse is not configured
+ * @returns Discriminated union describing initialization outcome
  *
  * @example
  * ```typescript
  * import { initializeStewardSession } from './langfuse-session.js';
  *
- * const langfuse = initializeStewardSession({
+ * const result = initializeStewardSession({
  *   stewardId: 'abc-123',
  *   claimId: 'xyz-789',
  *   workerId: 'worker-456',
  * });
  *
- * if (langfuse) {
- *   const trace = langfuse.trace({
+ * if (result.status === 'success') {
+ *   const trace = result.client.trace({
  *     name: 'steward-decision',
  *     metadata: { step: 'analyze-backlog' },
  *   });
  * }
  * ```
  */
-export function initializeStewardSession(context: StewardSessionContext): Langfuse | null {
+export function initializeStewardSession(context: StewardSessionContext): LangfuseSessionResult {
   const hasLangfuseConfig = !!(
     process.env.LANGFUSE_SECRET_KEY &&
     process.env.LANGFUSE_PUBLIC_KEY
@@ -102,12 +119,15 @@ export function initializeStewardSession(context: StewardSessionContext): Langfu
 
   if (!hasLangfuseConfig) {
     console.log('[LangfuseSession] Langfuse not configured - skipping session initialization');
-    return null;
+    return {
+      status: 'unconfigured',
+      reason: 'missing_credentials',
+    };
   }
 
   try {
     const sessionId = buildStewardSessionId(context);
-    const metadata = buildStewardSessionMetadata(context);
+    const sessionMetadata = buildStewardSessionMetadata(context);
 
     // Create Langfuse client with session context
     const langfuse = new Langfuse({
@@ -118,15 +138,27 @@ export function initializeStewardSession(context: StewardSessionContext): Langfu
     });
 
     console.log(`[LangfuseSession] Initialized session: ${sessionId}`, {
-      ...metadata,
+      stewardId: context.stewardId,
+      claimId: context.claimId,
+      ...(context.prNumber ? { prNumber: context.prNumber } : {}),
     });
 
-    return langfuse;
+    return {
+      status: 'success',
+      client: langfuse,
+      sessionId,
+      metadata: sessionMetadata,
+    };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.warn(
       '[LangfuseSession] Failed to initialize Langfuse session:',
-      error instanceof Error ? error.message : error
+      message
     );
-    return null;
+    return {
+      status: 'error',
+      reason: 'initialization_failed',
+      error: message,
+    };
   }
 }
