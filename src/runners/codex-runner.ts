@@ -4,6 +4,10 @@ import type { LogEvent } from '../log-transport.js';
 import { PRIMARY_MCP_BASE_URL as CONTEXTGRAPH_MCP_URL } from '../platform-urls.js';
 import type { AgentRunResult } from '../types/actions.js';
 import type { AgentRunner, RunnerExecuteOptions } from './types.js';
+import {
+  buildStewardSessionId,
+  buildStewardSessionMetadata,
+} from '../langfuse-session.js';
 
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const DEFAULT_CODEX_SANDBOX_MODE = 'danger-full-access';
@@ -189,6 +193,36 @@ export const codexRunner: AgentRunner = {
   },
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {
+      // Initialize Langfuse tracing if client is provided
+      const langfuseSessionId = options.sessionContext
+        ? buildStewardSessionId(options.sessionContext)
+        : undefined;
+      const langfuseSessionMetadata = options.sessionContext
+        ? buildStewardSessionMetadata(options.sessionContext)
+        : {};
+
+      const trace = options.langfuse?.trace({
+        name: 'steward-agent-execution',
+        ...(langfuseSessionId ? { sessionId: langfuseSessionId } : {}),
+        metadata: {
+          ...langfuseSessionMetadata,
+          model: options.model || 'default',
+          executionActionId: options.executionActionId,
+          provider: 'codex',
+        },
+      });
+
+      const generation = trace?.generation({
+        name: 'codex-cli-execution',
+        model: options.model || 'codex-default',
+        input: options.prompt,
+        metadata: {
+          cwd: options.cwd,
+          executionMode: options.executionMode,
+          sandboxMode: process.env.CONTEXTGRAPH_CODEX_SANDBOX_MODE || DEFAULT_CODEX_SANDBOX_MODE,
+        },
+      });
+
       const sandboxMode = process.env.CONTEXTGRAPH_CODEX_SANDBOX_MODE || DEFAULT_CODEX_SANDBOX_MODE;
       const mcpHeaderConfig = options.executionActionId
         ? 'mcp_servers.actions.env_http_headers={"x-authorization"="CONTEXTGRAPH_AUTH_HEADER","x-contextgraph-execution-action-id"="CONTEXTGRAPH_EXECUTION_ACTION_ID"}'
@@ -308,27 +342,74 @@ export const codexRunner: AgentRunner = {
       const stderrRl = createInterface({ input: proc.stderr });
       stderrRl.on('line', (line) => processLine(line, 'stderr'));
 
-      proc.on('error', (err) => {
+      proc.on('error', async (err) => {
         clearTimeout(timeout);
         clearInterval(activityHeartbeat);
         stdoutRl.close();
         stderrRl.close();
+
+        // Complete Langfuse trace with error
+        if (generation) {
+          generation.end({
+            level: 'ERROR',
+            statusMessage: err.message,
+          });
+        }
+
+        // Flush traces before rejecting
+        if (options.langfuse) {
+          await options.langfuse.flushAsync();
+        }
+
         reject(new Error(`Failed to execute Codex CLI: ${err.message}`));
       });
 
-      proc.on('close', (code) => {
+      proc.on('close', async (code) => {
         clearTimeout(timeout);
         clearInterval(activityHeartbeat);
         stdoutRl.close();
         stderrRl.close();
 
         if (timedOut) {
+          // Complete Langfuse trace with timeout error
+          if (generation) {
+            generation.end({
+              level: 'ERROR',
+              statusMessage: `Codex execution timed out after ${EXECUTION_TIMEOUT_MS / (60 * 1000)} minutes`,
+            });
+          }
+
+          // Flush traces before rejecting
+          if (options.langfuse) {
+            await options.langfuse.flushAsync();
+          }
+
           reject(new Error(`Codex execution timed out after ${EXECUTION_TIMEOUT_MS / (60 * 1000)} minutes`));
           return;
         }
 
+        const exitCode = code ?? 1;
+
+        // Complete Langfuse trace
+        if (generation) {
+          generation.end({
+            output: exitCode === 0 ? 'success' : 'failed',
+            level: exitCode === 0 ? 'DEFAULT' : 'ERROR',
+            metadata: {
+              exitCode,
+              totalCostUsd: cost,
+              usage,
+            },
+          });
+        }
+
+        // Flush traces before resolving
+        if (options.langfuse) {
+          await options.langfuse.flushAsync();
+        }
+
         resolve({
-          exitCode: code ?? 1,
+          exitCode,
           sessionId,
           usage,
           cost,
