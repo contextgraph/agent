@@ -1,5 +1,7 @@
 # Skill Injection Prototype - Validation Complete
 
+> **Note**: This is historical documentation. The prototype was successful and the test validation infrastructure (`src/test-skills.ts`, validation skill tests) has been removed. The core skill injection mechanism (`src/skill-injection.ts`) remains in production use with real skills from the ContextGraph API.
+
 ## Overview
 
 This prototype validates the end-to-end flow of injecting skills into Claude Code agents via the file system. The implementation demonstrates that skills written to `.claude/skills/` during workspace preparation are successfully available when the agent starts execution.
@@ -14,10 +16,9 @@ This prototype validates the end-to-end flow of injecting skills into Claude Cod
    - Formats skills with YAML frontmatter + markdown content
    - Handles errors gracefully without blocking agent startup
 
-2. **`src/test-skills.ts`** - Validation skill definitions
-   - `VALIDATION_SKILL` - A test skill designed to validate the injection mechanism
-   - High-frequency trigger: instructs agent to emit marker on every run
-   - `getValidationSkills()` - Returns array of validation skills for testing
+2. **`src/test-skills.ts`** - ~~Validation skill definitions~~ (Removed after validation complete)
+   - ~~`VALIDATION_SKILL`~~ - Validation marker skill (no longer needed)
+   - ~~`getValidationSkills()`~~ - Test validation helper (removed)
 
 3. **Updated `src/workspace-prep.ts`** - Integration point
    - Injects skills AFTER repository clone
@@ -30,7 +31,7 @@ This prototype validates the end-to-end flow of injecting skills into Claude Cod
    - Tests multiple skill injection
    - Tests empty array handling
    - Tests error handling
-   - Tests validation skill structure
+   - ~~Tests validation skill structure~~ (Removed after validation complete)
    - **All tests passing ✅**
 
 ## Key Findings
@@ -156,9 +157,9 @@ To demonstrate this working end-to-end:
 ## Files Modified/Created
 
 ### New Files
-- `src/skill-injection.ts` - Core injection logic
-- `src/test-skills.ts` - Validation skill definitions
-- `__tests__/skill-injection.test.ts` - Test suite
+- `src/skill-injection.ts` - Core injection logic (still in use)
+- ~~`src/test-skills.ts`~~ - Validation skill definitions (removed after validation complete)
+- `__tests__/skill-injection.test.ts` - Test suite (validation tests removed)
 - `SKILL_INJECTION_PROTOTYPE.md` - This documentation
 
 ### Modified Files
