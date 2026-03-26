@@ -9,7 +9,6 @@ const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
 
 // Import after mocking
 import { injectSkills, type SkillToInject } from '../src/skill-injection.js';
-import { getValidationSkills } from '../src/test-skills.js';
 
 describe('skill-injection', () => {
   beforeEach(() => {
@@ -100,26 +99,6 @@ describe('skill-injection', () => {
       mockMkdir.mockRejectedValueOnce(new Error('Permission denied'));
 
       await expect(injectSkills('/workspace', [testSkill])).rejects.toThrow('Permission denied');
-    });
-  });
-
-  describe('getValidationSkills', () => {
-    it('should return validation skill with correct structure', () => {
-      const skills = getValidationSkills();
-
-      expect(skills).toHaveLength(1);
-      expect(skills[0].name).toBe('contextgraph-validation-marker');
-      expect(skills[0].description).toBeTruthy();
-      expect(skills[0].content).toContain('SKILL_INJECTION_VALIDATED');
-    });
-
-    it('should return skill with high-frequency trigger instructions', () => {
-      const skills = getValidationSkills();
-      const validationSkill = skills[0];
-
-      // Verify the skill content instructs agent to emit marker
-      expect(validationSkill.content).toContain('IMMEDIATELY');
-      expect(validationSkill.content).toContain('first response');
     });
   });
 });
