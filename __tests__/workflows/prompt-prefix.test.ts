@@ -1,6 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-jest.mock('chalk', () => ({
+jest.unstable_mockModule('chalk', () => ({
   default: {
     cyan: (s: string) => s,
     dim: (s: string) => s,
@@ -20,7 +20,7 @@ const mockLoadCredentials = jest.fn<() => Promise<unknown>>().mockResolvedValue(
 const mockIsExpired = jest.fn<() => boolean>().mockReturnValue(false);
 const mockIsTokenExpired = jest.fn<() => boolean>().mockReturnValue(false);
 
-jest.mock('../../src/credentials.js', () => ({
+jest.unstable_mockModule('../../src/credentials.js', () => ({
   loadCredentials: mockLoadCredentials,
   isExpired: mockIsExpired,
   isTokenExpired: mockIsTokenExpired,
@@ -31,7 +31,7 @@ const mockCreateAgentRunner = jest.fn((_provider?: string) => ({
   provider: 'claude',
   execute: mockRunnerExecute,
 }));
-jest.mock('../../src/runners/index.js', () => ({
+jest.unstable_mockModule('../../src/runners/index.js', () => ({
   createAgentRunner: mockCreateAgentRunner,
 }));
 
@@ -45,25 +45,25 @@ const mockSetupResult = {
     finishRun: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   },
 };
-jest.mock('../../src/workspace-setup.js', () => ({
+jest.unstable_mockModule('../../src/workspace-setup.js', () => ({
   setupWorkspaceForAction: jest.fn(() => Promise.resolve(mockSetupResult)),
 }));
 
-jest.mock('../../src/log-transport.js', () => ({
+jest.unstable_mockModule('../../src/log-transport.js', () => ({
   LogTransportService: jest.fn(() => ({
     createRun: jest.fn<() => Promise<string>>().mockResolvedValue('run-1'),
     updateRunState: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     finishRun: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   })),
 }));
-jest.mock('../../src/log-buffer.js', () => ({
+jest.unstable_mockModule('../../src/log-buffer.js', () => ({
   LogBuffer: jest.fn(() => ({
     start: jest.fn(),
     stop: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     push: jest.fn(),
   })),
 }));
-jest.mock('../../src/heartbeat-manager.js', () => ({
+jest.unstable_mockModule('../../src/heartbeat-manager.js', () => ({
   HeartbeatManager: jest.fn(() => ({
     start: jest.fn(),
     stop: jest.fn(),
@@ -76,12 +76,12 @@ const mockFetchResponse = {
   text: jest.fn<() => Promise<string>>().mockResolvedValue(''),
 };
 const mockFetch = jest.fn<() => Promise<typeof mockFetchResponse>>().mockResolvedValue(mockFetchResponse);
-jest.mock('../../src/fetch-with-retry.js', () => ({
+jest.unstable_mockModule('../../src/fetch-with-retry.js', () => ({
   fetchWithRetry: mockFetch,
 }));
 
-import { runPrepare } from '../../src/workflows/prepare.js';
-import { runExecute } from '../../src/workflows/execute.js';
+const { runPrepare } = await import('../../src/workflows/prepare.js');
+const { runExecute } = await import('../../src/workflows/execute.js');
 
 describe('promptPrefix in workflows', () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('chalk', () => ({
+jest.unstable_mockModule('chalk', () => ({
   default: {
     bold: (s: string) => s,
     dim: (s: string) => s,
@@ -12,12 +12,11 @@ jest.mock('chalk', () => ({
 
 const mockRunStewardStep = jest.fn<() => Promise<{ claimed: boolean }>>();
 
-jest.mock('../../src/workflows/steward-step.js', () => ({
+jest.unstable_mockModule('../../src/workflows/steward-step.js', () => ({
   runStewardStep: mockRunStewardStep,
 }));
 
-import { runStewardLoop } from '../../src/workflows/steward-run.js';
-import { getStewardRunModeInfo } from '../../src/workflows/steward-run.js';
+const { runStewardLoop, getStewardRunModeInfo } = await import('../../src/workflows/steward-run.js');
 
 const ORIGINAL_ENV = { ...process.env };
 

@@ -1,14 +1,15 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { mkdir, writeFile } from 'fs/promises';
 
-// Mock fs/promises
-jest.mock('fs/promises');
+const mockMkdir = jest.fn() as any;
+const mockWriteFile = jest.fn() as any;
 
-const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>;
-const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
+jest.unstable_mockModule('fs/promises', () => ({
+  mkdir: mockMkdir,
+  writeFile: mockWriteFile,
+}));
 
-// Import after mocking
-import { injectSkills, type SkillToInject } from '../src/skill-injection.js';
+const { injectSkills } = await import('../src/skill-injection.js');
+type SkillToInject = import('../src/skill-injection.js').SkillToInject;
 
 describe('skill-injection', () => {
   beforeEach(() => {

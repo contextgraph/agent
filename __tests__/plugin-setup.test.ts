@@ -1,15 +1,22 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ChildProcess, spawn as actualSpawn } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { Readable } from 'stream';
 
-// Mock child_process before importing
-jest.mock('child_process');
+type SpawnFn = typeof import('child_process').spawn;
 
-import { spawn } from 'child_process';
-import { isClaudeCodeAvailable, isPluginInstalled, ensurePluginInstalled, PLUGIN_REPO } from '../src/plugin-setup.js';
+const mockSpawn = jest.fn() as unknown as jest.MockedFunction<SpawnFn>;
 
-const mockSpawn = spawn as jest.MockedFunction<typeof actualSpawn>;
+jest.unstable_mockModule('child_process', () => ({
+  spawn: mockSpawn,
+}));
+
+const {
+  isClaudeCodeAvailable,
+  isPluginInstalled,
+  ensurePluginInstalled,
+  PLUGIN_REPO,
+} = await import('../src/plugin-setup.js');
 
 /**
  * Create a mock child process that emits close with the given exit code
