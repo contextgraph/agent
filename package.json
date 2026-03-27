@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "contextgraph-agent": "dist/index.js",
-    "cg": "dist/cg.js"
+    "cg": "dist/cg.js",
+    "steward": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",
