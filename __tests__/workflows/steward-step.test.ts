@@ -37,6 +37,7 @@ jest.mock('../../src/api-client.js', () => ({
 
 const mockPrepareMultiRepoWorkspace = jest.fn() as jest.Mock;
 jest.mock('../../src/workspace-prep.js', () => ({
+  normalizeRepositoryUrlForClone: jest.fn((url: string) => url.replace(/\/tree\/.+$/, '')),
   prepareMultiRepoWorkspace: mockPrepareMultiRepoWorkspace,
 }));
 
