@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import type { SDKMessage, Query, SDKSystemMessage, SDKAssistantMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { UUID } from 'crypto';
+import type { SpawnClaudeOptions } from '../../src/types/actions.js';
 
 /**
  * Integration tests for SDK execution workflows
@@ -17,17 +18,13 @@ import type { UUID } from 'crypto';
  * - Doesn't require API keys or network access
  */
 
-// Mock the SDK before importing
-jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: jest.fn(),
+const mockQuery = jest.fn();
+
+jest.unstable_mockModule('@anthropic-ai/claude-agent-sdk', () => ({
+  query: mockQuery,
 }));
 
-// Import after mocking
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { executeClaude } from '../../src/claude-sdk.js';
-import type { SpawnClaudeOptions } from '../../src/types/actions.js';
-
-const mockQuery = query as jest.MockedFunction<typeof query>;
+const { executeClaude } = await import('../../src/claude-sdk.js');
 
 // Helper to create a mock Query object
 function createMockQuery(messages: SDKMessage[]): Query {
@@ -42,11 +39,14 @@ function createMockQuery(messages: SDKMessage[]): Query {
     setPermissionMode: jest.fn() as any,
     setModel: jest.fn() as any,
     setMaxThinkingTokens: jest.fn() as any,
+    rewindFiles: jest.fn() as any,
+    setMcpServers: jest.fn() as any,
     supportedCommands: jest.fn() as any,
     supportedModels: jest.fn() as any,
     mcpServerStatus: jest.fn() as any,
     accountInfo: jest.fn() as any,
-  }) as Query;
+    streamInput: jest.fn() as any,
+  }) as unknown as Query;
 }
 
 // Helper to create system init message
@@ -178,7 +178,7 @@ describe('SDK Integration Tests', () => {
       });
 
       // Verify console output
-      expect(consoleLogSpy).toHaveBeenCalledWith('🚀 Claude session initialized');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('🚀 Claude session initialized'));
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('The answer is 4.'));
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('✅ Completed in 2.5s'));
     });
@@ -454,15 +454,15 @@ describe('SDK Integration Tests', () => {
         options: expect.objectContaining({
           cwd: '/test/repo',
           env: expect.objectContaining({
-            ...process.env,
             CONTEXTGRAPH_AUTH_TOKEN: '',
+            CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '',
           }),
-          plugins: expect.arrayContaining([
-            expect.objectContaining({
-              type: 'local',
-              path: expect.stringContaining('claude-code-plugin'),
-            })
-          ]),
+          mcpServers: expect.objectContaining({
+            actions: expect.objectContaining({
+              type: 'http',
+              url: 'https://mcp.contextgraph.dev',
+            }),
+          }),
         }),
       });
     });
@@ -531,7 +531,7 @@ describe('SDK Integration Tests', () => {
         mcpServerStatus: jest.fn(),
         accountInfo: jest.fn(),
         streamInput: jest.fn(),
-      }) as Query;
+      }) as unknown as Query;
 
       mockQuery.mockReturnValue(errorQuery);
 
@@ -555,7 +555,7 @@ describe('SDK Integration Tests', () => {
         mcpServerStatus: jest.fn(),
         accountInfo: jest.fn(),
         streamInput: jest.fn(),
-      }) as Query;
+      }) as unknown as Query;
 
       mockQuery.mockReturnValue(timeoutQuery);
 

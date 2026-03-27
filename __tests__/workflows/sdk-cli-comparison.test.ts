@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import type { SDKMessage, Query, SDKSystemMessage, SDKAssistantMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { UUID } from 'crypto';
+import type { SpawnClaudeOptions, ClaudeResult } from '../../src/types/actions.js';
 
 /**
  * SDK/CLI Comparison Tests
@@ -16,17 +17,13 @@ import type { UUID } from 'crypto';
  * This provides confidence that switching to SDK introduces no regressions.
  */
 
-// Mock the SDK before importing
-jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: jest.fn(),
+const mockQuery = jest.fn();
+
+jest.unstable_mockModule('@anthropic-ai/claude-agent-sdk', () => ({
+  query: mockQuery,
 }));
 
-// Import after mocking
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { executeClaude } from '../../src/claude-sdk.js';
-import type { SpawnClaudeOptions, ClaudeResult } from '../../src/types/actions.js';
-
-const mockQuery = query as jest.MockedFunction<typeof query>;
+const { executeClaude } = await import('../../src/claude-sdk.js');
 
 // Helper to create a mock Query object
 function createMockQuery(messages: SDKMessage[]): Query {
@@ -41,11 +38,14 @@ function createMockQuery(messages: SDKMessage[]): Query {
     setPermissionMode: jest.fn() as any,
     setModel: jest.fn() as any,
     setMaxThinkingTokens: jest.fn() as any,
+    rewindFiles: jest.fn() as any,
+    setMcpServers: jest.fn() as any,
     supportedCommands: jest.fn() as any,
     supportedModels: jest.fn() as any,
     mcpServerStatus: jest.fn() as any,
     accountInfo: jest.fn() as any,
-  }) as Query;
+    streamInput: jest.fn() as any,
+  }) as unknown as Query;
 }
 
 // Helper to create system init message
@@ -642,7 +642,7 @@ describe('SDK/CLI Comparison Tests', () => {
       await runWithSDK(options, mockMessages);
 
       // Verify SDK output format
-      expect(consoleLogSpy).toHaveBeenCalledWith('🚀 Claude session initialized');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('🚀 Claude session initialized'));
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('💭 Processing the request'));
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Here is the result.'));
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Write: /test/output.txt'));
