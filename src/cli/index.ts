@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { basename, dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
 import { runPrepare } from '../workflows/prepare.js';
 import { runExecute } from '../workflows/execute.js';
@@ -9,6 +9,11 @@ import { runLocalAgent } from '../workflows/agent.js';
 import { runSetup } from '../workflows/setup.js';
 import { runStewardStep } from '../workflows/steward-step.js';
 import { runStewardLoop } from '../workflows/steward-run.js';
+import { runStewardNext } from '../workflows/steward-next.js';
+import { runStewardDismiss } from '../workflows/steward-dismiss.js';
+import { runStewardClaim } from '../workflows/steward-claim.js';
+import { runStewardClaimed } from '../workflows/steward-claimed.js';
+import { runStewardUnclaim } from '../workflows/steward-unclaim.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -23,11 +28,72 @@ const packageJson = JSON.parse(
 const program = new Command();
 const PROVIDER_VALUES: AgentProvider[] = ['claude', 'codex'];
 const EXECUTION_MODE_VALUES: RunnerExecutionMode[] = ['restricted', 'full-access'];
+const invokedAs = basename(process.argv[1] || '');
+const isStewardCli = invokedAs === 'steward' || invokedAs === 'steward.js';
 
 program
-  .name('contextgraph-agent')
-  .description('Autonomous agent for contextgraph action execution')
+  .name(isStewardCli ? 'steward' : 'contextgraph-agent')
+  .description(isStewardCli ? 'Steward backlog CLI' : 'Autonomous agent for contextgraph action execution')
   .version(packageJson.version);
+
+async function handleStewardNext(options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardNext({
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error selecting steward work:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardDismiss(identifier: string, options: { note: string; baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardDismiss({
+      identifier,
+      note: options.note,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error dismissing steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardClaim(identifier: string | undefined, options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardClaim({
+      identifier,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error claiming steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardClaimed(options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardClaimed({
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error listing claimed steward backlog items:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardUnclaim(identifier: string, options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardUnclaim({
+      identifier,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error unclaiming steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
 
 program
   .command('setup')
@@ -153,6 +219,61 @@ program
 const steward = program
   .command('steward')
   .description('Steward execution workflows');
+
+steward
+  .command('next')
+  .description('Pick the next queued steward backlog item for manual work')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardNext);
+
+const backlog = program
+  .command('backlog')
+  .description('Steward backlog workflows');
+
+backlog
+  .command('next')
+  .description('Deprecated. Use `steward backlog claim next`.')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(async () => {
+    console.error('Use `steward backlog claim next`.');
+    process.exit(1);
+  });
+
+const claim = backlog
+  .command('claim')
+  .description('Claim steward backlog work explicitly');
+
+claim
+  .command('next')
+  .description('Claim the next queued steward backlog item for manual work')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action((options: { baseUrl?: string }) => handleStewardClaim(undefined, options));
+
+claim
+  .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
+  .description('Claim a specific queued steward backlog item')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
+
+backlog
+  .command('claimed')
+  .description('List all currently claimed steward backlog items')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardClaimed);
+
+backlog
+  .command('unclaim')
+  .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
+  .description('Release a claimed steward backlog item back to the queue')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardUnclaim);
+
+backlog
+  .command('dismiss')
+  .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
+  .requiredOption('--note <note>', 'Reason for dismissing the backlog item')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardDismiss);
 
 steward
   .command('step')
