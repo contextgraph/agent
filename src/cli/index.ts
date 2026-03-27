@@ -14,6 +14,9 @@ import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
 import { runStewardUnclaim } from '../workflows/steward-unclaim.js';
+import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js';
+import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
+import { runStewardMission } from '../workflows/steward-mission.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -91,6 +94,69 @@ async function handleStewardUnclaim(identifier: string, options: { baseUrl?: str
     });
   } catch (error) {
     console.error('Error unclaiming steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardBacklogCreate(options: {
+  steward: string;
+  title: string;
+  objective: string;
+  rationale: string;
+  repo: string;
+  branch?: string;
+  priority?: string;
+  baseUrl?: string;
+}): Promise<void> {
+  try {
+    const priorityScore = options.priority === undefined ? undefined : Number.parseInt(options.priority, 10);
+    if (options.priority !== undefined && (priorityScore === undefined || !Number.isFinite(priorityScore) || priorityScore < 0)) {
+      throw new Error('priority must be a non-negative integer');
+    }
+
+    await runStewardBacklogCreate({
+      steward: options.steward,
+      title: options.title,
+      objective: options.objective,
+      rationale: options.rationale,
+      repository_url: options.repo,
+      proposed_branch: options.branch,
+      priority_score: priorityScore,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error creating steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardNoteCreate(options: {
+  steward: string;
+  note: string;
+  backlogItem?: string;
+  baseUrl?: string;
+}): Promise<void> {
+  try {
+    await runStewardNoteCreate({
+      steward: options.steward,
+      note: options.note,
+      backlogItem: options.backlogItem,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error creating steward note:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardMission(identifier: string, options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardMission({
+      steward: identifier,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error fetching steward mission:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
@@ -269,11 +335,42 @@ backlog
   .action(handleStewardUnclaim);
 
 backlog
+  .command('create')
+  .requiredOption('--steward <steward>', 'Steward ID or steward slug')
+  .requiredOption('--title <title>', 'Backlog item title')
+  .requiredOption('--objective <objective>', 'Backlog item objective')
+  .requiredOption('--rationale <rationale>', 'Why this backlog item matters')
+  .requiredOption('--repo <repositoryUrl>', 'Repository URL for the backlog item')
+  .option('--branch <proposedBranch>', 'Optional proposed branch; generated when omitted')
+  .option('--priority <score>', 'Optional priority score')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardBacklogCreate);
+
+backlog
   .command('dismiss')
   .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
   .requiredOption('--note <note>', 'Reason for dismissing the backlog item')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(handleStewardDismiss);
+
+const note = program
+  .command('note')
+  .description('Steward note operations');
+
+note
+  .command('create')
+  .requiredOption('--steward <steward>', 'Steward ID or steward slug')
+  .requiredOption('--note <note>', 'Note content')
+  .option('--backlog-item <identifier>', 'Optional backlog item UUID or steward-slug/backlog-item-slug reference')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardNoteCreate);
+
+program
+  .command('mission')
+  .argument('<steward>', 'Steward ID or steward slug')
+  .description('Show the mission for an active steward')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardMission);
 
 steward
   .command('step')
