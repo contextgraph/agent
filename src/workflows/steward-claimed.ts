@@ -10,15 +10,16 @@ export interface StewardClaimedOptions {
 }
 
 function printClaim(resource: Awaited<ReturnType<ApiClient['listClaimedStewardBacklog']>>[number]) {
-  console.log(chalk.bold('Steward:'), chalk.cyan(`${resource.steward.name} (${resource.steward.slug})`));
-  console.log(chalk.bold('Backlog ID:'), resource.backlog_item.id ?? 'unknown');
+  console.log(chalk.bold('## Claimed Item'));
+  console.log(`- ${chalk.bold('Steward:')} ${chalk.cyan(`${resource.steward.name} (${resource.steward.slug})`)}`);
+  console.log(`- ${chalk.bold('Backlog ID:')} ${resource.backlog_item.id ?? 'unknown'}`);
   if (resource.backlog_item.backlog_reference) {
-    console.log(chalk.bold('Backlog Ref:'), resource.backlog_item.backlog_reference);
+    console.log(`- ${chalk.bold('Backlog Ref:')} ${resource.backlog_item.backlog_reference}`);
   }
-  console.log(chalk.bold('Title:'), resource.backlog_item.title);
-  console.log(chalk.bold('State:'), resource.backlog_item.state ?? 'in_progress');
+  console.log(`- ${chalk.bold('Title:')} ${resource.backlog_item.title}`);
+  console.log(`- ${chalk.bold('State:')} ${resource.backlog_item.state ?? 'in_progress'}`);
   if (resource.backlog_item.proposed_branch) {
-    console.log(chalk.bold('Branch:'), resource.backlog_item.proposed_branch);
+    console.log(`- ${chalk.bold('Branch:')} ${resource.backlog_item.proposed_branch}`);
   }
   console.log('');
 }
@@ -45,6 +46,8 @@ export async function runStewardClaimed(options: StewardClaimedOptions = {}): Pr
     return;
   }
 
+  console.log(chalk.bold('# Claimed Steward Backlog'));
+  console.log('');
   for (const item of claimed) {
     printClaim(item);
   }

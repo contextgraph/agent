@@ -106,7 +106,12 @@ describe('runStewardNext', () => {
       ['checkout', '-b', 'feat/steward-next-cli'],
       { cwd: undefined }
     );
-    expect(consoleLog).toHaveBeenCalledWith('Title:', 'Wire CLI command');
+    expect(consoleLog).toHaveBeenCalledWith('# Steward Claim');
+    expect(consoleLog).toHaveBeenCalledWith('## Objective');
+    expect(consoleLog).toHaveBeenCalledWith('  Add steward next to the agent CLI');
+    expect(consoleLog).toHaveBeenCalledWith('## Workflow');
+    expect(consoleLog).toHaveBeenCalledWith('## Branch');
+    expect(consoleLog).toHaveBeenCalledWith('Created and checked out feat/steward-next-cli');
 
     consoleLog.mockRestore();
   });

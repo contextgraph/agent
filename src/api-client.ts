@@ -50,11 +50,16 @@ export interface StewardNextResource {
     state?: string;
   };
   workflow?: {
+    claim_command?: string;
+    selection_rule?: string;
+    session_rule?: string;
     dismissal_command?: string;
     dismissal_rule?: string;
     completion_rule?: string;
   };
 }
+
+export interface StewardTopResource extends StewardNextResource {}
 
 export interface StewardDismissResource {
   backlog_item: {
@@ -72,6 +77,45 @@ export interface StewardDismissResource {
 }
 
 export interface StewardClaimedListResource extends StewardNextResource {}
+
+export interface StewardCreateBacklogParams {
+  steward: string;
+  title: string;
+  objective: string;
+  rationale: string;
+  repository_url: string;
+  proposed_branch?: string;
+  priority_score?: number;
+}
+
+export interface StewardCreateNoteParams {
+  steward: string;
+  note: string;
+  backlog_item?: string;
+}
+
+export interface StewardNoteResource {
+  steward: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  note: {
+    id: string;
+    content: string;
+    metadata?: Record<string, unknown> | null;
+    createdAt: string;
+  };
+}
+
+export interface StewardMissionResource {
+  steward: {
+    id: string;
+    name: string;
+    slug: string;
+    mission: string;
+  };
+}
 
 export interface StewardUnclaimResource {
   backlog_item: {
@@ -350,6 +394,37 @@ export class ApiClient {
     return result.data;
   }
 
+  async topStewardBacklog(): Promise<StewardTopResource | null> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/backlog/top?token=${encodeURIComponent(token)}`,
+      {
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardTopResource | null;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
   async claimStewardBacklog(identifier: string): Promise<StewardNextResource> {
     const token = await this.getAuthToken();
 
@@ -473,6 +548,103 @@ export class ApiClient {
     const result = await response.json() as {
       success: boolean;
       data: StewardDismissResource;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async createStewardBacklog(params: StewardCreateBacklogParams): Promise<StewardNextResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/backlog/create?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardNextResource;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async createStewardNote(params: StewardCreateNoteParams): Promise<StewardNoteResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/note/create?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardNoteResource;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async getStewardMission(identifier: string): Promise<StewardMissionResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/mission?steward=${encodeURIComponent(identifier)}&token=${encodeURIComponent(token)}`,
+      {
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardMissionResource;
       error?: string;
     };
 

@@ -26,41 +26,38 @@ jest.unstable_mockModule('../../src/credentials.js', () => ({
   isTokenExpired: mockIsTokenExpired,
 }));
 
-const mockListClaimedStewardBacklog = jest.fn<() => Promise<any>>();
+const mockGetStewardMission = jest.fn<(identifier: string) => Promise<any>>();
 jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
-    listClaimedStewardBacklog: mockListClaimedStewardBacklog,
+    getStewardMission: mockGetStewardMission,
   })),
 }));
 
-const { runStewardClaimed } = await import('../../src/workflows/steward-claimed.js');
+const { runStewardMission } = await import('../../src/workflows/steward-mission.js');
 
-describe('runStewardClaimed', () => {
+describe('runStewardMission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsExpired.mockReturnValue(false);
     mockIsTokenExpired.mockReturnValue(false);
   });
 
-  it('prints claimed backlog items', async () => {
-    mockListClaimedStewardBacklog.mockResolvedValue([{
-      steward: { name: 'Agent Platform', slug: 'agent-platform' },
-      backlog_item: {
-        id: 'backlog-1',
-        title: 'Wire CLI command',
-        backlog_reference: 'agent-platform/wire-cli-command',
-        proposed_branch: 'feat/steward-next-cli',
-        state: 'in_progress',
+  it('prints a steward mission', async () => {
+    mockGetStewardMission.mockResolvedValue({
+      steward: {
+        name: 'Observability',
+        slug: 'observability',
+        mission: 'Protect traceability across the platform.',
       },
-    }]);
+    });
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runStewardClaimed();
+    await runStewardMission({ steward: 'observability' });
 
-    expect(mockListClaimedStewardBacklog).toHaveBeenCalled();
-    expect(consoleLog).toHaveBeenCalledWith('# Claimed Steward Backlog');
-    expect(consoleLog).toHaveBeenCalledWith('## Claimed Item');
-    expect(consoleLog).toHaveBeenCalledWith('- State: in_progress');
+    expect(mockGetStewardMission).toHaveBeenCalledWith('observability');
+    expect(consoleLog).toHaveBeenCalledWith('# Steward Mission');
+    expect(consoleLog).toHaveBeenCalledWith('## Mission');
+    expect(consoleLog).toHaveBeenCalledWith('  Protect traceability across the platform.');
     consoleLog.mockRestore();
   });
 });

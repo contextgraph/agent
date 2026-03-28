@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { ApiClient, type StewardNextResource } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
+import { printWrapped } from './render.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -40,29 +41,42 @@ function runGitCommand(args: string[], cwd?: string): Promise<void> {
 }
 
 function printClaim(next: StewardNextResource) {
-  console.log(chalk.bold('Steward:'), chalk.cyan(`${next.steward.name} (${next.steward.slug})`));
+  console.log(chalk.bold('# Steward Claim'));
+  console.log(`- ${chalk.bold('Steward:')} ${chalk.cyan(`${next.steward.name} (${next.steward.slug})`)}`);
   if (next.backlog_item.id) {
-    console.log(chalk.bold('Backlog ID:'), next.backlog_item.id);
+    console.log(`- ${chalk.bold('Backlog ID:')} ${next.backlog_item.id}`);
   }
   if (next.backlog_item.backlog_reference) {
-    console.log(chalk.bold('Backlog Ref:'), next.backlog_item.backlog_reference);
+    console.log(`- ${chalk.bold('Backlog Ref:')} ${next.backlog_item.backlog_reference}`);
   }
-  console.log(chalk.bold('Title:'), next.backlog_item.title);
-  console.log(chalk.bold('Objective:'), next.backlog_item.objective);
-  console.log(chalk.bold('Rationale:'), next.backlog_item.rationale);
-
+  console.log(`- ${chalk.bold('Title:')} ${next.backlog_item.title}`);
   if (next.backlog_item.repository_url) {
-    console.log(chalk.bold('Repository:'), next.backlog_item.repository_url);
+    console.log(`- ${chalk.bold('Repository:')} ${next.backlog_item.repository_url}`);
   }
 
-  if (next.workflow?.dismissal_rule) {
-    console.log(chalk.bold('Dismissal rule:'), next.workflow.dismissal_rule);
-  }
-  if (next.workflow?.dismissal_command) {
-    console.log(chalk.bold('Dismiss command:'), next.workflow.dismissal_command);
-  }
-  if (next.workflow?.completion_rule) {
-    console.log(chalk.bold('Completion rule:'), next.workflow.completion_rule);
+  console.log('');
+  console.log(chalk.bold('## Objective'));
+  printWrapped(next.backlog_item.objective, { indent: '  ' });
+
+  console.log('');
+  console.log(chalk.bold('## Rationale'));
+  printWrapped(next.backlog_item.rationale, { indent: '  ' });
+
+  if (next.workflow?.dismissal_rule || next.workflow?.dismissal_command || next.workflow?.completion_rule) {
+    console.log('');
+    console.log(chalk.bold('## Workflow'));
+    if (next.workflow?.dismissal_rule) {
+      console.log(`- ${chalk.bold('Dismissal rule:')}`);
+      printWrapped(next.workflow.dismissal_rule, { indent: '  ' });
+    }
+    if (next.workflow?.dismissal_command) {
+      console.log(`- ${chalk.bold('Dismiss command:')}`);
+      printWrapped(next.workflow.dismissal_command, { indent: '  ' });
+    }
+    if (next.workflow?.completion_rule) {
+      console.log(`- ${chalk.bold('Completion rule:')}`);
+      printWrapped(next.workflow.completion_rule, { indent: '  ' });
+    }
   }
 }
 
@@ -97,5 +111,7 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
   }
 
   await runGitCommand(['checkout', '-b', next.backlog_item.proposed_branch]);
-  console.log(chalk.green(`Created branch ${next.backlog_item.proposed_branch}`));
+  console.log('');
+  console.log(chalk.bold('## Branch'));
+  console.log(chalk.green(`Created and checked out ${next.backlog_item.proposed_branch}`));
 }

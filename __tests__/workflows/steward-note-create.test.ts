@@ -26,38 +26,46 @@ jest.unstable_mockModule('../../src/credentials.js', () => ({
   isTokenExpired: mockIsTokenExpired,
 }));
 
-const mockUnclaimStewardBacklog = jest.fn<(identifier: string) => Promise<any>>();
+const mockCreateStewardNote = jest.fn<(params: any) => Promise<any>>();
 jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
-    unclaimStewardBacklog: mockUnclaimStewardBacklog,
+    createStewardNote: mockCreateStewardNote,
   })),
 }));
 
-const { runStewardUnclaim } = await import('../../src/workflows/steward-unclaim.js');
+const { runStewardNoteCreate } = await import('../../src/workflows/steward-note-create.js');
 
-describe('runStewardUnclaim', () => {
+describe('runStewardNoteCreate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsExpired.mockReturnValue(false);
     mockIsTokenExpired.mockReturnValue(false);
   });
 
-  it('unclaims a backlog item by reference', async () => {
-    mockUnclaimStewardBacklog.mockResolvedValue({
-      backlog_item: {
-        id: 'backlog-1',
-        title: 'Wire CLI command',
-        backlog_reference: 'agent-platform/wire-cli-command',
-        state: 'queued',
+  it('creates a steward note linked to a backlog item', async () => {
+    mockCreateStewardNote.mockResolvedValue({
+      steward: { name: 'Observability', slug: 'observability' },
+      note: {
+        id: 'note-1',
+        createdAt: '2026-03-27T12:05:00.000Z',
+        metadata: { backlogReference: 'observability/add-correlation-ids-to-heartbeat-logs' },
       },
     });
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runStewardUnclaim({ identifier: 'agent-platform/wire-cli-command' });
+    await runStewardNoteCreate({
+      steward: 'observability',
+      note: 'Split out the heartbeat logger work as the smallest safe slice.',
+      backlogItem: 'observability/add-correlation-ids-to-heartbeat-logs',
+    });
 
-    expect(mockUnclaimStewardBacklog).toHaveBeenCalledWith('agent-platform/wire-cli-command');
-    expect(consoleLog).toHaveBeenCalledWith('# Steward Unclaim');
-    expect(consoleLog).toHaveBeenCalledWith('- State: queued');
+    expect(mockCreateStewardNote).toHaveBeenCalledWith({
+      steward: 'observability',
+      note: 'Split out the heartbeat logger work as the smallest safe slice.',
+      backlog_item: 'observability/add-correlation-ids-to-heartbeat-logs',
+    });
+    expect(consoleLog).toHaveBeenCalledWith('# Steward Note');
+    expect(consoleLog).toHaveBeenCalledWith('- Backlog Ref: observability/add-correlation-ids-to-heartbeat-logs');
     consoleLog.mockRestore();
   });
 });

@@ -74,7 +74,10 @@ describe('runStewardDismiss', () => {
       'agent-platform/wire-cli-command',
       'Already landed in PR #100.'
     );
-    expect(consoleLog).toHaveBeenCalledWith('State:', 'dismissed');
+    expect(consoleLog).toHaveBeenCalledWith('# Steward Dismissal');
+    expect(consoleLog).toHaveBeenCalledWith('- State: dismissed');
+    expect(consoleLog).toHaveBeenCalledWith('## Note');
+    expect(consoleLog).toHaveBeenCalledWith('  Already landed in PR #100.');
 
     consoleLog.mockRestore();
   });
