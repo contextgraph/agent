@@ -1,10 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
-import os from 'os';
 import type { Credentials } from './types/actions.js';
+import { getStewardHomeDir } from './steward-home.js';
 
 function getCredentialsDir(): string {
-  return process.env.CONTEXTGRAPH_CREDENTIALS_DIR || path.join(os.homedir(), '.contextgraph');
+  return getStewardHomeDir();
 }
 
 function getCredentialsPath(): string {
