@@ -353,13 +353,6 @@ queue
   .action(handleStewardTop);
 
 backlog
-  .command('top')
-  .description('Inspect the highest-priority queued steward backlog item without claiming it')
-  .option('--steward <steward>', 'Limit selection to a specific steward ID or steward slug')
-  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
-  .action(handleStewardTop);
-
-backlog
   .command('claimed')
   .description('List all currently claimed steward backlog items')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
@@ -390,6 +383,28 @@ backlog
   .requiredOption('--note <note>', 'Reason for dismissing the backlog item')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(handleStewardDismiss);
+
+const queueClaim = queue
+  .command('claim')
+  .description('Claim a queued steward work item');
+
+queueClaim
+  .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
+
+queue
+  .command('active')
+  .description('List all currently active steward queue items')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardClaimed);
+
+queue
+  .command('unclaim')
+  .argument('<identifier>', 'Queue item UUID')
+  .description('Release a claimed steward queue item back to the queue')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardUnclaim);
 
 const note = program
   .command('note')
