@@ -5,20 +5,18 @@ import path from 'path';
 
 const originalStewardHome = process.env.STEWARD_HOME;
 const originalAxiomToken = process.env.AXIOM_TOKEN;
-const originalGithubToken = process.env.GITHUB_TOKEN;
 const originalFetch = global.fetch;
 
 let tempDir: string;
 
-const { runStewardConfigureValidate } = await import('../../src/workflows/steward-configure-validate.js');
+const { runStewardHeartbeat } = await import('../../src/workflows/steward-heartbeat.js');
 const { getStewardConfigPath } = await import('../../src/steward-config.js');
 
-describe('runStewardConfigureValidate', () => {
+describe('runStewardHeartbeat', () => {
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'steward-config-validate-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'steward-heartbeat-'));
     process.env.STEWARD_HOME = tempDir;
     process.env.AXIOM_TOKEN = 'axiom-token';
-    process.env.GITHUB_TOKEN = 'github-token';
   });
 
   afterEach(async () => {
@@ -34,18 +32,12 @@ describe('runStewardConfigureValidate', () => {
       process.env.AXIOM_TOKEN = originalAxiomToken;
     }
 
-    if (originalGithubToken === undefined) {
-      delete process.env.GITHUB_TOKEN;
-    } else {
-      process.env.GITHUB_TOKEN = originalGithubToken;
-    }
-
     global.fetch = originalFetch;
     await fs.rm(tempDir, { recursive: true, force: true });
     jest.restoreAllMocks();
   });
 
-  it('validates integrations and persists validated_at on success', async () => {
+  it('loads the Axiom token from local config and prints a heartbeat summary', async () => {
     const configPath = getStewardConfigPath();
     await fs.mkdir(path.dirname(configPath), { recursive: true });
     await fs.writeFile(
@@ -68,26 +60,36 @@ describe('runStewardConfigureValidate', () => {
     );
 
     global.fetch = jest.fn<typeof fetch>().mockResolvedValue({
-      status: 401,
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        datasets: [
+          { name: 'prod-errors' },
+          { name: 'checkout-events' },
+        ],
+      }),
     } as Response);
 
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runStewardConfigureValidate();
+    await runStewardHeartbeat({ steward: 'error-monitoring' });
 
-    const saved = JSON.parse(await fs.readFile(configPath, 'utf8')) as {
-      integrations: Array<{ validated_at?: string }>;
-    };
-
-    expect(global.fetch).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({
-      method: 'GET',
-      headers: expect.any(Headers),
-    }));
-    expect(saved.integrations[0]?.validated_at).toBeDefined();
-    expect(consoleLog).toHaveBeenCalledWith('# Steward Config Validation');
+    expect(global.fetch).toHaveBeenCalledWith(
+      new URL('https://api.axiom.co/v2/datasets'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer axiom-token',
+        }),
+      })
+    );
+    expect(consoleLog).toHaveBeenCalledWith('# Steward Heartbeat');
+    expect(consoleLog).toHaveBeenCalledWith('- Steward: error-monitoring');
+    expect(consoleLog).toHaveBeenCalledWith('- Dataset Count: 2');
   });
 
-  it('fails when required env vars are missing', async () => {
+  it('fails when no configured Axiom token env var is available', async () => {
     delete process.env.AXIOM_TOKEN;
 
     const configPath = getStewardConfigPath();
@@ -102,6 +104,7 @@ describe('runStewardConfigureValidate', () => {
               name: 'axiom',
               endpoint: 'https://api.axiom.co',
               env: ['AXIOM_TOKEN'],
+              auth_type: 'bearer',
             },
           ],
         },
@@ -110,10 +113,8 @@ describe('runStewardConfigureValidate', () => {
       )
     );
 
-    global.fetch = jest.fn<typeof fetch>();
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-
-    await expect(runStewardConfigureValidate()).rejects.toThrow('One or more integrations failed validation.');
-    expect(global.fetch).not.toHaveBeenCalled();
+    await expect(runStewardHeartbeat({ steward: 'error-monitoring' })).rejects.toThrow(
+      'Axiom integration is configured but none of its env vars are available: AXIOM_TOKEN'
+    );
   });
 });

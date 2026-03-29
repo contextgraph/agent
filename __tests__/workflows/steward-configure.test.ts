@@ -40,7 +40,7 @@ describe('runStewardConfigure', () => {
     expect(saved.version).toBe(1);
     expect(saved.integrations).toHaveLength(1);
     expect(saved.integrations[0]?.name).toBe('axiom');
-    expect(saved.integrations[0]?.env).toEqual(['AXIOM_API_TOKEN']);
+    expect(saved.integrations[0]?.env).toEqual(['AXIOM_TOKEN']);
     expect(consoleLog).toHaveBeenCalledWith('# Steward Config');
     expect(consoleLog).toHaveBeenCalledWith(`- Path: ${configPath}`);
     expect(consoleLog).toHaveBeenCalledWith('- Status: Created new config scaffold');
@@ -58,7 +58,7 @@ describe('runStewardConfigure', () => {
             {
               name: 'axiom',
               endpoint: 'https://api.axiom.co',
-              env: ['AXIOM_API_TOKEN'],
+              env: ['AXIOM_TOKEN'],
             },
           ],
         },
