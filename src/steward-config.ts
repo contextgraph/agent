@@ -32,7 +32,7 @@ export function defaultStewardConfig(): StewardConfigFile {
       {
         name: 'axiom',
         endpoint: 'https://api.axiom.co',
-        env: ['AXIOM_API_TOKEN'],
+        env: ['AXIOM_TOKEN'],
         auth_type: 'bearer',
         docs: 'https://axiom.co/docs/restapi/introduction',
         notes: ['Replace or remove this example entry once your real integration is configured.'],

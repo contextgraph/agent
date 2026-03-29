@@ -20,6 +20,7 @@ import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
 import { runStewardMission } from '../workflows/steward-mission.js';
 import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
+import { runStewardHeartbeat } from '../workflows/steward-heartbeat.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -190,6 +191,15 @@ async function handleStewardConfigureValidate(): Promise<void> {
     await runStewardConfigureValidate();
   } catch (error) {
     console.error('Error validating steward config:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardHeartbeat(steward: string): Promise<void> {
+  try {
+    await runStewardHeartbeat({ steward });
+  } catch (error) {
+    console.error('Error running steward heartbeat:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
@@ -456,6 +466,12 @@ program
   .description('Show the mission for an active steward')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(handleStewardMission);
+
+program
+  .command('heartbeat')
+  .argument('<steward>', 'Steward ID or steward slug')
+  .description('Run a local steward heartbeat')
+  .action(handleStewardHeartbeat);
 
 steward
   .command('step')
