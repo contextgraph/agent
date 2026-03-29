@@ -18,6 +18,7 @@ import { runStewardTop } from '../workflows/steward-top.js';
 import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js';
 import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
 import { runStewardMission } from '../workflows/steward-mission.js';
+import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -174,6 +175,15 @@ async function handleStewardMission(identifier: string, options: { baseUrl?: str
   }
 }
 
+async function handleStewardConfigure(): Promise<void> {
+  try {
+    await runStewardConfigure();
+  } catch (error) {
+    console.error('Error configuring steward:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
 program
   .command('setup')
   .description('Interactive setup wizard for new users')
@@ -238,6 +248,11 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command('configure')
+  .description('Create or inspect local steward configuration')
+  .action(handleStewardConfigure);
 
 program
   .command('prepare')
