@@ -37,14 +37,6 @@ export function defaultStewardConfig(): StewardConfigFile {
         docs: 'https://axiom.co/docs/restapi/introduction',
         notes: ['Replace or remove this example entry once your real integration is configured.'],
       },
-      {
-        name: 'github',
-        endpoint: 'https://api.github.com',
-        env: ['GITHUB_TOKEN'],
-        auth_type: 'bearer',
-        docs: 'https://docs.github.com/en/rest',
-        notes: ['Use the token already available on this machine for local steward execution.'],
-      },
     ],
   };
 }
