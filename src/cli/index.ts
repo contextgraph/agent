@@ -14,10 +14,10 @@ import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
 import { runStewardUnclaim } from '../workflows/steward-unclaim.js';
+import { runStewardTop } from '../workflows/steward-top.js';
 import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js';
 import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
 import { runStewardMission } from '../workflows/steward-mission.js';
-import { runStewardTop } from '../workflows/steward-top.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -87,9 +87,10 @@ async function handleStewardClaimed(options: { baseUrl?: string }): Promise<void
   }
 }
 
-async function handleStewardTop(options: { baseUrl?: string }): Promise<void> {
+async function handleStewardTop(options: { steward?: string; baseUrl?: string }): Promise<void> {
   try {
     await runStewardTop({
+      steward: options.steward,
       baseUrl: options.baseUrl,
     });
   } catch (error) {
@@ -311,6 +312,7 @@ const backlog = program
 backlog
   .command('top')
   .description('Inspect the highest-priority queued steward backlog item without claiming it')
+  .option('--steward <steward>', 'Limit selection to a specific steward ID or steward slug')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(handleStewardTop);
 
@@ -338,6 +340,24 @@ claim
   .description('Claim a specific queued steward backlog item')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
+
+const queue = program
+  .command('queue')
+  .description('Steward queue workflows');
+
+queue
+  .command('top')
+  .description('Inspect the highest-priority queued steward work item without claiming it')
+  .option('--steward <steward>', 'Limit selection to a specific steward ID or steward slug')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardTop);
+
+backlog
+  .command('top')
+  .description('Inspect the highest-priority queued steward backlog item without claiming it')
+  .option('--steward <steward>', 'Limit selection to a specific steward ID or steward slug')
+  .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
+  .action(handleStewardTop);
 
 backlog
   .command('claimed')

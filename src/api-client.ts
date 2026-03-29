@@ -60,6 +60,27 @@ export interface StewardNextResource {
 }
 
 export interface StewardTopResource extends StewardNextResource {}
+export interface StewardQueueTopResource {
+  queue_item: {
+    id: string;
+    type: 'backlog';
+    title: string;
+    rationale: string;
+    priority_score: number;
+    state: string;
+  };
+  steward: StewardNextResource['steward'];
+  backlog_item: StewardNextResource['backlog_item'];
+  workflow?: {
+    claim_command?: string;
+    fallback_claim_command?: string;
+    selection_rule?: string;
+    session_rule?: string;
+    dismissal_command?: string;
+    dismissal_rule?: string;
+    completion_rule?: string;
+  };
+}
 
 export interface StewardDismissResource {
   backlog_item: {
@@ -394,11 +415,17 @@ export class ApiClient {
     return result.data;
   }
 
-  async topStewardBacklog(): Promise<StewardTopResource | null> {
+  async topStewardQueue(steward?: string): Promise<StewardQueueTopResource | null> {
     const token = await this.getAuthToken();
+    const query = new URLSearchParams({
+      token,
+    });
+    if (steward?.trim()) {
+      query.set('steward', steward.trim());
+    }
 
     const response = await fetchWithRetry(
-      `${this.baseUrl}/api/steward/backlog/top?token=${encodeURIComponent(token)}`,
+      `${this.baseUrl}/api/steward/queue/top?${query.toString()}`,
       {
         headers: {
           'x-authorization': `Bearer ${token}`,
@@ -414,7 +441,7 @@ export class ApiClient {
 
     const result = await response.json() as {
       success: boolean;
-      data: StewardTopResource | null;
+      data: StewardQueueTopResource | null;
       error?: string;
     };
 

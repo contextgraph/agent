@@ -26,10 +26,10 @@ jest.unstable_mockModule('../../src/credentials.js', () => ({
   isTokenExpired: mockIsTokenExpired,
 }));
 
-const mockTopStewardBacklog = jest.fn<() => Promise<any>>();
+const mockTopStewardQueue = jest.fn<(steward?: string) => Promise<any>>();
 jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
-    topStewardBacklog: mockTopStewardBacklog,
+    topStewardQueue: mockTopStewardQueue,
   })),
 }));
 
@@ -43,7 +43,15 @@ describe('runStewardTop', () => {
   });
 
   it('prints the top backlog item and explicit claim instructions', async () => {
-    mockTopStewardBacklog.mockResolvedValue({
+    mockTopStewardQueue.mockResolvedValue({
+      queue_item: {
+        id: 'backlog-1',
+        type: 'backlog',
+        title: 'Lock in validation logic with unit tests for evidence detection',
+        rationale: 'Avoid regressions',
+        priority_score: 97,
+        state: 'queued',
+      },
       steward: { name: 'Code Quality Steward', slug: 'code-quality-steward' },
       backlog_item: {
         id: 'backlog-1',
@@ -56,8 +64,9 @@ describe('runStewardTop', () => {
         priority_score: 97,
       },
       workflow: {
-        selection_rule: 'This is currently the highest-priority queued backlog item across your active stewards.',
-        claim_command: 'steward backlog claim code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi',
+        selection_rule: 'This is currently the highest-priority queue item, and it is a backlog item.',
+        claim_command: 'steward queue claim backlog-1',
+        fallback_claim_command: 'steward backlog claim code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi',
         session_rule: 'Claim at most one backlog item at a time.',
       },
     });
@@ -65,14 +74,45 @@ describe('runStewardTop', () => {
 
     await runStewardTop();
 
-    expect(mockTopStewardBacklog).toHaveBeenCalled();
-    expect(consoleLog).toHaveBeenCalledWith('# Top Backlog Item');
+    expect(mockTopStewardQueue).toHaveBeenCalled();
+    expect(consoleLog).toHaveBeenCalledWith('# Top Queue Item');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
     expect(consoleLog).toHaveBeenCalledWith('```bash');
-    expect(consoleLog).toHaveBeenCalledWith(
-      'steward backlog claim code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi'
-    );
+    expect(consoleLog).toHaveBeenCalledWith('steward queue claim backlog-1');
     expect(consoleLog).toHaveBeenCalledWith('## Session Rule');
+    consoleLog.mockRestore();
+  });
+
+  it('forwards an optional steward selector', async () => {
+    mockTopStewardQueue.mockResolvedValue({
+      queue_item: {
+        id: 'backlog-2',
+        type: 'backlog',
+        title: 'Remove obsolete branch cleanup fallback',
+        rationale: 'Reduce code surface area',
+        priority_score: 91,
+        state: 'queued',
+      },
+      steward: { name: 'Codebase Pruning', slug: 'codebase-pruning' },
+      backlog_item: {
+        id: 'backlog-2',
+        title: 'Remove obsolete branch cleanup fallback',
+        backlog_reference: 'codebase-pruning/remove-obsolete-branch-cleanup-fallback',
+        objective: 'Delete dead fallback logic',
+        rationale: 'Reduce code surface area',
+        proposed_branch: 'steward/codebase-pruning/remove-obsolete-branch-cleanup-fallback',
+        repository_url: 'https://github.com/contextgraph/actions',
+        priority_score: 91,
+      },
+      workflow: {
+        claim_command: 'steward backlog claim codebase-pruning/remove-obsolete-branch-cleanup-fallback',
+      },
+    });
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runStewardTop({ steward: 'codebase-pruning' });
+
+    expect(mockTopStewardQueue).toHaveBeenCalledWith('codebase-pruning');
     consoleLog.mockRestore();
   });
 });
