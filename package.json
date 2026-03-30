@@ -4,8 +4,6 @@
   "description": "Autonomous agent for contextgraph action execution",
   "type": "module",
   "bin": {
-    "contextgraph-agent": "dist/index.js",
-    "cg": "dist/cg.js",
     "steward": "dist/index.js"
   },
   "scripts": {
