@@ -21,6 +21,7 @@ import { runStewardMission } from '../workflows/steward-mission.js';
 import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
 import { runStewardHeartbeat } from '../workflows/steward-heartbeat.js';
+import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -202,6 +203,10 @@ async function handleStewardHeartbeat(steward: string): Promise<void> {
     console.error('Error running steward heartbeat:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
+}
+
+function handleStewardBacklogInstructions(): void {
+  runStewardBacklogInstructions();
 }
 
 program
@@ -425,6 +430,11 @@ backlog
   .requiredOption('--note <note>', 'Reason for dismissing the backlog item')
   .option('--base-url <baseUrl>', 'ContextGraph API base URL', PRIMARY_WEB_BASE_URL)
   .action(handleStewardDismiss);
+
+backlog
+  .command('instructions')
+  .description('Show the recommended manual backlog workflow')
+  .action(handleStewardBacklogInstructions);
 
 const queueClaim = queue
   .command('claim')

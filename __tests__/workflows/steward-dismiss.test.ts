@@ -76,6 +76,7 @@ describe('runStewardDismiss', () => {
     );
     expect(consoleLog).toHaveBeenCalledWith('# Steward Dismissal');
     expect(consoleLog).toHaveBeenCalledWith('- State: dismissed');
+    expect(consoleLog).toHaveBeenCalledWith('- Result: This backlog item is closed and will not be worked.');
     expect(consoleLog).toHaveBeenCalledWith('## Note');
     expect(consoleLog).toHaveBeenCalledWith('  Already landed in PR #100.');
 

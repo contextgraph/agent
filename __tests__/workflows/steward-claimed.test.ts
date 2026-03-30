@@ -59,8 +59,10 @@ describe('runStewardClaimed', () => {
 
     expect(mockListClaimedStewardBacklog).toHaveBeenCalled();
     expect(consoleLog).toHaveBeenCalledWith('# Claimed Steward Backlog');
+    expect(consoleLog).toHaveBeenCalledWith('- Inspect these items before claiming anything new.');
     expect(consoleLog).toHaveBeenCalledWith('## Claimed Item');
     expect(consoleLog).toHaveBeenCalledWith('- State: in_progress');
+    expect(consoleLog).toHaveBeenCalledWith('- Recovery: Use this item for context recovery instead of claiming a new one.');
     consoleLog.mockRestore();
   });
 });

@@ -78,6 +78,12 @@ function printClaim(next: StewardNextResource) {
       printWrapped(next.workflow.completion_rule, { indent: '  ' });
     }
   }
+
+  if (next.workflow?.session_rule) {
+    console.log('');
+    console.log(chalk.bold('## Stop Rule'));
+    printWrapped(next.workflow.session_rule, { indent: '  ' });
+  }
 }
 
 export async function runStewardClaim(options: StewardClaimOptions = {}): Promise<void> {
@@ -114,4 +120,9 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
   console.log('');
   console.log(chalk.bold('## Branch'));
   console.log(chalk.green(`Created and checked out ${next.backlog_item.proposed_branch}`));
+  console.log('');
+  console.log(chalk.bold('## Next Step'));
+  printWrapped('Do the work for this backlog item on the checked-out branch. After you open or update a PR, stop and wait for the user instead of claiming another backlog item.', {
+    indent: '  ',
+  });
 }

@@ -36,4 +36,5 @@ export async function runStewardUnclaim(options: StewardUnclaimOptions): Promise
   console.log(`- ${chalk.bold('Title:')} ${result.backlog_item.title}`);
   console.log(`- ${chalk.bold('Backlog Ref:')} ${result.backlog_item.backlog_reference}`);
   console.log(`- ${chalk.bold('State:')} ${result.backlog_item.state}`);
+  console.log(`- ${chalk.bold('Result:')} This backlog item is back in the queue and can be claimed again later.`);
 }

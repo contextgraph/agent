@@ -12,8 +12,7 @@ export interface StewardTopOptions {
 }
 
 function printTop(resource: StewardQueueTopResource) {
-  console.log(chalk.bold('# Top Queue Item'));
-  console.log(`- ${chalk.bold('Type:')} ${resource.queue_item.type}`);
+  console.log(chalk.bold('# Top Backlog Item'));
   console.log(`- ${chalk.bold('Title:')} ${resource.queue_item.title}`);
   console.log(`- ${chalk.bold('Steward:')} ${chalk.cyan(`${resource.steward.name} (${resource.steward.slug})`)}`);
   if (resource.queue_item.id) {
@@ -50,6 +49,8 @@ function printTop(resource: StewardQueueTopResource) {
     console.log('');
   }
   if (resource.workflow?.claim_command) {
+    printWrapped('Claim this backlog item before doing any work on it.', { indent: '  ' });
+    console.log('');
     console.log(chalk.bold('```bash'));
     console.log(resource.workflow.claim_command);
     console.log(chalk.bold('```'));
@@ -65,7 +66,7 @@ function printTop(resource: StewardQueueTopResource) {
 
   if (resource.workflow?.session_rule) {
     console.log('');
-    console.log(chalk.bold('## Session Rule'));
+    console.log(chalk.bold('## Stop Rule'));
     printWrapped(resource.workflow.session_rule, { indent: '  ' });
   }
 }

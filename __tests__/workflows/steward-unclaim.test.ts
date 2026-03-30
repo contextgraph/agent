@@ -58,6 +58,7 @@ describe('runStewardUnclaim', () => {
     expect(mockUnclaimStewardBacklog).toHaveBeenCalledWith('agent-platform/wire-cli-command');
     expect(consoleLog).toHaveBeenCalledWith('# Steward Unclaim');
     expect(consoleLog).toHaveBeenCalledWith('- State: queued');
+    expect(consoleLog).toHaveBeenCalledWith('- Result: This backlog item is back in the queue and can be claimed again later.');
     consoleLog.mockRestore();
   });
 });

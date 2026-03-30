@@ -87,6 +87,9 @@ describe('runStewardClaim', () => {
         proposed_branch: 'feat/steward-next-cli',
         repository_url: 'https://github.com/contextgraph/agent',
       },
+      workflow: {
+        session_rule: 'After you open or update a PR, stop and wait for the user.',
+      },
     });
     mockSpawn.mockReturnValue(createMockProcess(0));
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -96,6 +99,8 @@ describe('runStewardClaim', () => {
     expect(mockNextStewardWork).toHaveBeenCalled();
     expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
     expect(mockSpawn).toHaveBeenCalledWith('git', ['checkout', '-b', 'feat/steward-next-cli'], { cwd: undefined });
+    expect(consoleLog).toHaveBeenCalledWith('## Stop Rule');
+    expect(consoleLog).toHaveBeenCalledWith('## Next Step');
     consoleLog.mockRestore();
   });
 
