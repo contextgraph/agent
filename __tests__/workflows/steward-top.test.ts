@@ -75,11 +75,12 @@ describe('runStewardTop', () => {
     await runStewardTop();
 
     expect(mockTopStewardQueue).toHaveBeenCalled();
-    expect(consoleLog).toHaveBeenCalledWith('# Top Queue Item');
+    expect(consoleLog).toHaveBeenCalledWith('# Top Backlog Item');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
+    expect(consoleLog).toHaveBeenCalledWith('  Claim this backlog item before doing any work on it.');
     expect(consoleLog).toHaveBeenCalledWith('```bash');
     expect(consoleLog).toHaveBeenCalledWith('steward queue claim backlog-1');
-    expect(consoleLog).toHaveBeenCalledWith('## Session Rule');
+    expect(consoleLog).toHaveBeenCalledWith('## Stop Rule');
     consoleLog.mockRestore();
   });
 

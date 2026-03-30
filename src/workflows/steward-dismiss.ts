@@ -45,6 +45,7 @@ export async function runStewardDismiss(options: StewardDismissOptions): Promise
   console.log(`- ${chalk.bold('State:')} ${result.backlog_item.state}`);
   console.log(`- ${chalk.bold('Note ID:')} ${result.note.id}`);
   console.log(`- ${chalk.bold('Created At:')} ${result.note.createdAt}`);
+  console.log(`- ${chalk.bold('Result:')} This backlog item is closed and will not be worked.`);
   console.log('');
   console.log(chalk.bold('## Note'));
   printWrapped(result.note.content, { indent: '  ' });

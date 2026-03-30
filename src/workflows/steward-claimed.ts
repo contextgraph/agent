@@ -21,6 +21,7 @@ function printClaim(resource: Awaited<ReturnType<ApiClient['listClaimedStewardBa
   if (resource.backlog_item.proposed_branch) {
     console.log(`- ${chalk.bold('Branch:')} ${resource.backlog_item.proposed_branch}`);
   }
+  console.log(`- ${chalk.bold('Recovery:')} Use this item for context recovery instead of claiming a new one.`);
   console.log('');
 }
 
@@ -47,6 +48,7 @@ export async function runStewardClaimed(options: StewardClaimedOptions = {}): Pr
   }
 
   console.log(chalk.bold('# Claimed Steward Backlog'));
+  console.log('- Inspect these items before claiming anything new.');
   console.log('');
   for (const item of claimed) {
     printClaim(item);
