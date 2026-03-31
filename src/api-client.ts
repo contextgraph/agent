@@ -2,7 +2,15 @@ import { loadCredentials, isExpired, isTokenExpired } from './credentials.js';
 import { fetchWithRetry } from './fetch-with-retry.js';
 import { PRIMARY_WEB_BASE_URL } from './platform-urls.js';
 import type { ActionDetailResource, ActionNode } from './types/actions.js';
-import packageJson from '../package.json' assert { type: 'json' };
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')) as {
+  version: string;
+};
 
 export interface StewardBacklogCandidate {
   id: string;
@@ -136,6 +144,16 @@ export interface StewardMissionResource {
     slug: string;
     mission: string;
   };
+}
+
+export interface IntegrationSurfaceResource {
+  key: string;
+  name: string;
+  defaultEndpoint?: string;
+  envVars: string[];
+  description: string;
+  docsUrl?: string;
+  usageReference?: string;
 }
 
 export interface StewardUnclaimResource {
@@ -680,5 +698,38 @@ export class ApiClient {
     }
 
     return result.data;
+  }
+
+  async getIntegrationSurfaces(): Promise<IntegrationSurfaceResource[]> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/integrations/surfaces?token=${encodeURIComponent(token)}`,
+      {
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: {
+        integrations: IntegrationSurfaceResource[];
+      };
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data.integrations;
   }
 }
