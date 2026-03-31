@@ -4,7 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import chalk from 'chalk';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
-import { ApiClient, type StewardClaimResource } from '../api-client.js';
+import { ApiClient, type IntegrationSurfaceResource, type StewardClaimResource } from '../api-client.js';
 import { normalizeRepositoryUrlForClone, prepareMultiRepoWorkspace } from '../workspace-prep.js';
 import { createAgentRunner } from '../runners/index.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -93,6 +93,48 @@ function inferPrContext(claim: StewardClaimResource): { owner?: string; repo?: s
   }
 
   return parsePrContextFromUrl(claim.prompt);
+}
+
+type AvailableIntegration = IntegrationSurfaceResource & {
+  matchedEnvVars: string[];
+};
+
+function getAvailableIntegrations(surfaces: IntegrationSurfaceResource[]): AvailableIntegration[] {
+  return surfaces
+    .map((surface) => ({
+      ...surface,
+      matchedEnvVars: surface.envVars.filter((envName) => {
+        const value = process.env[envName];
+        return typeof value === 'string' && value.trim().length > 0;
+      }),
+    }))
+    .filter((surface) => surface.matchedEnvVars.length > 0);
+}
+
+function buildIntegrationPromptSection(integrations: AvailableIntegration[]): string {
+  if (integrations.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = [
+    '## Available Integrations',
+    'The following integrations are available on this machine for this execution. Use them when they help resolve the claimed backlog item.',
+  ];
+
+  for (const integration of integrations) {
+    lines.push('');
+    lines.push(`- ${integration.name} (${integration.key})`);
+    if (integration.defaultEndpoint) {
+      lines.push(`  Endpoint: ${integration.defaultEndpoint}`);
+    }
+    lines.push(`  Available env vars: ${integration.matchedEnvVars.join(', ')}`);
+    lines.push(`  Description: ${integration.description}`);
+    if (integration.usageReference) {
+      lines.push(`  Usage: ${integration.usageReference}`);
+    }
+  }
+
+  return lines.join('\n');
 }
 
 export async function runStewardStep(options: StewardStepOptions = {}): Promise<StewardStepResult> {
@@ -184,7 +226,18 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
     );
 
     let workspacePath: string;
-    let promptPrefix = '';
+    const promptSections: string[] = [];
+
+    try {
+      const integrationSurfaces = await apiClient.getIntegrationSurfaces();
+      const availableIntegrations = getAvailableIntegrations(integrationSurfaces);
+      const integrationPrompt = buildIntegrationPromptSection(availableIntegrations);
+      if (integrationPrompt) {
+        promptSections.push(integrationPrompt);
+      }
+    } catch (error) {
+      console.warn(chalk.yellow(`Warning: failed to load integration surfaces: ${error instanceof Error ? error.message : String(error)}`));
+    }
 
     if (repositories.length > 0) {
       const workspace = await prepareMultiRepoWorkspace(repositories, {
@@ -199,12 +252,12 @@ export async function runStewardStep(options: StewardStepOptions = {}): Promise<
         .map((repo) => `- ${repo.url} -> \`${repo.name}\`${repo.branch ? ` (branch \`${repo.branch}\`)` : ''}`)
         .join('\n');
 
-      promptPrefix = `## Workspace Repositories
+      promptSections.push(`## Workspace Repositories
 The workspace root contains one directory per backlog repository. Use the repository that matches your selected backlog item.
 
 ${repoLines}
 
-When your selected item includes a proposed branch, you MUST use that exact branch for git operations in that repository.`;
+When your selected item includes a proposed branch, you MUST use that exact branch for git operations in that repository.`);
 
       // Capture repository routing decision - track which repositories are prepared
       captureEvent(workerId, 'steward_repositories_prepared', {
@@ -227,6 +280,7 @@ When your selected item includes a proposed branch, you MUST use that exact bran
       console.log(chalk.dim(`   ${workspacePath}`));
     }
 
+    const promptPrefix = promptSections.join('\n\n');
     const prompt = promptPrefix ? `${promptPrefix}\n\n${claim.prompt}` : claim.prompt;
     const inferredPrContext = inferPrContext(claim);
 
