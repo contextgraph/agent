@@ -1,22 +1,23 @@
-import { loadStewardConfig, type StewardIntegrationConfig } from '../steward-config.js';
+import { ApiClient, type IntegrationSurfaceResource } from '../api-client.js';
+import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
 
 type AxiomDatasetsResponse =
   | Array<{ name?: string }>
   | { datasets?: Array<{ name?: string }> };
 
-function findAxiomIntegration(integrations: StewardIntegrationConfig[]): StewardIntegrationConfig | null {
-  return integrations.find((integration) => integration.name === 'axiom') ?? null;
+function findAxiomIntegration(integrations: IntegrationSurfaceResource[]): IntegrationSurfaceResource | null {
+  return integrations.find((integration) => integration.key === 'axiom') ?? null;
 }
 
-function resolveBearerToken(integration: StewardIntegrationConfig): { envName: string; value: string } {
-  const envName = integration.env.find((candidate) => {
+function resolveBearerToken(integration: IntegrationSurfaceResource): { envName: string; value: string } {
+  const envName = integration.envVars.find((candidate) => {
     const value = process.env[candidate];
     return value && value.trim().length > 0;
   });
 
   if (!envName) {
-    throw new Error(`Axiom integration is configured but none of its env vars are available: ${integration.env.join(', ')}`);
+    throw new Error(`Axiom integration is available in steward.foo, but none of its env vars are available locally: ${integration.envVars.join(', ')}`);
   }
 
   return {
@@ -32,19 +33,19 @@ function extractDatasetNames(payload: AxiomDatasetsResponse): string[] {
     .filter((name): name is string => Boolean(name));
 }
 
-export async function runStewardHeartbeat(options: { steward: string }): Promise<void> {
-  const config = await loadStewardConfig();
-  if (!config) {
-    throw new Error('No steward config found. Run `steward configure` first.');
-  }
-
-  const integration = findAxiomIntegration(config.integrations);
+export async function runStewardHeartbeat(options: { steward: string; baseUrl?: string }): Promise<void> {
+  const client = new ApiClient(options.baseUrl ?? PRIMARY_WEB_BASE_URL);
+  const integrations = await client.getIntegrationSurfaces();
+  const integration = findAxiomIntegration(integrations);
   if (!integration) {
-    throw new Error('No Axiom integration is configured in ~/.steward/config.json.');
+    throw new Error('No Axiom integration surface is defined in steward.foo.');
+  }
+  if (!integration.defaultEndpoint) {
+    throw new Error('Axiom integration surface is missing a default endpoint.');
   }
 
   const token = resolveBearerToken(integration);
-  const endpoint = new URL('/v2/datasets', integration.endpoint.endsWith('/') ? integration.endpoint : `${integration.endpoint}/`);
+  const endpoint = new URL('/v2/datasets', integration.defaultEndpoint.endsWith('/') ? integration.defaultEndpoint : `${integration.defaultEndpoint}/`);
 
   const response = await fetch(endpoint, {
     method: 'GET',
@@ -62,8 +63,9 @@ export async function runStewardHeartbeat(options: { steward: string }): Promise
 
   console.log('# Steward Heartbeat');
   console.log(`- Steward: ${options.steward}`);
-  console.log(`- Integration: ${integration.name}`);
+  console.log(`- Integration: ${integration.name} (${integration.key})`);
   console.log(`- Auth Env: ${token.envName}`);
+  console.log(`- Endpoint: ${integration.defaultEndpoint}`);
   console.log(`- Dataset Count: ${datasetNames.length}`);
 
   console.log('\n## Result');

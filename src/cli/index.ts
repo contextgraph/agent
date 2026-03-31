@@ -191,9 +191,9 @@ async function handleStewardConfigureValidate(): Promise<void> {
   }
 }
 
-async function handleStewardHeartbeat(steward: string): Promise<void> {
+async function handleStewardHeartbeat(steward: string, options: { baseUrl?: string }): Promise<void> {
   try {
-    await runStewardHeartbeat({ steward });
+    await runStewardHeartbeat({ steward, baseUrl: options.baseUrl });
   } catch (error) {
     console.error('Error running steward heartbeat:', error instanceof Error ? error.message : error);
     process.exit(1);
@@ -365,6 +365,7 @@ program
   .command('heartbeat')
   .argument('<steward>', 'Steward ID or steward slug')
   .description('Run a local steward heartbeat')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardHeartbeat);
 
 steward
