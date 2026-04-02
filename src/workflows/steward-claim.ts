@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import chalk from 'chalk';
-import { ApiClient, type StewardNextResource } from '../api-client.js';
+import { ApiClient, type IntegrationSurfaceResource, type StewardNextResource } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
@@ -10,6 +10,15 @@ const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 export interface StewardClaimOptions {
   identifier?: string;
   baseUrl?: string;
+}
+
+interface AvailableIntegration {
+  key: string;
+  name: string;
+  endpoint: string | undefined;
+  envVars: string[];
+  description: string;
+  usageReference: string | undefined;
 }
 
 function runGitCommand(args: string[], cwd?: string): Promise<void> {
@@ -40,7 +49,51 @@ function runGitCommand(args: string[], cwd?: string): Promise<void> {
   });
 }
 
-function printClaim(next: StewardNextResource) {
+function getAvailableIntegrations(surfaces: IntegrationSurfaceResource[]): AvailableIntegration[] {
+  const integrations: AvailableIntegration[] = [];
+
+  for (const surface of surfaces) {
+    const envVars = surface.envVars.filter((envVar) => process.env[envVar]?.trim());
+
+    if (envVars.length === 0) {
+      continue;
+    }
+
+    integrations.push({
+      key: surface.key,
+      name: surface.name,
+      endpoint: surface.defaultEndpoint,
+      envVars,
+      description: surface.description,
+      usageReference: surface.usageReference,
+    });
+  }
+
+  return integrations;
+}
+
+function printIntegrations(integrations: AvailableIntegration[]) {
+  if (integrations.length === 0) {
+    return;
+  }
+
+  console.log('');
+  console.log(chalk.bold('## Available Integrations'));
+
+  for (const integration of integrations) {
+    console.log(`- ${chalk.bold(`${integration.name} (${integration.key})`)}`);
+    if (integration.endpoint) {
+      printWrapped(`Endpoint: ${integration.endpoint}`, { indent: '  ' });
+    }
+    printWrapped(`Available env vars: ${integration.envVars.join(', ')}`, { indent: '  ' });
+    printWrapped(integration.description, { indent: '  ' });
+    if (integration.usageReference) {
+      printWrapped(`Use for: ${integration.usageReference}`, { indent: '  ' });
+    }
+  }
+}
+
+function printClaim(next: StewardNextResource, integrations: AvailableIntegration[]) {
   console.log(chalk.bold('# Steward Claim'));
   console.log(`- ${chalk.bold('Steward:')} ${chalk.cyan(`${next.steward.name} (${next.steward.slug})`)}`);
   if (next.backlog_item.id) {
@@ -61,6 +114,8 @@ function printClaim(next: StewardNextResource) {
   console.log('');
   console.log(chalk.bold('## Rationale'));
   printWrapped(next.backlog_item.rationale, { indent: '  ' });
+
+  printIntegrations(integrations);
 
   if (next.workflow?.dismissal_rule || next.workflow?.dismissal_command || next.workflow?.completion_rule) {
     console.log('');
@@ -110,7 +165,15 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
     return;
   }
 
-  printClaim(next);
+  let integrations: AvailableIntegration[] = [];
+  try {
+    integrations = getAvailableIntegrations(await apiClient.getIntegrationSurfaces());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(chalk.yellow(`Warning: failed to load integration surfaces: ${message}`));
+  }
+
+  printClaim(next, integrations);
 
   if (!next.backlog_item.proposed_branch) {
     throw new Error('API contract violation: claim route returned a backlog item without proposed_branch');
