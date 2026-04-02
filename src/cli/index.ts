@@ -9,6 +9,8 @@ import { runStewardNext } from '../workflows/steward-next.js';
 import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
+import { runStewardBacklogSetup } from '../workflows/steward-backlog-setup.js';
+import { runStewardBacklogLinkPr } from '../workflows/steward-backlog-link-pr.js';
 import { runStewardUnclaim } from '../workflows/steward-unclaim.js';
 import { runStewardTop } from '../workflows/steward-top.js';
 import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js';
@@ -86,6 +88,24 @@ async function handleStewardClaimed(options: { baseUrl?: string }): Promise<void
   }
 }
 
+async function handleStewardBacklogSetup(
+  identifier: string | undefined,
+  options: { path?: string; inPlace?: boolean; baseRef?: string; baseUrl?: string }
+): Promise<void> {
+  try {
+    await runStewardBacklogSetup({
+      identifier,
+      path: options.path,
+      inPlace: options.inPlace,
+      baseRef: options.baseRef,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error setting up steward backlog workspace:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
 async function handleStewardTop(options: { steward?: string; baseUrl?: string }): Promise<void> {
   try {
     await runStewardTop({
@@ -106,6 +126,22 @@ async function handleStewardUnclaim(identifier: string, options: { baseUrl?: str
     });
   } catch (error) {
     console.error('Error unclaiming steward backlog item:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardBacklogLinkPr(
+  identifier: string | undefined,
+  options: { pr: string; baseUrl?: string }
+): Promise<void> {
+  try {
+    await runStewardBacklogLinkPr({
+      identifier,
+      pr: options.pr,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error linking PR to steward backlog item:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
@@ -290,6 +326,16 @@ backlog
   .action(handleStewardClaimed);
 
 backlog
+  .command('setup')
+  .argument('[identifier]', 'Claimed backlog item UUID or steward-slug/backlog-item-slug reference')
+  .description('Optional helper to prepare a workspace for a claimed backlog item')
+  .option('--path <path>', 'Optional worktree path (defaults under .worktrees)')
+  .option('--in-place', 'Create the required branch in the current checkout instead of a clean worktree')
+  .option('--base-ref <baseRef>', 'Base ref for workspace setup', 'origin/main')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(handleStewardBacklogSetup);
+
+backlog
   .command('unclaim')
   .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
   .description('Release a claimed steward backlog item back to the queue')
@@ -314,6 +360,14 @@ backlog
   .requiredOption('--note <note>', 'Reason for dismissing the backlog item')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardDismiss);
+
+backlog
+  .command('link-pr')
+  .argument('[identifier]', 'Claimed backlog item UUID or steward-slug/backlog-item-slug reference')
+  .requiredOption('--pr <pr>', 'PR number or URL to link to the claimed backlog item')
+  .description('Manually link a PR to a claimed backlog item by updating the PR body marker')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(handleStewardBacklogLinkPr);
 
 backlog
   .command('instructions')
