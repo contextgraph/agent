@@ -16,6 +16,7 @@ import { runStewardTop } from '../workflows/steward-top.js';
 import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js';
 import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
 import { runStewardMission } from '../workflows/steward-mission.js';
+import { runStewardList } from '../workflows/steward-list.js';
 import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
 import { runStewardHeartbeat } from '../workflows/steward-heartbeat.js';
@@ -205,6 +206,17 @@ async function handleStewardMission(identifier: string, options: { baseUrl?: str
     });
   } catch (error) {
     console.error('Error fetching steward mission:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardList(options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardList({
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error listing stewards:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
@@ -407,6 +419,12 @@ note
   .option('--backlog-item <identifier>', 'Optional backlog item UUID or steward-slug/backlog-item-slug reference')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardNoteCreate);
+
+program
+  .command('list')
+  .description('List visible stewards for this account')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(handleStewardList);
 
 program
   .command('mission')
