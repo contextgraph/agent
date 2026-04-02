@@ -146,6 +146,16 @@ export interface StewardMissionResource {
   };
 }
 
+export interface StewardListItemResource {
+  id: string;
+  name: string;
+  slug: string;
+  mission: string;
+  status: string;
+  organizationId: string | null;
+  updatedAt: string;
+}
+
 export interface IntegrationSurfaceResource {
   key: string;
   name: string;
@@ -690,6 +700,37 @@ export class ApiClient {
     const result = await response.json() as {
       success: boolean;
       data: StewardMissionResource;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async listStewards(): Promise<StewardListItemResource[]> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/list?token=${encodeURIComponent(token)}`,
+      {
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardListItemResource[];
       error?: string;
     };
 
