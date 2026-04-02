@@ -21,6 +21,10 @@ interface AvailableIntegration {
   usageReference: string | undefined;
 }
 
+function integrationToolingPath(integrationKey: string, stewardSlug: string): string {
+  return `.steward/integrations/${integrationKey}/${stewardSlug}/`;
+}
+
 function getAvailableIntegrations(surfaces: IntegrationSurfaceResource[]): AvailableIntegration[] {
   const integrations: AvailableIntegration[] = [];
 
@@ -44,7 +48,7 @@ function getAvailableIntegrations(surfaces: IntegrationSurfaceResource[]): Avail
   return integrations;
 }
 
-function printIntegrations(integrations: AvailableIntegration[]) {
+function printIntegrations(integrations: AvailableIntegration[], stewardSlug: string) {
   if (integrations.length === 0) {
     return;
   }
@@ -62,6 +66,10 @@ function printIntegrations(integrations: AvailableIntegration[]) {
     if (integration.usageReference) {
       printWrapped(`Use for: ${integration.usageReference}`, { indent: '  ' });
     }
+    printWrapped(
+      `Persist reusable steward-generated integration tooling under \`${integrationToolingPath(integration.key, stewardSlug)}\`. Read credentials directly from ${integration.envVars.join(', ')} instead of assuming a third-party CLI is configured on this machine.`,
+      { indent: '  ' }
+    );
   }
 }
 
@@ -87,7 +95,16 @@ function printClaim(next: StewardNextResource, integrations: AvailableIntegratio
   console.log(chalk.bold('## Rationale'));
   printWrapped(next.backlog_item.rationale, { indent: '  ' });
 
-  printIntegrations(integrations);
+  printIntegrations(integrations, next.steward.slug);
+
+  if (integrations.length > 0) {
+    console.log('');
+    console.log(chalk.bold('## Integration Tooling Convention'));
+    printWrapped(
+      `If you create reusable integration scripts while working this item, keep them under \`${integrationToolingPath('<integration>', next.steward.slug)}\` in the target repo, not top-level \`scripts/\`. Mark each file clearly as steward-generated operational tooling and state which env vars it expects.`,
+      { indent: '  ' }
+    );
+  }
 
   if (next.workflow?.dismissal_rule || next.workflow?.dismissal_command || next.workflow?.completion_rule) {
     console.log('');

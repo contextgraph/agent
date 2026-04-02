@@ -117,6 +117,15 @@ describe('runStewardClaim', () => {
     expect(consoleLog).toHaveBeenCalledWith('  Available env vars: AXIOM_TOKEN');
     expect(consoleLog).toHaveBeenCalledWith('  Production log sink connected to Vercel for server logs and observability data.');
     expect(consoleLog).toHaveBeenCalledWith('  Use for: Inspect logs, traces, and queryable production evidence.');
+    expect(consoleLog).toHaveBeenCalledWith('## Integration Tooling Convention');
+    const printedOutput = consoleLog.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(printedOutput).toContain('.steward/integrations/axiom/axiom-logging/');
+    expect(printedOutput).toContain('Read credentials directly from');
+    expect(printedOutput).toContain('AXIOM_TOKEN instead of assuming a third-party CLI is configured');
+    expect(printedOutput).toContain('.steward/integrations/<integration>/axiom-logging/');
+    expect(printedOutput).toContain('not top-level');
+    expect(printedOutput).toContain('`scripts/`');
+    expect(printedOutput).toContain('steward-generated operational tooling');
     consoleLog.mockRestore();
   });
 
