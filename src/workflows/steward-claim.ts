@@ -1,9 +1,9 @@
-import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { ApiClient, type IntegrationSurfaceResource, type StewardNextResource } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
+import { requiredBranchMessage } from './steward-backlog-utils.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -19,34 +19,6 @@ interface AvailableIntegration {
   envVars: string[];
   description: string;
   usageReference: string | undefined;
-}
-
-function runGitCommand(args: string[], cwd?: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('git', args, { cwd });
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`git ${args.join(' ')} failed (exit ${code}): ${stderr || stdout}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`Failed to spawn git: ${err.message}`));
-    });
-  });
 }
 
 function getAvailableIntegrations(surfaces: IntegrationSurfaceResource[]): AvailableIntegration[] {
@@ -179,13 +151,27 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
     throw new Error('API contract violation: claim route returned a backlog item without proposed_branch');
   }
 
-  await runGitCommand(['checkout', '-b', next.backlog_item.proposed_branch]);
   console.log('');
-  console.log(chalk.bold('## Branch'));
-  console.log(chalk.green(`Created and checked out ${next.backlog_item.proposed_branch}`));
+  console.log(chalk.bold('## Required Branch'));
+  printWrapped(requiredBranchMessage(next.backlog_item.proposed_branch), { indent: '  ' });
+
+  console.log('');
+  console.log(chalk.bold('## Workspace Setup'));
+  printWrapped(
+    `Optional helper: run \`steward backlog setup ${next.backlog_item.backlog_reference ?? next.backlog_item.id ?? ''}\` to create a clean worktree from \`origin/main\` on this exact branch. If you prefer to work in your current checkout, create this exact branch name yourself.`,
+    { indent: '  ' }
+  );
+
+  console.log('');
+  console.log(chalk.bold('## PR Linking'));
+  printWrapped(
+    `If you use a different branch name, the resulting PR will not link automatically to this backlog item. If linkage gets out of sync, recover it with \`steward backlog link-pr ${next.backlog_item.backlog_reference ?? next.backlog_item.id ?? ''} --pr <number-or-url>\`.`,
+    { indent: '  ' }
+  );
   console.log('');
   console.log(chalk.bold('## Next Step'));
-  printWrapped('Do the work for this backlog item on the checked-out branch. After you open or update a PR, stop and wait for the user instead of claiming another backlog item.', {
-    indent: '  ',
-  });
+  printWrapped(
+    `Do the work for this backlog item on branch \`${next.backlog_item.proposed_branch}\`. After you open or update a PR, stop and wait for the user instead of claiming another backlog item.`,
+    { indent: '  ' }
+  );
 }

@@ -1,7 +1,4 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ChildProcess } from 'child_process';
-import { EventEmitter } from 'events';
-
 jest.unstable_mockModule('chalk', () => ({
   default: {
     bold: (s: string) => s,
@@ -39,30 +36,7 @@ jest.unstable_mockModule('../../src/api-client.js', () => ({
   })),
 }));
 
-const mockSpawn = jest.fn<(...args: unknown[]) => ChildProcess>();
-jest.unstable_mockModule('child_process', () => ({
-  spawn: mockSpawn,
-}));
-
 const { runStewardClaim } = await import('../../src/workflows/steward-claim.js');
-
-function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
-  const proc = new EventEmitter() as ChildProcess;
-  proc.stdout = new EventEmitter() as any;
-  proc.stderr = new EventEmitter() as any;
-
-  setImmediate(() => {
-    if (stdout) {
-      (proc.stdout as EventEmitter).emit('data', Buffer.from(stdout));
-    }
-    if (stderr) {
-      (proc.stderr as EventEmitter).emit('data', Buffer.from(stderr));
-    }
-    proc.emit('close', exitCode);
-  });
-
-  return proc;
-}
 
 describe('runStewardClaim', () => {
   beforeEach(() => {
@@ -95,15 +69,16 @@ describe('runStewardClaim', () => {
         session_rule: 'After you open or update a PR, stop and wait for the user.',
       },
     });
-    mockSpawn.mockReturnValue(createMockProcess(0));
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     await runStewardClaim();
 
     expect(mockNextStewardWork).toHaveBeenCalled();
     expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
-    expect(mockSpawn).toHaveBeenCalledWith('git', ['checkout', '-b', 'feat/steward-next-cli'], { cwd: undefined });
     expect(consoleLog).toHaveBeenCalledWith('## Stop Rule');
+    expect(consoleLog).toHaveBeenCalledWith('## Required Branch');
+    expect(consoleLog).toHaveBeenCalledWith('## Workspace Setup');
+    expect(consoleLog).toHaveBeenCalledWith('## PR Linking');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
     consoleLog.mockRestore();
   });
@@ -132,7 +107,6 @@ describe('runStewardClaim', () => {
         usageReference: 'Inspect logs, traces, and queryable production evidence.',
       },
     ]);
-    mockSpawn.mockReturnValue(createMockProcess(0));
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     await runStewardClaim({ identifier: 'axiom-logging/verify-correlation-ids-queryable' });
@@ -160,7 +134,6 @@ describe('runStewardClaim', () => {
       },
     });
     mockGetIntegrationSurfaces.mockRejectedValue(new Error('network down'));
-    mockSpawn.mockReturnValue(createMockProcess(0));
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     await runStewardClaim({ identifier: 'axiom-logging/check-production-evidence' });
@@ -182,8 +155,6 @@ describe('runStewardClaim', () => {
         repository_url: 'https://github.com/contextgraph/agent',
       },
     });
-    mockSpawn.mockReturnValue(createMockProcess(0));
-
     await runStewardClaim({ identifier: 'agent-platform/triage-docs' });
 
     expect(mockClaimStewardBacklog).toHaveBeenCalledWith('agent-platform/triage-docs');
