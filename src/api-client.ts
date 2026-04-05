@@ -68,6 +68,7 @@ export interface StewardNextResource {
 }
 
 export interface StewardTopResource extends StewardNextResource {}
+export interface StewardBacklogItemResource extends StewardNextResource {}
 export interface StewardQueueTopResource {
   queue_item: {
     id: string;
@@ -470,6 +471,41 @@ export class ApiClient {
     const result = await response.json() as {
       success: boolean;
       data: StewardQueueTopResource | null;
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async getStewardBacklogItem(identifier: string): Promise<StewardBacklogItemResource> {
+    const token = await this.getAuthToken();
+    const query = new URLSearchParams({
+      token,
+      identifier,
+    });
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/backlog/item?${query.toString()}`,
+      {
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardBacklogItemResource;
       error?: string;
     };
 

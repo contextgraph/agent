@@ -9,6 +9,7 @@ import { runStewardNext } from '../workflows/steward-next.js';
 import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
+import { runStewardBacklogItem } from '../workflows/steward-backlog-item.js';
 import { runStewardBacklogSetup } from '../workflows/steward-backlog-setup.js';
 import { runStewardBacklogLinkPr } from '../workflows/steward-backlog-link-pr.js';
 import { runStewardUnclaim } from '../workflows/steward-unclaim.js';
@@ -85,6 +86,18 @@ async function handleStewardClaimed(options: { baseUrl?: string }): Promise<void
     });
   } catch (error) {
     console.error('Error listing claimed steward backlog items:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+async function handleStewardBacklogItem(identifier: string, options: { baseUrl?: string }): Promise<void> {
+  try {
+    await runStewardBacklogItem({
+      identifier,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error fetching steward backlog item:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
@@ -287,6 +300,17 @@ steward
 const backlog = program
   .command('backlog')
   .description('Steward backlog workflows');
+
+backlog
+  .argument('[identifier]', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action((identifier: string | undefined, options: { baseUrl?: string }) => {
+    if (!identifier) {
+      backlog.help();
+      return;
+    }
+    return handleStewardBacklogItem(identifier, options);
+  });
 
 backlog
   .command('top')
