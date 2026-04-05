@@ -19,6 +19,7 @@ describe('steward queue CLI', () => {
     const queueHelp = runHelp(['queue', '--help']);
 
     expect(backlogHelp.match(/^\s+top \[options\]/gm)).toHaveLength(1);
+    expect(backlogHelp).toContain('[identifier]');
     expect(queueHelp).toContain('claim [options] <identifier>');
     expect(queueHelp).toContain('active [options]');
     expect(queueHelp).toContain('unclaim [options] <identifier>');
