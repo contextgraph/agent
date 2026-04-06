@@ -14,15 +14,13 @@ function runHelp(args: string[]): string {
 }
 
 describe('steward queue CLI', () => {
-  it('registers backlog top once and exposes the new queue commands', () => {
+  it('registers backlog top once and keeps backlog help backlog-first', () => {
     const backlogHelp = runHelp(['backlog', '--help']);
-    const queueHelp = runHelp(['queue', '--help']);
 
     expect(backlogHelp.match(/^\s+top \[options\]/gm)).toHaveLength(1);
     expect(backlogHelp).toContain('[identifier]');
-    expect(queueHelp).toContain('claim [options] <identifier>');
-    expect(queueHelp).toContain('active [options]');
-    expect(queueHelp).toContain('unclaim [options] <identifier>');
+    expect(backlogHelp).toContain('claim [options]');
+    expect(backlogHelp).toContain('claimed [options]');
   });
 
   it('shows the steward-only top-level surface when invoked as steward', () => {
@@ -40,6 +38,13 @@ describe('steward queue CLI', () => {
       expect(help).toContain('Local steward.foo CLI');
       expect(help).toContain('backlog');
       expect(help).toContain('Steward backlog workflows');
+      expect(help).toContain('run [options]');
+      expect(help).toContain('list [options]');
+      expect(help).toContain('mission [options] <steward>');
+      expect(help).not.toContain('next [options]');
+      expect(help).not.toContain('queue');
+      expect(help).not.toContain('heartbeat');
+      expect(help).not.toContain('step [options]');
       expect(help).not.toContain('prepare [options] <action-id>');
       expect(help).not.toContain('execute [options] <action-id>');
       expect(help).not.toContain('setup                          Interactive setup wizard for new users');

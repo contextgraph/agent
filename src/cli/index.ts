@@ -3,9 +3,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
-import { runStewardStep } from '../workflows/steward-step.js';
 import { runStewardLoop } from '../workflows/steward-run.js';
-import { runStewardNext } from '../workflows/steward-next.js';
 import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
@@ -20,7 +18,6 @@ import { runStewardMission } from '../workflows/steward-mission.js';
 import { runStewardList } from '../workflows/steward-list.js';
 import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
-import { runStewardHeartbeat } from '../workflows/steward-heartbeat.js';
 import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
@@ -42,17 +39,6 @@ program
   .name('steward')
   .description('Local steward.foo CLI')
   .version(packageJson.version);
-
-async function handleStewardNext(options: { baseUrl?: string }): Promise<void> {
-  try {
-    await runStewardNext({
-      baseUrl: options.baseUrl,
-    });
-  } catch (error) {
-    console.error('Error selecting steward work:', error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
 
 async function handleStewardDismiss(identifier: string, options: { note: string; baseUrl?: string }): Promise<void> {
   try {
@@ -252,15 +238,6 @@ async function handleStewardConfigureValidate(): Promise<void> {
   }
 }
 
-async function handleStewardHeartbeat(steward: string, options: { baseUrl?: string }): Promise<void> {
-  try {
-    await runStewardHeartbeat({ steward, baseUrl: options.baseUrl });
-  } catch (error) {
-    console.error('Error running steward heartbeat:', error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
-
 function handleStewardBacklogInstructions(): void {
   runStewardBacklogInstructions();
 }
@@ -288,14 +265,6 @@ configure
 
 configure
   .action(handleStewardConfigure);
-
-const steward = program;
-
-steward
-  .command('next')
-  .description('Pick the next queued steward backlog item for manual work')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(handleStewardNext);
 
 const backlog = program
   .command('backlog')
@@ -343,17 +312,6 @@ claim
   .description('Claim a specific queued steward backlog item')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
-
-const queue = program
-  .command('queue')
-  .description('Steward queue workflows');
-
-queue
-  .command('top')
-  .description('Inspect the highest-priority queued steward work item without claiming it')
-  .option('--steward <steward>', 'Limit selection to a specific steward ID or steward slug')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(handleStewardTop);
 
 backlog
   .command('claimed')
@@ -410,28 +368,6 @@ backlog
   .description('Show the recommended manual backlog workflow')
   .action(handleStewardBacklogInstructions);
 
-const queueClaim = queue
-  .command('claim')
-  .description('Claim a queued steward work item');
-
-queueClaim
-  .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
-
-queue
-  .command('active')
-  .description('List all currently active steward queue items')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(handleStewardClaimed);
-
-queue
-  .command('unclaim')
-  .argument('<identifier>', 'Queue item UUID')
-  .description('Release a claimed steward queue item back to the queue')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(handleStewardUnclaim);
-
 const note = program
   .command('note')
   .description('Steward note operations');
@@ -458,57 +394,6 @@ program
   .action(handleStewardMission);
 
 program
-  .command('heartbeat')
-  .argument('<steward>', 'Steward ID or steward slug')
-  .description('Run a local steward heartbeat')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(handleStewardHeartbeat);
-
-steward
-  .command('step')
-  .description('Run one steward execution pass (claim -> execute -> release)')
-  .option('--steward-id <stewardId>', 'Target a specific steward ID')
-  .option('--worker-id <workerId>', 'Optional worker ID for claim/release correlation')
-  .option('--dry-run', 'Claim and fetch prompt, but skip agent execution')
-  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
-  .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
-  .option('--skip-skills', 'Skip skill injection (for testing)')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action(async (options: {
-    stewardId?: string;
-    workerId?: string;
-    dryRun?: boolean;
-    provider: string;
-    executionMode?: string;
-    skipSkills?: boolean;
-    baseUrl?: string;
-  }) => {
-    try {
-      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
-        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
-        process.exit(1);
-      }
-      if (options.executionMode && !EXECUTION_MODE_VALUES.includes(options.executionMode as RunnerExecutionMode)) {
-        console.error(`Invalid execution mode "${options.executionMode}". Expected one of: ${EXECUTION_MODE_VALUES.join(', ')}`);
-        process.exit(1);
-      }
-
-      await runStewardStep({
-        stewardId: options.stewardId,
-        workerId: options.workerId,
-        dryRun: options.dryRun,
-        provider: options.provider as AgentProvider,
-        executionMode: options.executionMode as RunnerExecutionMode | undefined,
-        skipSkills: options.skipSkills,
-        baseUrl: options.baseUrl,
-      });
-    } catch (error) {
-      console.error('Error running steward step:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-steward
   .command('run')
   .description('Run steward execution loop (repeated steward step until stopped)')
   .option('--steward-id <stewardId>', 'Target a specific steward ID')
