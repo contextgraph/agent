@@ -3,6 +3,7 @@ import { ApiClient, type StewardQueueTopResource } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
+import { printFileSurfaceConjecture } from './steward-backlog-format.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -41,6 +42,7 @@ function printTop(resource: StewardQueueTopResource) {
   console.log('');
   console.log(chalk.bold('## Rationale'));
   printWrapped(resource.backlog_item.rationale, { indent: '  ' });
+  printFileSurfaceConjecture(resource.backlog_item.metadata);
 
   console.log('');
   console.log(chalk.bold('## Next Step'));

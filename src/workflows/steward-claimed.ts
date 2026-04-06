@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { ApiClient } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
+import { printFileSurfaceConjecture } from './steward-backlog-format.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -22,6 +23,7 @@ function printClaim(resource: Awaited<ReturnType<ApiClient['listClaimedStewardBa
     console.log(`- ${chalk.bold('Branch:')} ${resource.backlog_item.proposed_branch}`);
   }
   console.log(`- ${chalk.bold('Recovery:')} Use this item for context recovery instead of claiming a new one.`);
+  printFileSurfaceConjecture(resource.backlog_item.metadata);
   console.log('');
 }
 

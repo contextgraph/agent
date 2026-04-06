@@ -3,6 +3,7 @@ import { ApiClient, type IntegrationSurfaceResource, type StewardNextResource } 
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
+import { printFileSurfaceConjecture } from './steward-backlog-format.js';
 import { requiredBranchMessage } from './steward-backlog-utils.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
@@ -94,6 +95,7 @@ function printClaim(next: StewardNextResource, integrations: AvailableIntegratio
   console.log('');
   console.log(chalk.bold('## Rationale'));
   printWrapped(next.backlog_item.rationale, { indent: '  ' });
+  printFileSurfaceConjecture(next.backlog_item.metadata);
 
   printIntegrations(integrations, next.steward.slug);
 

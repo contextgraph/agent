@@ -55,6 +55,12 @@ describe('runStewardBacklogItem', () => {
         repository_url: 'https://github.com/contextgraph/actions',
         priority_score: 97,
         state: 'queued',
+        metadata: {
+          fileSurfaceConjecture: {
+            likelyFiles: ['lib/evidence.ts'],
+            reason: 'Validation logic currently lives in the evidence path.',
+          },
+        },
       },
       workflow: {
         claim_command: 'steward backlog claim code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi',
@@ -70,11 +76,15 @@ describe('runStewardBacklogItem', () => {
       'code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi'
     );
     expect(consoleLog).toHaveBeenCalledWith('# Backlog Item');
+    expect(consoleLog).toHaveBeenCalledWith('## File Surface Conjecture');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
     expect(consoleLog).toHaveBeenCalledWith('```bash');
     expect(consoleLog).toHaveBeenCalledWith(
       'steward backlog claim code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi'
     );
+    const printedOutput = consoleLog.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(printedOutput).toContain('"likelyFiles"');
+    expect(printedOutput).toContain('"lib/evidence.ts"');
     consoleLog.mockRestore();
   });
 
