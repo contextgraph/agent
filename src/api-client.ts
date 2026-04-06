@@ -56,6 +56,7 @@ export interface StewardNextResource {
     repository_url: string | null;
     priority_score?: number | null;
     state?: string;
+    metadata?: Record<string, unknown> | null;
   };
   workflow?: {
     claim_command?: string;

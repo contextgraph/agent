@@ -62,6 +62,9 @@ describe('runStewardTop', () => {
         proposed_branch: 'steward/code-quality-steward/lock-in-validation-logic-with-unit-tests-for-evi',
         repository_url: 'https://github.com/contextgraph/actions',
         priority_score: 97,
+        metadata: {
+          fileSurfaceConjecture: ['lib/evidence.ts', 'lib/validation.ts'],
+        },
       },
       workflow: {
         selection_rule: 'This is currently the highest-priority queue item, and it is a backlog item.',
@@ -76,11 +79,15 @@ describe('runStewardTop', () => {
 
     expect(mockTopStewardQueue).toHaveBeenCalled();
     expect(consoleLog).toHaveBeenCalledWith('# Top Backlog Item');
+    expect(consoleLog).toHaveBeenCalledWith('## File Surface Conjecture');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
     expect(consoleLog).toHaveBeenCalledWith('  Claim this backlog item before doing any work on it.');
     expect(consoleLog).toHaveBeenCalledWith('```bash');
     expect(consoleLog).toHaveBeenCalledWith('steward queue claim backlog-1');
     expect(consoleLog).toHaveBeenCalledWith('## Stop Rule');
+    const printedOutput = consoleLog.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(printedOutput).toContain('"lib/evidence.ts"');
+    expect(printedOutput).toContain('"lib/validation.ts"');
     consoleLog.mockRestore();
   });
 

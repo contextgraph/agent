@@ -64,6 +64,9 @@ describe('runStewardClaim', () => {
         rationale: 'Humans need a manual claim flow',
         proposed_branch: 'feat/steward-next-cli',
         repository_url: 'https://github.com/contextgraph/agent',
+        metadata: {
+          fileSurfaceConjecture: 'Likely touches src/cli/index.ts and src/workflows/steward-next.ts.',
+        },
       },
       workflow: {
         session_rule: 'After you open or update a PR, stop and wait for the user.',
@@ -76,6 +79,10 @@ describe('runStewardClaim', () => {
     expect(mockNextStewardWork).toHaveBeenCalled();
     expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
     expect(consoleLog).toHaveBeenCalledWith('## Stop Rule');
+    expect(consoleLog).toHaveBeenCalledWith('## File Surface Conjecture');
+    expect(consoleLog).toHaveBeenCalledWith(
+      '  Likely touches src/cli/index.ts and src/workflows/steward-next.ts.'
+    );
     expect(consoleLog).toHaveBeenCalledWith('## Required Branch');
     expect(consoleLog).toHaveBeenCalledWith('## Workspace Setup');
     expect(consoleLog).toHaveBeenCalledWith('## PR Linking');

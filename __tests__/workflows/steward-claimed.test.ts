@@ -51,6 +51,9 @@ describe('runStewardClaimed', () => {
         backlog_reference: 'agent-platform/wire-cli-command',
         proposed_branch: 'feat/steward-next-cli',
         state: 'in_progress',
+        metadata: {
+          fileSurfaceConjecture: 'Likely under src/workflows/ and src/cli/.',
+        },
       },
     }]);
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -63,6 +66,8 @@ describe('runStewardClaimed', () => {
     expect(consoleLog).toHaveBeenCalledWith('## Claimed Item');
     expect(consoleLog).toHaveBeenCalledWith('- State: in_progress');
     expect(consoleLog).toHaveBeenCalledWith('- Recovery: Use this item for context recovery instead of claiming a new one.');
+    expect(consoleLog).toHaveBeenCalledWith('## File Surface Conjecture');
+    expect(consoleLog).toHaveBeenCalledWith('  Likely under src/workflows/ and src/cli/.');
     consoleLog.mockRestore();
   });
 });
