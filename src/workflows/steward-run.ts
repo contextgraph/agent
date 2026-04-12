@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import chalk from 'chalk';
+import { ApiClient } from '../api-client.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
+import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { runStewardStep } from './steward-step.js';
 
 export interface StewardRunOptions {
@@ -18,6 +20,7 @@ export interface StewardRunOptions {
 }
 
 const DEFAULT_INTERVAL_SECONDS = 30;
+const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
 export interface StewardRunModeInfo {
   authSource: 'env-api-token' | 'stored-credentials';
@@ -80,6 +83,27 @@ async function waitWithStopCheck(ms: number, shouldStop: () => boolean): Promise
   }
 }
 
+async function selectRunReadySteward(params: {
+  baseUrl?: string;
+  stewardId?: string;
+}): Promise<{ id: string; name: string; title: string } | null> {
+  const baseUrl = (params.baseUrl || process.env.CONTEXTGRAPH_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const apiClient = new ApiClient(baseUrl);
+  const top = await apiClient.topStewardQueue(params.stewardId, { mode: 'run' });
+  if (!top) {
+    return null;
+  }
+  if (!top.steward.id) {
+    throw new Error('Run-ready queue response missing steward id');
+  }
+
+  return {
+    id: top.steward.id,
+    name: top.steward.name,
+    title: top.backlog_item.title,
+  };
+}
+
 export async function runStewardLoop(options: StewardRunOptions = {}): Promise<void> {
   const intervalSeconds = options.intervalSeconds ?? DEFAULT_INTERVAL_SECONDS;
   if (!Number.isFinite(intervalSeconds) || intervalSeconds < 0) {
@@ -112,21 +136,35 @@ export async function runStewardLoop(options: StewardRunOptions = {}): Promise<v
 
   try {
     while (!shouldStop) {
-      console.log(chalk.bold('\n[steward:run] Checking for claimable steward work...'));
+      console.log(chalk.bold('\n[steward:run] Checking the run-ready steward queue...'));
 
       try {
-        const stepResult = await runStewardStep({
-          stewardId: options.stewardId,
-          workerId,
-          dryRun: options.dryRun,
-          provider: options.provider,
-          executionMode: options.executionMode,
-          skipSkills: options.skipSkills,
+        const selected = await selectRunReadySteward({
           baseUrl: options.baseUrl,
+          stewardId: options.stewardId,
         });
-        if (stepResult.claimed) {
-          stepCount += 1;
-          console.log(chalk.bold(`[steward:run] Completed step ${stepCount}`));
+
+        if (!selected) {
+          if (options.stewardId) {
+            console.log(chalk.yellow(`[steward:run] No run-ready work for steward ${options.stewardId}.`));
+          } else {
+            console.log(chalk.yellow('[steward:run] No run-ready steward work right now.'));
+          }
+        } else {
+          console.log(chalk.dim(`[steward:run] Selected ${selected.name}: ${selected.title}`));
+          const stepResult = await runStewardStep({
+            stewardId: selected.id,
+            workerId,
+            dryRun: options.dryRun,
+            provider: options.provider,
+            executionMode: options.executionMode,
+            skipSkills: options.skipSkills,
+            baseUrl: options.baseUrl,
+          });
+          if (stepResult.claimed) {
+            stepCount += 1;
+            console.log(chalk.bold(`[steward:run] Completed step ${stepCount}`));
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

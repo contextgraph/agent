@@ -395,7 +395,7 @@ program
 
 program
   .command('run')
-  .description('Run steward execution loop (repeated steward step until stopped)')
+  .description('Run steward execution loop using run-ready steward top ordering until stopped')
   .option('--steward-id <stewardId>', 'Target a specific steward ID')
   .option('--worker-id <workerId>', 'Optional worker ID for claim/release correlation')
   .option('--dry-run', 'Claim and fetch prompt each loop, but skip agent execution')

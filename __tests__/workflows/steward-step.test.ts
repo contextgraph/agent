@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('chalk', () => ({
+jest.unstable_mockModule('chalk', () => ({
   default: {
     bold: (s: string) => s,
     cyan: (s: string) => s,
@@ -12,63 +12,75 @@ jest.mock('chalk', () => ({
   __esModule: true,
 }));
 
-const mockLoadCredentials = jest.fn<() => Promise<unknown>>().mockResolvedValue({
-  clerkToken: 'test-token',
-  userId: 'user-1',
-  expiresAt: new Date(Date.now() + 60_000).toISOString(),
-  createdAt: new Date().toISOString(),
-});
-const mockIsExpired = jest.fn<() => boolean>().mockReturnValue(false);
-const mockIsTokenExpired = jest.fn<() => boolean>().mockReturnValue(false);
-jest.mock('../../src/credentials.js', () => ({
+const mockLoadCredentials = jest.fn<() => Promise<unknown>>();
+const mockIsExpired = jest.fn<() => boolean>();
+const mockIsTokenExpired = jest.fn<() => boolean>();
+jest.unstable_mockModule('../../src/credentials.js', () => ({
   loadCredentials: mockLoadCredentials,
   isExpired: mockIsExpired,
   isTokenExpired: mockIsTokenExpired,
 }));
 
-const mockClaimNextSteward = jest.fn() as jest.Mock;
-const mockReleaseStewardClaim = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-jest.mock('../../src/api-client.js', () => ({
+const mockClaimNextSteward: any = jest.fn();
+const mockReleaseStewardClaim: any = jest.fn<() => Promise<void>>();
+const mockGetIntegrationSurfaces: any = jest.fn();
+jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
     claimNextSteward: mockClaimNextSteward,
     releaseStewardClaim: mockReleaseStewardClaim,
+    getIntegrationSurfaces: mockGetIntegrationSurfaces,
   })),
 }));
 
-const mockPrepareMultiRepoWorkspace = jest.fn() as jest.Mock;
-jest.mock('../../src/workspace-prep.js', () => ({
+const mockPrepareMultiRepoWorkspace: any = jest.fn();
+jest.unstable_mockModule('../../src/workspace-prep.js', () => ({
   normalizeRepositoryUrlForClone: jest.fn((url: string) => url.replace(/\/tree\/.+$/, '')),
   prepareMultiRepoWorkspace: mockPrepareMultiRepoWorkspace,
 }));
 
-const mockRunnerExecute = jest.fn<() => Promise<{ exitCode: number }>>().mockResolvedValue({ exitCode: 0 });
-jest.mock('../../src/runners/index.js', () => ({
+const mockRunnerExecute = jest.fn<(opts: Record<string, unknown>) => Promise<{ exitCode: number }>>();
+jest.unstable_mockModule('../../src/runners/index.js', () => ({
   createAgentRunner: jest.fn(() => ({
     provider: 'codex',
     execute: mockRunnerExecute,
   })),
 }));
 
-jest.mock('../../src/workflows/execution-policy.js', () => ({
+jest.unstable_mockModule('../../src/workflows/execution-policy.js', () => ({
   resolveExecutionMode: jest.fn(() => 'safe'),
   assertRunnerCapabilities: jest.fn(),
 }));
 
-jest.mock('../../src/langfuse-session.js', () => ({
+jest.unstable_mockModule('../../src/langfuse-session.js', () => ({
   initializeStewardSession: jest.fn(() => undefined),
 }));
 
-jest.mock('../../src/posthog-client.js', () => ({
-  captureEvent: jest.fn(),
-  shutdownPostHog: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+const mockCaptureEvent = jest.fn();
+const mockShutdownPostHog = jest.fn<() => Promise<void>>();
+jest.unstable_mockModule('../../src/posthog-client.js', () => ({
+  captureEvent: mockCaptureEvent,
+  shutdownPostHog: mockShutdownPostHog,
 }));
 
-import { runStewardStep } from '../../src/workflows/steward-step.js';
+const { runStewardStep } = await import('../../src/workflows/steward-step.js');
 
 describe('runStewardStep repository reduction', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (mockPrepareMultiRepoWorkspace as any).mockResolvedValue({
+    mockLoadCredentials.mockResolvedValue({
+      clerkToken: 'test-token',
+      userId: 'user-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+    mockIsExpired.mockReturnValue(false);
+    mockIsTokenExpired.mockReturnValue(false);
+    mockReleaseStewardClaim.mockResolvedValue(undefined);
+    mockGetIntegrationSurfaces.mockResolvedValue([]);
+    mockRunnerExecute.mockResolvedValue({ exitCode: 0 });
+    mockShutdownPostHog.mockResolvedValue(undefined);
+
+    mockPrepareMultiRepoWorkspace.mockResolvedValue({
       rootPath: '/tmp/cg-workspace-test',
       repos: [
         {
@@ -81,7 +93,8 @@ describe('runStewardStep repository reduction', () => {
       ],
       cleanup: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     });
-    (mockClaimNextSteward as any).mockResolvedValue({
+
+    mockClaimNextSteward.mockResolvedValue({
       steward: {
         id: 'a18b1ae8-4f4f-4a14-8e45-a4a3d0347cd4',
         name: 'Github App Integration',
@@ -118,5 +131,10 @@ describe('runStewardStep repository reduction', () => {
       ],
       expect.objectContaining({ authToken: 'test-token' })
     );
+    expect(mockReleaseStewardClaim).toHaveBeenCalledWith({
+      steward_id: 'a18b1ae8-4f4f-4a14-8e45-a4a3d0347cd4',
+      worker_id: 'worker-1',
+      claim_id: 'claim-1',
+    });
   });
 });
