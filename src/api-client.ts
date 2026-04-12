@@ -92,6 +92,10 @@ export interface StewardQueueTopResource {
   };
 }
 
+export interface TopStewardQueueOptions {
+  mode?: 'run';
+}
+
 export interface StewardDismissResource {
   backlog_item: {
     id: string;
@@ -445,13 +449,16 @@ export class ApiClient {
     return result.data;
   }
 
-  async topStewardQueue(steward?: string): Promise<StewardQueueTopResource | null> {
+  async topStewardQueue(steward?: string, options: TopStewardQueueOptions = {}): Promise<StewardQueueTopResource | null> {
     const token = await this.getAuthToken();
     const query = new URLSearchParams({
       token,
     });
     if (steward?.trim()) {
       query.set('steward', steward.trim());
+    }
+    if (options.mode) {
+      query.set('mode', options.mode);
     }
 
     const response = await fetchWithRetry(

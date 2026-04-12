@@ -10,10 +10,17 @@ jest.unstable_mockModule('chalk', () => ({
   __esModule: true,
 }));
 
-const mockRunStewardStep = jest.fn<() => Promise<{ claimed: boolean }>>();
+const mockRunStewardStep: any = jest.fn();
+const mockTopStewardQueue: any = jest.fn();
 
 jest.unstable_mockModule('../../src/workflows/steward-step.js', () => ({
   runStewardStep: mockRunStewardStep,
+}));
+
+jest.unstable_mockModule('../../src/api-client.js', () => ({
+  ApiClient: jest.fn(() => ({
+    topStewardQueue: mockTopStewardQueue,
+  })),
 }));
 
 const { runStewardLoop, getStewardRunModeInfo } = await import('../../src/workflows/steward-run.js');
@@ -23,10 +30,15 @@ const ORIGINAL_ENV = { ...process.env };
 describe('runStewardLoop', () => {
   beforeEach(() => {
     mockRunStewardStep.mockReset();
+    mockTopStewardQueue.mockReset();
     process.env = { ...ORIGINAL_ENV };
   });
 
   it('counts only claimed work toward maxSteps', async () => {
+    mockTopStewardQueue.mockResolvedValue({
+      steward: { id: 'steward-1', name: 'Code Quality Steward' },
+      backlog_item: { title: 'Top item' },
+    });
     mockRunStewardStep
       .mockResolvedValueOnce({ claimed: false })
       .mockResolvedValueOnce({ claimed: false })
@@ -38,6 +50,31 @@ describe('runStewardLoop', () => {
     });
 
     expect(mockRunStewardStep).toHaveBeenCalledTimes(3);
+    expect(mockTopStewardQueue).toHaveBeenCalledTimes(3);
+    expect(mockTopStewardQueue).toHaveBeenCalledWith(undefined, { mode: 'run' });
+  });
+
+  it('waits for a run-ready queue item before claiming a step', async () => {
+    mockTopStewardQueue
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        steward: { id: 'steward-1', name: 'Code Quality Steward' },
+        backlog_item: { title: 'Top item' },
+      });
+    mockRunStewardStep.mockResolvedValueOnce({ claimed: true });
+
+    await runStewardLoop({
+      intervalSeconds: 0,
+      maxSteps: 1,
+    });
+
+    expect(mockTopStewardQueue).toHaveBeenCalledTimes(2);
+    expect(mockRunStewardStep).toHaveBeenCalledTimes(1);
+    expect(mockRunStewardStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stewardId: 'steward-1',
+      })
+    );
   });
 });
 
