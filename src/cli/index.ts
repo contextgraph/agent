@@ -16,8 +16,6 @@ import { runStewardBacklogCreate } from '../workflows/steward-backlog-create.js'
 import { runStewardNoteCreate } from '../workflows/steward-note-create.js';
 import { runStewardMission } from '../workflows/steward-mission.js';
 import { runStewardList } from '../workflows/steward-list.js';
-import { runStewardConfigure } from '../workflows/steward-configure.js';
-import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
 import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
 import { runStewardReview } from '../workflows/steward-review.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
@@ -221,24 +219,6 @@ async function handleStewardList(options: { baseUrl?: string }): Promise<void> {
   }
 }
 
-async function handleStewardConfigure(): Promise<void> {
-  try {
-    await runStewardConfigure();
-  } catch (error) {
-    console.error('Error configuring steward:', error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
-
-async function handleStewardConfigureValidate(): Promise<void> {
-  try {
-    await runStewardConfigureValidate();
-  } catch (error) {
-    console.error('Error validating steward config:', error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
-
 function handleStewardBacklogInstructions(): void {
   runStewardBacklogInstructions();
 }
@@ -271,18 +251,6 @@ program
       process.exit(1);
     }
   });
-
-const configure = program
-  .command('configure')
-  .description('Create or inspect local steward configuration');
-
-configure
-  .command('validate')
-  .description('Validate locally configured integrations')
-  .action(handleStewardConfigureValidate);
-
-configure
-  .action(handleStewardConfigure);
 
 const backlog = program
   .command('backlog')

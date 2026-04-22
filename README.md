@@ -21,5 +21,5 @@ For non-interactive environments, set `STEWARD_API_TOKEN` instead of using brows
 Append this to `CLAUDE.md` or `AGENTS.md` in your project:
 
 ```bash
-echo "Use the \`steward\` CLI for steward.foo work. Learn the workflow from \`steward --help\` and \`steward backlog --help\`. If you create reusable integration tooling while working a steward item, keep it under \`.steward/integrations/<integration>/<steward-slug>/\`, not top-level \`scripts/\`, and mark it clearly as steward-generated operational tooling." >> CLAUDE.md
+echo "Use the \`steward\` CLI for steward.foo work. Learn the workflow from \`steward --help\` and \`steward backlog --help\`." >> CLAUDE.md
 ```

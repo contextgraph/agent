@@ -162,16 +162,6 @@ export interface StewardListItemResource {
   updatedAt: string;
 }
 
-export interface IntegrationSurfaceResource {
-  key: string;
-  name: string;
-  defaultEndpoint?: string;
-  envVars: string[];
-  description: string;
-  docsUrl?: string;
-  usageReference?: string;
-}
-
 export interface StewardUnclaimResource {
   backlog_item: {
     id: string;
@@ -885,38 +875,5 @@ export class ApiClient {
     }
 
     return result.data;
-  }
-
-  async getIntegrationSurfaces(): Promise<IntegrationSurfaceResource[]> {
-    const token = await this.getAuthToken();
-
-    const response = await fetchWithRetry(
-      `${this.baseUrl}/api/integrations/surfaces?token=${encodeURIComponent(token)}`,
-      {
-        headers: {
-          'x-authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json() as {
-      success: boolean;
-      data: {
-        integrations: IntegrationSurfaceResource[];
-      };
-      error?: string;
-    };
-
-    if (!result.success) {
-      throw new Error(result.error || 'API returned unsuccessful response');
-    }
-
-    return result.data.integrations;
   }
 }
