@@ -13,6 +13,23 @@ export interface StewardReviewOptions {
   baseUrl?: string;
 }
 
+function resolveAndValidateBaseUrl(explicit: string | undefined): string {
+  const raw = (explicit || process.env.CONTEXTGRAPH_BASE_URL || DEFAULT_BASE_URL).trim();
+  if (!raw) {
+    throw new Error('Base URL is empty. Set --base-url or CONTEXTGRAPH_BASE_URL to a valid https:// URL.');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`Invalid base URL '${raw}'. Provide a full http(s):// URL.`);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Unsupported base URL protocol '${parsed.protocol}'. Only http:// and https:// are allowed.`);
+  }
+  return raw.replace(/\/+$/, '');
+}
+
 export async function runStewardReview(options: StewardReviewOptions): Promise<void> {
   const repository = options.repository.trim();
   const sha = options.sha.trim();
@@ -27,6 +44,8 @@ export async function runStewardReview(options: StewardReviewOptions): Promise<v
     throw new Error(`'${sha}' does not look like a commit SHA. Provide a hexadecimal SHA (7–40 chars).`);
   }
 
+  const baseUrl = resolveAndValidateBaseUrl(options.baseUrl);
+
   const credentials = await loadCredentials();
   if (!credentials) {
     console.error(chalk.red('Not authenticated.'), 'Run authentication first.');
@@ -37,7 +56,6 @@ export async function runStewardReview(options: StewardReviewOptions): Promise<v
     process.exit(1);
   }
 
-  const baseUrl = (options.baseUrl || process.env.CONTEXTGRAPH_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
   const apiClient = new ApiClient(baseUrl);
   const review = await apiClient.stewardReview({ repository, sha });
 

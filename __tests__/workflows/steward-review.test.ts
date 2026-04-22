@@ -147,4 +147,50 @@ describe('runStewardReview', () => {
     exitSpy.mockRestore();
     consoleError.mockRestore();
   });
+
+  it('rejects a base URL that is not a valid http(s) URL', async () => {
+    await expect(
+      runStewardReview({
+        repository: 'contextgraph/actions',
+        sha: 'a1b2c3d4e5f67890abcdef1234567890abcdef12',
+        baseUrl: 'javascript:alert(1)',
+      })
+    ).rejects.toThrow(/Unsupported base URL protocol/);
+    expect(mockStewardReview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unparseable base URL', async () => {
+    await expect(
+      runStewardReview({
+        repository: 'contextgraph/actions',
+        sha: 'a1b2c3d4e5f67890abcdef1234567890abcdef12',
+        baseUrl: 'not a url',
+      })
+    ).rejects.toThrow(/Invalid base URL/);
+    expect(mockStewardReview).not.toHaveBeenCalled();
+  });
+
+  it('accepts an explicit http base URL', async () => {
+    mockStewardReview.mockResolvedValue({
+      status: 'reviewed',
+      summary: '',
+      markdown: 'ok',
+      repository: { owner: 'contextgraph', repo: 'actions', url: 'https://github.com/contextgraph/actions' },
+      sha: 'a1b2c3d4e5f67890abcdef1234567890abcdef12',
+      diff_truncated: false,
+      candidate_count: 0,
+      stewards: [],
+      observations: [],
+    });
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runStewardReview({
+      repository: 'contextgraph/actions',
+      sha: 'a1b2c3d4e5f67890abcdef1234567890abcdef12',
+      baseUrl: 'http://localhost:3000/',
+    });
+
+    expect(mockStewardReview).toHaveBeenCalled();
+    consoleLog.mockRestore();
+  });
 });

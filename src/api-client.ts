@@ -235,6 +235,31 @@ export interface StewardReviewParams {
   sha: string;
 }
 
+export class ApiClientError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(params: { status: number; code?: string; message: string }) {
+    super(params.message);
+    this.name = 'ApiClientError';
+    this.status = params.status;
+    this.code = params.code;
+  }
+
+  static fromResponseBody(status: number, body: string): ApiClientError {
+    try {
+      const parsed = JSON.parse(body) as { error?: string; message?: string };
+      const message = parsed.message ?? parsed.error ?? `API error ${status}`;
+      return new ApiClientError({ status, code: parsed.error, message });
+    } catch {
+      return new ApiClientError({
+        status,
+        message: `API error ${status}${body ? `: ${body}` : ''}`,
+      });
+    }
+  }
+}
+
 export class ApiClient {
   constructor(
     private baseUrl: string = PRIMARY_WEB_BASE_URL
@@ -841,28 +866,22 @@ export class ApiClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      let errorMessage = `API error ${response.status}`;
-      try {
-        const parsed = JSON.parse(errorText) as { error?: string; message?: string };
-        if (parsed.error) {
-          errorMessage = parsed.error;
-        } else if (parsed.message) {
-          errorMessage = parsed.message;
-        }
-      } catch {
-        errorMessage = `${errorMessage}: ${errorText}`;
-      }
-      throw new Error(errorMessage);
+      throw ApiClientError.fromResponseBody(response.status, errorText);
     }
 
     const result = await response.json() as {
       success: boolean;
       data: StewardReviewResource;
       error?: string;
+      message?: string;
     };
 
     if (!result.success) {
-      throw new Error(result.error || 'API returned unsuccessful response');
+      throw new ApiClientError({
+        status: response.status,
+        code: result.error,
+        message: result.message ?? result.error ?? 'API returned unsuccessful response',
+      });
     }
 
     return result.data;
