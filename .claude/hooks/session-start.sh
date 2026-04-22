@@ -12,7 +12,19 @@ if [ ! -d node_modules ]; then
 fi
 
 install_steward_cli() {
-  local version="0.4.38"
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "session-start hook: npm not available — skipping steward CLI install" >&2
+    return 0
+  fi
+
+  # Resolve the latest published version from the npm registry so sessions
+  # auto-roll-forward without a hook bump.
+  local version
+  version="$(npm view @contextgraph/agent version 2>/dev/null || true)"
+  if [ -z "$version" ]; then
+    echo "session-start hook: could not resolve latest steward CLI version — skipping install" >&2
+    return 0
+  fi
 
   if command -v steward >/dev/null 2>&1; then
     local installed_version
@@ -20,11 +32,6 @@ install_steward_cli() {
     if [ "$installed_version" = "$version" ]; then
       return 0
     fi
-  fi
-
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "session-start hook: npm not available — skipping steward CLI install" >&2
-    return 0
   fi
 
   npm install -g "@contextgraph/agent@${version}" >/dev/null
