@@ -196,6 +196,70 @@ export interface StewardClaimResource {
   pr_context?: StewardClaimPrContext | null;
 }
 
+export interface StewardReviewObservationResource {
+  steward_id: string;
+  steward_name: string;
+  type: 'concern' | 'affirmation';
+  severity: 'must' | 'should' | 'could';
+  evidence: 'code_only' | 'tests' | 'policy' | 'telemetry';
+  observation: string;
+  rationale: string;
+}
+
+export interface StewardReviewParticipantResource {
+  id: string;
+  name: string;
+  relevant: boolean;
+  observation_count: number;
+  failed?: boolean;
+}
+
+export interface StewardReviewResource {
+  status: 'reviewed' | 'no_stewards' | 'no_stewards_for_repository';
+  summary: string;
+  markdown: string;
+  repository: {
+    owner: string;
+    repo: string;
+    url: string;
+  };
+  sha: string;
+  diff_truncated: boolean;
+  candidate_count: number;
+  stewards: StewardReviewParticipantResource[];
+  observations: StewardReviewObservationResource[];
+}
+
+export interface StewardReviewParams {
+  repository: string;
+  sha: string;
+}
+
+export class ApiClientError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(params: { status: number; code?: string; message: string }) {
+    super(params.message);
+    this.name = 'ApiClientError';
+    this.status = params.status;
+    this.code = params.code;
+  }
+
+  static fromResponseBody(status: number, body: string): ApiClientError {
+    try {
+      const parsed = JSON.parse(body) as { error?: string; message?: string };
+      const message = parsed.message ?? parsed.error ?? `API error ${status}`;
+      return new ApiClientError({ status, code: parsed.error, message });
+    } catch {
+      return new ApiClientError({
+        status,
+        message: `API error ${status}${body ? `: ${body}` : ''}`,
+      });
+    }
+  }
+}
+
 export class ApiClient {
   constructor(
     private baseUrl: string = PRIMARY_WEB_BASE_URL
@@ -780,6 +844,44 @@ export class ApiClient {
 
     if (!result.success) {
       throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async stewardReview(params: StewardReviewParams): Promise<StewardReviewResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/review?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw ApiClientError.fromResponseBody(response.status, errorText);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardReviewResource;
+      error?: string;
+      message?: string;
+    };
+
+    if (!result.success) {
+      throw new ApiClientError({
+        status: response.status,
+        code: result.error,
+        message: result.message ?? result.error ?? 'API returned unsuccessful response',
+      });
     }
 
     return result.data;
