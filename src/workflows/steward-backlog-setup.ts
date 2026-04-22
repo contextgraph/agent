@@ -96,7 +96,7 @@ export async function runStewardBacklogSetup(options: StewardBacklogSetupOptions
 
   console.log(chalk.bold('# Steward Workspace Setup'));
   console.log(`- ${chalk.bold('Backlog Ref:')} ${item.backlog_item.backlog_reference ?? item.backlog_item.id ?? 'unknown'}`);
-  console.log(`- ${chalk.bold('Required Branch:')} ${item.backlog_item.proposed_branch}`);
+  console.log(`- ${chalk.bold('Preferred Branch:')} ${item.backlog_item.proposed_branch}`);
   console.log(`- ${chalk.bold('Base Ref:')} ${baseRef}`);
 
   if (options.inPlace) {

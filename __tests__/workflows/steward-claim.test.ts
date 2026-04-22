@@ -83,10 +83,14 @@ describe('runStewardClaim', () => {
     expect(consoleLog).toHaveBeenCalledWith(
       '  Likely touches src/cli/index.ts and src/workflows/steward-next.ts.'
     );
-    expect(consoleLog).toHaveBeenCalledWith('## Required Branch');
+    expect(consoleLog).toHaveBeenCalledWith('## Preferred Branch');
     expect(consoleLog).toHaveBeenCalledWith('## Workspace Setup');
     expect(consoleLog).toHaveBeenCalledWith('## PR Linking');
     expect(consoleLog).toHaveBeenCalledWith('## Next Step');
+    const printedOutput = consoleLog.mock.calls.map((call) => String(call[0])).join('\n').replace(/\s+/g, ' ');
+    expect(printedOutput).toContain('Preferred branch: `feat/steward-next-cli`');
+    expect(printedOutput).toContain('harness-assigned branch');
+    expect(printedOutput).toContain('steward backlog link-pr agent-platform/wire-cli-command --pr');
     consoleLog.mockRestore();
   });
 
