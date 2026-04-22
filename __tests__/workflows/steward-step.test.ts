@@ -23,12 +23,10 @@ jest.unstable_mockModule('../../src/credentials.js', () => ({
 
 const mockClaimNextSteward: any = jest.fn();
 const mockReleaseStewardClaim: any = jest.fn<() => Promise<void>>();
-const mockGetIntegrationSurfaces: any = jest.fn();
 jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
     claimNextSteward: mockClaimNextSteward,
     releaseStewardClaim: mockReleaseStewardClaim,
-    getIntegrationSurfaces: mockGetIntegrationSurfaces,
   })),
 }));
 
@@ -76,7 +74,6 @@ describe('runStewardStep repository reduction', () => {
     mockIsExpired.mockReturnValue(false);
     mockIsTokenExpired.mockReturnValue(false);
     mockReleaseStewardClaim.mockResolvedValue(undefined);
-    mockGetIntegrationSurfaces.mockResolvedValue([]);
     mockRunnerExecute.mockResolvedValue({ exitCode: 0 });
     mockShutdownPostHog.mockResolvedValue(undefined);
 

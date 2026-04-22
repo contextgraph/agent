@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Removed
+- Legacy local-integrations model. The CLI no longer fetches an "integration
+  surfaces" catalog from the platform, matches surfaces against local env vars,
+  or injects an "Available Integrations" section into claim output / step
+  prompts. The server endpoint `/api/integrations/surfaces` it relied on no
+  longer exists, so every `steward backlog claim` was already printing a
+  `failed to load integration surfaces: API error 404` warning. This removes
+  `ApiClient.getIntegrationSurfaces`, the `IntegrationSurfaceResource` type, the
+  `steward configure` / `steward configure validate` commands (and the
+  `~/.steward/config.json` scaffold they maintained), the orphan
+  `steward-heartbeat` workflow, and the `.steward/integrations/...` tooling
+  guidance that only made sense under the local model. Workspace-scoped
+  integrations now live on the platform side (steward.foo workspace settings);
+  there is no CLI-side replacement.
+
 ## [0.1.1] - 2025-11-16
 
 ### Fixed
