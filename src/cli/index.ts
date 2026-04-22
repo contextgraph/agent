@@ -310,7 +310,7 @@ backlog
   .argument('[identifier]', 'Claimed backlog item UUID or steward-slug/backlog-item-slug reference')
   .description('Optional helper to prepare a workspace for a claimed backlog item')
   .option('--path <path>', 'Optional worktree path (defaults under .worktrees)')
-  .option('--in-place', 'Create the required branch in the current checkout instead of a clean worktree')
+  .option('--in-place', 'Create the preferred branch in the current checkout instead of a clean worktree')
   .option('--base-ref <baseRef>', 'Base ref for workspace setup', 'origin/main')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardBacklogSetup);

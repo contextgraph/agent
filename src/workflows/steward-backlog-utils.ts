@@ -34,8 +34,8 @@ export function resolveClaimedBacklogItem(
   throw new Error('Multiple claimed backlog items are active. Pass an identifier or run `steward backlog claimed` first.');
 }
 
-export function requiredBranchMessage(branchName: string): string {
-  return `You must do this backlog work on branch \`${branchName}\`. Steward uses this exact branch name to automatically link the resulting PR back to the claimed backlog item.`;
+export function preferredBranchMessage(branchName: string): string {
+  return `Preferred branch: \`${branchName}\`. Pushing the resulting PR from this branch auto-links it to the claimed backlog item. If your environment already pinned you to a different branch (for example a harness-assigned branch), keep working on that branch instead — see the PR Linking section for how to link the PR afterward.`;
 }
 
 export function backlogLinkLine(backlogItemId: string): string {

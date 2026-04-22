@@ -4,7 +4,7 @@ import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
 import { printFileSurfaceConjecture } from './steward-backlog-format.js';
-import { requiredBranchMessage } from './steward-backlog-utils.js';
+import { preferredBranchMessage } from './steward-backlog-utils.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -90,27 +90,29 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
     throw new Error('API contract violation: claim route returned a backlog item without proposed_branch');
   }
 
+  const ref = next.backlog_item.backlog_reference ?? next.backlog_item.id ?? '';
+
   console.log('');
-  console.log(chalk.bold('## Required Branch'));
-  printWrapped(requiredBranchMessage(next.backlog_item.proposed_branch), { indent: '  ' });
+  console.log(chalk.bold('## Preferred Branch'));
+  printWrapped(preferredBranchMessage(next.backlog_item.proposed_branch), { indent: '  ' });
 
   console.log('');
   console.log(chalk.bold('## Workspace Setup'));
   printWrapped(
-    `Optional helper: run \`steward backlog setup ${next.backlog_item.backlog_reference ?? next.backlog_item.id ?? ''}\` to create a clean worktree from \`origin/main\` on this exact branch. If you prefer to work in your current checkout, create this exact branch name yourself.`,
+    `Optional helper: run \`steward backlog setup ${ref}\` to create a clean worktree from \`origin/main\` on the preferred branch. Skip this if you are already on a branch you need to keep (e.g. one assigned by your harness).`,
     { indent: '  ' }
   );
 
   console.log('');
   console.log(chalk.bold('## PR Linking'));
   printWrapped(
-    `If you use a different branch name, the resulting PR will not link automatically to this backlog item. If linkage gets out of sync, recover it with \`steward backlog link-pr ${next.backlog_item.backlog_reference ?? next.backlog_item.id ?? ''} --pr <number-or-url>\`.`,
+    `PRs pushed from the preferred branch link automatically. From any other branch, link the PR after opening it with \`steward backlog link-pr ${ref} --pr <number-or-url>\` — this stamps a \`Steward-Backlog-Item:\` marker in the PR body so linkage does not depend on branch name.`,
     { indent: '  ' }
   );
   console.log('');
   console.log(chalk.bold('## Next Step'));
   printWrapped(
-    `Do the work for this backlog item on branch \`${next.backlog_item.proposed_branch}\`. After you open or update a PR, stop and wait for the user instead of claiming another backlog item.`,
+    `Do the work for this backlog item on the preferred branch \`${next.backlog_item.proposed_branch}\` if possible, or on your current branch if it is pinned — either is fine as long as the resulting PR is linked (automatically via branch name, or manually via \`steward backlog link-pr\`). After you open or update the PR, stop and wait for the user instead of claiming another backlog item.`,
     { indent: '  ' }
   );
 }
