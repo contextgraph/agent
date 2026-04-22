@@ -19,6 +19,7 @@ import { runStewardList } from '../workflows/steward-list.js';
 import { runStewardConfigure } from '../workflows/steward-configure.js';
 import { runStewardConfigureValidate } from '../workflows/steward-configure-validate.js';
 import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
+import { runStewardReview } from '../workflows/steward-review.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
@@ -242,6 +243,23 @@ function handleStewardBacklogInstructions(): void {
   runStewardBacklogInstructions();
 }
 
+async function handleStewardReview(
+  repository: string,
+  sha: string,
+  options: { baseUrl?: string }
+): Promise<void> {
+  try {
+    await runStewardReview({
+      repository,
+      sha,
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error running steward review:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
 program
   .command('auth')
   .description('Authenticate with steward.foo')
@@ -459,6 +477,14 @@ program
   });
 
 program
+  .command('review')
+  .argument('<repository>', 'Repository to review — a full URL (https://github.com/owner/repo) or an owner/repo slug')
+  .argument('<sha>', 'Commit SHA to review (hexadecimal, 7–40 chars)')
+  .description('Get a rapid, commit-scoped review from your project\'s stewards')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(handleStewardReview);
+
+program
   .command('whoami')
   .description('Show current authentication status')
   .action(async () => {
@@ -491,6 +517,7 @@ Quick start:
   steward auth
   steward backlog --help
   steward backlog top
+  steward review <repository> <sha>
 `);
 
 program.parse();

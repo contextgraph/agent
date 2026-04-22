@@ -196,6 +196,45 @@ export interface StewardClaimResource {
   pr_context?: StewardClaimPrContext | null;
 }
 
+export interface StewardReviewObservationResource {
+  steward_id: string;
+  steward_name: string;
+  type: 'concern' | 'affirmation';
+  severity: 'must' | 'should' | 'could';
+  evidence: 'code_only' | 'tests' | 'policy' | 'telemetry';
+  observation: string;
+  rationale: string;
+}
+
+export interface StewardReviewParticipantResource {
+  id: string;
+  name: string;
+  relevant: boolean;
+  observation_count: number;
+  failed?: boolean;
+}
+
+export interface StewardReviewResource {
+  status: 'reviewed' | 'no_stewards' | 'no_stewards_for_repository';
+  summary: string;
+  markdown: string;
+  repository: {
+    owner: string;
+    repo: string;
+    url: string;
+  };
+  sha: string;
+  diff_truncated: boolean;
+  candidate_count: number;
+  stewards: StewardReviewParticipantResource[];
+  observations: StewardReviewObservationResource[];
+}
+
+export interface StewardReviewParams {
+  repository: string;
+  sha: string;
+}
+
 export class ApiClient {
   constructor(
     private baseUrl: string = PRIMARY_WEB_BASE_URL
@@ -775,6 +814,50 @@ export class ApiClient {
     const result = await response.json() as {
       success: boolean;
       data: StewardListItemResource[];
+      error?: string;
+    };
+
+    if (!result.success) {
+      throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async stewardReview(params: StewardReviewParams): Promise<StewardReviewResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/review?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `API error ${response.status}`;
+      try {
+        const parsed = JSON.parse(errorText) as { error?: string; message?: string };
+        if (parsed.error) {
+          errorMessage = parsed.error;
+        } else if (parsed.message) {
+          errorMessage = parsed.message;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${errorText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardReviewResource;
       error?: string;
     };
 
