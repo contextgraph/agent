@@ -5,6 +5,7 @@ import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
 import { printFileSurfaceConjecture } from './steward-backlog-format.js';
 import { detectCurrentBranch } from '../git-current-branch.js';
+import { captureEvent } from '../posthog-client.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -61,25 +62,32 @@ function printClaim(next: StewardNextResource) {
   }
 }
 
-async function resolveBranchForClaim(explicit: string | undefined): Promise<string> {
+async function resolveBranchForClaim(
+  explicit: string | undefined,
+  onDetection: (source: 'explicit_flag' | 'auto_detected' | 'detached_head' | 'not_a_repo') => void,
+): Promise<string> {
   if (explicit) {
     const trimmed = explicit.trim();
     if (!trimmed) {
       throw new Error('--branch value must not be empty');
     }
+    onDetection('explicit_flag');
     return trimmed;
   }
 
   const detected = await detectCurrentBranch();
   if (detected.kind === 'branch') {
+    onDetection('auto_detected');
     return detected.name;
   }
   if (detected.kind === 'detached') {
+    onDetection('detached_head');
     throw new Error(
       'steward backlog claim requires a branch checkout. HEAD is detached. ' +
         'Run `git checkout -b <branch>` first, or pass `--branch <name>` explicitly.'
     );
   }
+  onDetection('not_a_repo');
   throw new Error(
     'steward backlog claim requires a git repository. Could not detect current branch ' +
       `(${detected.message}). Run the command from inside a git checkout, or pass \`--branch <name>\` explicitly.`
@@ -101,6 +109,7 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
 
   const baseUrl = (options.baseUrl || process.env.CONTEXTGRAPH_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
   const apiClient = new ApiClient(baseUrl);
+  const distinctId = credentials.userId;
 
   if (!options.identifier) {
     const next = await apiClient.nextStewardWork();
@@ -115,22 +124,50 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
     return;
   }
 
-  const branch = await resolveBranchForClaim(options.branch);
-  const next = await apiClient.claimStewardBacklog(options.identifier, branch);
+  let branchSource: 'explicit_flag' | 'auto_detected' | 'detached_head' | 'not_a_repo' = 'auto_detected';
+  let branch: string;
+  try {
+    branch = await resolveBranchForClaim(options.branch, (source) => { branchSource = source; });
+  } catch (error) {
+    captureEvent(distinctId, 'steward_cli_claim_attempt', {
+      outcome: 'branch_resolution_failed',
+      branch_source: branchSource,
+      error_message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
-  printClaim(next);
+  try {
+    const next = await apiClient.claimStewardBacklog(options.identifier, branch);
+    captureEvent(distinctId, 'steward_cli_claim_attempt', {
+      outcome: 'success',
+      branch_source: branchSource,
+      claimed_id: next.backlog_item?.id ?? null,
+    });
+    printClaim(next);
 
-  console.log('');
-  console.log(chalk.bold('## Registered Branch'));
-  printWrapped(
-    `This claim is registered to branch \`${branch}\`. Any PR pushed from this branch in ${next.backlog_item.repository_url ?? 'this repository'} will link automatically.`,
-    { indent: '  ' }
-  );
+    console.log('');
+    console.log(chalk.bold('## Registered Branch'));
+    printWrapped(
+      `This claim is registered to branch \`${branch}\`. Any PR pushed from this branch in ${next.backlog_item.repository_url ?? 'this repository'} will link automatically.`,
+      { indent: '  ' }
+    );
 
-  console.log('');
-  console.log(chalk.bold('## Next Step'));
-  printWrapped(
-    `Do the work on \`${branch}\` and open a PR from it. If you switch branches before opening the PR, re-run \`steward backlog claim ${options.identifier}\` from the new branch to update the registration. Do not claim another backlog item until this one is done, dismissed, or unclaimed.`,
-    { indent: '  ' }
-  );
+    console.log('');
+    console.log(chalk.bold('## Next Step'));
+    printWrapped(
+      `Do the work on \`${branch}\` and open a PR from it. If you switch branches before opening the PR, re-run \`steward backlog claim ${options.identifier}\` from the new branch to update the registration. Do not claim another backlog item until this one is done, dismissed, or unclaimed.`,
+      { indent: '  ' }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const apiStatus = /API error (\d{3})/.exec(message)?.[1] ?? null;
+    captureEvent(distinctId, 'steward_cli_claim_attempt', {
+      outcome: 'api_error',
+      branch_source: branchSource,
+      api_status: apiStatus,
+      error_message: message,
+    });
+    throw error;
+  }
 }

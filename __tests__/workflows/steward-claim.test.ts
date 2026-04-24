@@ -41,6 +41,11 @@ jest.unstable_mockModule('../../src/git-current-branch.js', () => ({
   detectCurrentBranch: mockDetectCurrentBranch,
 }));
 
+const mockCaptureEvent = jest.fn<(distinctId: string, event: string, properties?: Record<string, unknown>) => void>();
+jest.unstable_mockModule('../../src/posthog-client.js', () => ({
+  captureEvent: mockCaptureEvent,
+}));
+
 const { runStewardClaim } = await import('../../src/workflows/steward-claim.js');
 
 describe('runStewardClaim', () => {
@@ -141,5 +146,63 @@ describe('runStewardClaim', () => {
       runStewardClaim({ identifier: 'agent-platform/whatever' })
     ).rejects.toThrow(/git repository/);
     expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
+  });
+
+  it('emits a steward_cli_claim_attempt success event with the resolved branch source', async () => {
+    mockClaimStewardBacklog.mockResolvedValue({
+      steward: { name: 'Agent Platform', slug: 'agent-platform' },
+      backlog_item: {
+        id: 'backlog-4',
+        title: 'Event test',
+        backlog_reference: 'agent-platform/event-test',
+        objective: 'Emit events',
+        rationale: 'Telemetry',
+        proposed_branch: 'feature/my-branch',
+        repository_url: 'https://github.com/contextgraph/agent',
+      },
+    });
+
+    await runStewardClaim({ identifier: 'agent-platform/event-test' });
+
+    expect(mockCaptureEvent).toHaveBeenCalledWith(
+      'user-1',
+      'steward_cli_claim_attempt',
+      expect.objectContaining({
+        outcome: 'success',
+        branch_source: 'auto_detected',
+        claimed_id: 'backlog-4',
+      }),
+    );
+  });
+
+  it('emits a steward_cli_claim_attempt event with outcome=branch_resolution_failed on detached HEAD', async () => {
+    mockDetectCurrentBranch.mockResolvedValue({ kind: 'detached' });
+
+    await expect(runStewardClaim({ identifier: 'agent-platform/whatever' })).rejects.toThrow();
+
+    expect(mockCaptureEvent).toHaveBeenCalledWith(
+      'user-1',
+      'steward_cli_claim_attempt',
+      expect.objectContaining({
+        outcome: 'branch_resolution_failed',
+        branch_source: 'detached_head',
+      }),
+    );
+  });
+
+  it('emits a steward_cli_claim_attempt event with outcome=api_error when the server rejects the claim', async () => {
+    mockClaimStewardBacklog.mockRejectedValue(new Error('API error 409: branch_already_claimed'));
+
+    await expect(runStewardClaim({ identifier: 'agent-platform/conflict' })).rejects.toThrow();
+
+    expect(mockCaptureEvent).toHaveBeenCalledWith(
+      'user-1',
+      'steward_cli_claim_attempt',
+      expect.objectContaining({
+        outcome: 'api_error',
+        branch_source: 'auto_detected',
+        api_status: '409',
+      }),
+    );
   });
 });
