@@ -112,6 +112,14 @@ describe('runStewardClaim', () => {
     expect(mockNextStewardWork).not.toHaveBeenCalled();
   });
 
+  it('fails fast when --branch is explicitly empty (does not fall back to auto-detection)', async () => {
+    await expect(
+      runStewardClaim({ identifier: 'agent-platform/x', branch: '' }),
+    ).rejects.toThrow(/must not be empty/);
+    expect(mockDetectCurrentBranch).not.toHaveBeenCalled();
+    expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
+  });
+
   it('uses an explicit --branch override when provided', async () => {
     mockClaimStewardBacklog.mockResolvedValue({
       steward: { name: 'Agent Platform', slug: 'agent-platform' },

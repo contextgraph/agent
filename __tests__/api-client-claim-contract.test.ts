@@ -79,7 +79,7 @@ describe('ApiClient.claimStewardBacklog request contract', () => {
     const client = new ApiClient('https://contextgraph.dev');
     await expect(
       client.claimStewardBacklog('agent-platform/wire-cli-command', 'feature/my-branch'),
-    ).rejects.toThrow(/API error 400/);
+    ).rejects.toThrow(/API error 400: .*branch_required/);
   });
 
   it('surfaces branch_already_claimed conflicts from the server (409)', async () => {
@@ -93,6 +93,6 @@ describe('ApiClient.claimStewardBacklog request contract', () => {
     const client = new ApiClient('https://contextgraph.dev');
     await expect(
       client.claimStewardBacklog('agent-platform/wire-cli-command', 'feature/my-branch'),
-    ).rejects.toThrow(/API error 409/);
+    ).rejects.toThrow(/API error 409: .*branch_already_claimed/);
   });
 });

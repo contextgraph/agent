@@ -66,9 +66,10 @@ async function resolveBranchForClaim(
   explicit: string | undefined,
   onDetection: (source: 'explicit_flag' | 'auto_detected' | 'detached_head' | 'not_a_repo') => void,
 ): Promise<string> {
-  if (explicit) {
+  if (typeof explicit === 'string') {
     const trimmed = explicit.trim();
     if (!trimmed) {
+      onDetection('explicit_flag');
       throw new Error('--branch value must not be empty');
     }
     onDetection('explicit_flag');
