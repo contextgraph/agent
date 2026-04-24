@@ -4,12 +4,13 @@ import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import { printWrapped } from './render.js';
 import { printFileSurfaceConjecture } from './steward-backlog-format.js';
-import { preferredBranchMessage } from './steward-backlog-utils.js';
+import { detectCurrentBranch } from '../git-current-branch.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
 export interface StewardClaimOptions {
   identifier?: string;
+  branch?: string;
   baseUrl?: string;
 }
 
@@ -60,6 +61,31 @@ function printClaim(next: StewardNextResource) {
   }
 }
 
+async function resolveBranchForClaim(explicit: string | undefined): Promise<string> {
+  if (explicit) {
+    const trimmed = explicit.trim();
+    if (!trimmed) {
+      throw new Error('--branch value must not be empty');
+    }
+    return trimmed;
+  }
+
+  const detected = await detectCurrentBranch();
+  if (detected.kind === 'branch') {
+    return detected.name;
+  }
+  if (detected.kind === 'detached') {
+    throw new Error(
+      'steward backlog claim requires a branch checkout. HEAD is detached. ' +
+        'Run `git checkout -b <branch>` first, or pass `--branch <name>` explicitly.'
+    );
+  }
+  throw new Error(
+    'steward backlog claim requires a git repository. Could not detect current branch ' +
+      `(${detected.message}). Run the command from inside a git checkout, or pass \`--branch <name>\` explicitly.`
+  );
+}
+
 export async function runStewardClaim(options: StewardClaimOptions = {}): Promise<void> {
   const credentials = await loadCredentials();
 
@@ -75,44 +101,36 @@ export async function runStewardClaim(options: StewardClaimOptions = {}): Promis
 
   const baseUrl = (options.baseUrl || process.env.CONTEXTGRAPH_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
   const apiClient = new ApiClient(baseUrl);
-  const next = options.identifier
-    ? await apiClient.claimStewardBacklog(options.identifier)
-    : await apiClient.nextStewardWork();
 
-  if (!next) {
-    console.log(chalk.yellow('No queued steward backlog items right now.'));
+  if (!options.identifier) {
+    const next = await apiClient.nextStewardWork();
+    if (!next) {
+      console.log(chalk.yellow('No queued steward backlog items right now.'));
+      return;
+    }
+    printClaim(next);
+    console.log('');
+    console.log(chalk.yellow('Deprecated: shortcut `steward backlog claim` without an identifier returns the top queued item but does not register a branch.'));
+    console.log(chalk.yellow('Run `steward backlog top` to inspect, then `steward backlog claim <identifier>` from the branch you will push from.'));
     return;
   }
 
+  const branch = await resolveBranchForClaim(options.branch);
+  const next = await apiClient.claimStewardBacklog(options.identifier, branch);
+
   printClaim(next);
 
-  if (!next.backlog_item.proposed_branch) {
-    throw new Error('API contract violation: claim route returned a backlog item without proposed_branch');
-  }
-
-  const ref = next.backlog_item.backlog_reference ?? next.backlog_item.id ?? '';
-
   console.log('');
-  console.log(chalk.bold('## Preferred Branch'));
-  printWrapped(preferredBranchMessage(next.backlog_item.proposed_branch), { indent: '  ' });
-
-  console.log('');
-  console.log(chalk.bold('## Workspace Setup'));
+  console.log(chalk.bold('## Registered Branch'));
   printWrapped(
-    `Optional helper: run \`steward backlog setup ${ref}\` to create a clean worktree from \`origin/main\` on the preferred branch. Skip this if you are already on a branch you need to keep (e.g. one assigned by your harness).`,
+    `This claim is registered to branch \`${branch}\`. Any PR pushed from this branch in ${next.backlog_item.repository_url ?? 'this repository'} will link automatically.`,
     { indent: '  ' }
   );
 
-  console.log('');
-  console.log(chalk.bold('## PR Linking'));
-  printWrapped(
-    `PRs pushed from the preferred branch link automatically. From any other branch, link the PR after opening it with \`steward backlog link-pr ${ref} --pr <number-or-url>\` — this stamps a \`Steward-Backlog-Item:\` marker in the PR body so linkage does not depend on branch name.`,
-    { indent: '  ' }
-  );
   console.log('');
   console.log(chalk.bold('## Next Step'));
   printWrapped(
-    `Do the work for this backlog item on the preferred branch \`${next.backlog_item.proposed_branch}\` if possible, or on your current branch if it is pinned — either is fine as long as the resulting PR is linked (automatically via branch name, or manually via \`steward backlog link-pr\`). After you open or update the PR, stop and wait for the user instead of claiming another backlog item.`,
+    `Do the work on \`${branch}\` and open a PR from it. If you switch branches before opening the PR, re-run \`steward backlog claim ${options.identifier}\` from the new branch to update the registration. Do not claim another backlog item until this one is done, dismissed, or unclaimed.`,
     { indent: '  ' }
   );
 }
