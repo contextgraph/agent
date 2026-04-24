@@ -578,7 +578,7 @@ export class ApiClient {
     return result.data;
   }
 
-  async claimStewardBacklog(identifier: string): Promise<StewardNextResource> {
+  async claimStewardBacklog(identifier: string, branch: string): Promise<StewardNextResource> {
     const token = await this.getAuthToken();
 
     const response = await fetchWithRetry(
@@ -589,7 +589,7 @@ export class ApiClient {
           'x-authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ identifier }),
+        body: JSON.stringify({ identifier, branch }),
       }
     );
 

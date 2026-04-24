@@ -52,10 +52,11 @@ async function handleStewardDismiss(identifier: string, options: { note: string;
   }
 }
 
-async function handleStewardClaim(identifier: string | undefined, options: { baseUrl?: string }): Promise<void> {
+async function handleStewardClaim(identifier: string | undefined, options: { baseUrl?: string; branch?: string }): Promise<void> {
   try {
     await runStewardClaim({
       identifier,
+      branch: options.branch,
       baseUrl: options.baseUrl,
     });
   } catch (error) {
@@ -295,9 +296,10 @@ claim
 
 claim
   .argument('<identifier>', 'Backlog item UUID or steward-slug/backlog-item-slug reference')
-  .description('Claim a specific queued steward backlog item')
+  .description('Claim a specific queued steward backlog item (registers the current branch as the claim target; override with --branch)')
+  .option('--branch <branch>', 'Override the branch registered to this claim (defaults to the current git branch)')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .action((identifier: string, options: { baseUrl?: string }) => handleStewardClaim(identifier, options));
+  .action((identifier: string, options: { baseUrl?: string; branch?: string }) => handleStewardClaim(identifier, options));
 
 backlog
   .command('claimed')
@@ -345,7 +347,7 @@ backlog
   .command('link-pr')
   .argument('[identifier]', 'Claimed backlog item UUID or steward-slug/backlog-item-slug reference')
   .requiredOption('--pr <pr>', 'PR number or URL to link to the claimed backlog item')
-  .description('Manually link a PR to a claimed backlog item by updating the PR body marker')
+  .description('Fallback: manually link a PR to a claimed backlog item. Only needed when the PR was opened from a branch different from the one registered at claim time. Prefer re-running `steward backlog claim <id>` from the correct branch.')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardBacklogLinkPr);
 
