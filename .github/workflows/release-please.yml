@@ -29,7 +29,23 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Verify NPM_TOKEN secret is set
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::NPM_TOKEN repository secret is not set. Add it with publish access to @contextgraph/agent before merging release PRs."
+            exit 1
+          fi
+
       - run: npm ci
+        if: ${{ steps.release.outputs.release_created }}
+
+      - run: npm run typecheck
+        if: ${{ steps.release.outputs.release_created }}
+
+      - run: npm test
         if: ${{ steps.release.outputs.release_created }}
 
       - run: npm run build
