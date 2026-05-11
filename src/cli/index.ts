@@ -3,7 +3,6 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { runAuth } from '../workflows/auth.js';
-import { runStewardLoop } from '../workflows/steward-run.js';
 import { runStewardDismiss } from '../workflows/steward-dismiss.js';
 import { runStewardClaim } from '../workflows/steward-claim.js';
 import { runStewardClaimed } from '../workflows/steward-claimed.js';
@@ -20,8 +19,6 @@ import { runStewardBacklogInstructions } from '../workflows/steward-backlog-inst
 import { runStewardReview } from '../workflows/steward-review.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
-import type { AgentProvider } from '../runners/index.js';
-import type { RunnerExecutionMode } from '../runners/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,8 +27,6 @@ const packageJson = JSON.parse(
 );
 
 const program = new Command();
-const PROVIDER_VALUES: AgentProvider[] = ['claude', 'codex'];
-const EXECUTION_MODE_VALUES: RunnerExecutionMode[] = ['restricted', 'full-access'];
 const platformBaseUrlHelp = 'steward.foo API base URL';
 
 program
@@ -380,71 +375,6 @@ program
   .description('Show the mission for an active steward')
   .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
   .action(handleStewardMission);
-
-program
-  .command('run')
-  .description('Run steward execution loop using run-ready steward top ordering until stopped')
-  .option('--steward-id <stewardId>', 'Target a specific steward ID')
-  .option('--worker-id <workerId>', 'Optional worker ID for claim/release correlation')
-  .option('--dry-run', 'Claim and fetch prompt each loop, but skip agent execution')
-  .option('--provider <provider>', `Execution provider (${PROVIDER_VALUES.join('|')})`, 'claude')
-  .option('--execution-mode <mode>', `Execution mode (${EXECUTION_MODE_VALUES.join('|')})`)
-  .option('--skip-skills', 'Skip skill injection (for testing)')
-  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
-  .option('--interval-seconds <seconds>', 'Delay between loop steps (default: 30)', '30')
-  .option('--max-steps <count>', 'Maximum number of claimed steps before exiting')
-  .option('--stop-on-error', 'Exit loop on first step error')
-  .action(async (options: {
-    stewardId?: string;
-    workerId?: string;
-    dryRun?: boolean;
-    provider: string;
-    executionMode?: string;
-    skipSkills?: boolean;
-    baseUrl?: string;
-    intervalSeconds: string;
-    maxSteps?: string;
-    stopOnError?: boolean;
-  }) => {
-    try {
-      if (!PROVIDER_VALUES.includes(options.provider as AgentProvider)) {
-        console.error(`Invalid provider "${options.provider}". Expected one of: ${PROVIDER_VALUES.join(', ')}`);
-        process.exit(1);
-      }
-      if (options.executionMode && !EXECUTION_MODE_VALUES.includes(options.executionMode as RunnerExecutionMode)) {
-        console.error(`Invalid execution mode "${options.executionMode}". Expected one of: ${EXECUTION_MODE_VALUES.join(', ')}`);
-        process.exit(1);
-      }
-
-      const intervalSeconds = Number.parseInt(options.intervalSeconds, 10);
-      if (!Number.isFinite(intervalSeconds) || intervalSeconds < 0) {
-        console.error(`Invalid interval-seconds "${options.intervalSeconds}". Expected a non-negative integer.`);
-        process.exit(1);
-      }
-
-      const maxSteps = options.maxSteps !== undefined ? Number.parseInt(options.maxSteps, 10) : undefined;
-      if (options.maxSteps !== undefined && (maxSteps === undefined || !Number.isInteger(maxSteps) || maxSteps <= 0)) {
-        console.error(`Invalid max-steps "${options.maxSteps}". Expected a positive integer.`);
-        process.exit(1);
-      }
-
-      await runStewardLoop({
-        stewardId: options.stewardId,
-        workerId: options.workerId,
-        dryRun: options.dryRun,
-        provider: options.provider as AgentProvider,
-        executionMode: options.executionMode as RunnerExecutionMode | undefined,
-        skipSkills: options.skipSkills,
-        baseUrl: options.baseUrl,
-        intervalSeconds,
-        maxSteps,
-        stopOnError: options.stopOnError,
-      });
-    } catch (error) {
-      console.error('Error running steward loop:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
 
 program
   .command('review')
