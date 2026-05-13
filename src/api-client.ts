@@ -225,6 +225,41 @@ export interface StewardReviewParams {
   sha: string;
 }
 
+export interface StewardConsultStewardResource {
+  id: string;
+  name: string;
+  relevant: boolean;
+  failed?: boolean;
+}
+
+export interface StewardConsultResponseResource {
+  steward_id: string;
+  steward_name: string;
+  response: string;
+}
+
+export interface StewardConsultResource {
+  status: 'consulted' | 'no_stewards' | 'no_stewards_for_repository';
+  summary: string;
+  markdown: string;
+  message: string;
+  context: string | null;
+  repository: {
+    owner: string;
+    repo: string;
+    url: string;
+  };
+  candidate_count: number;
+  stewards: StewardConsultStewardResource[];
+  responses: StewardConsultResponseResource[];
+}
+
+export interface StewardConsultParams {
+  repository: string;
+  message: string;
+  context?: string;
+}
+
 export class ApiClientError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -834,6 +869,44 @@ export class ApiClient {
 
     if (!result.success) {
       throw new Error(result.error || 'API returned unsuccessful response');
+    }
+
+    return result.data;
+  }
+
+  async stewardConsult(params: StewardConsultParams): Promise<StewardConsultResource> {
+    const token = await this.getAuthToken();
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/api/steward/consult?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw ApiClientError.fromResponseBody(response.status, errorText);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      data: StewardConsultResource;
+      error?: string;
+      message?: string;
+    };
+
+    if (!result.success) {
+      throw new ApiClientError({
+        status: response.status,
+        code: result.error,
+        message: result.message ?? result.error ?? 'API returned unsuccessful response',
+      });
     }
 
     return result.data;

@@ -17,6 +17,7 @@ import { runStewardMission } from '../workflows/steward-mission.js';
 import { runStewardList } from '../workflows/steward-list.js';
 import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
 import { runStewardReview } from '../workflows/steward-review.js';
+import { runStewardConsult, readContextFromStdinIfAvailable } from '../workflows/steward-consult.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 
@@ -236,6 +237,36 @@ async function handleStewardReview(
   }
 }
 
+async function handleStewardConsult(
+  repository: string,
+  options: { message?: string; context?: string; stdinContext?: boolean; baseUrl?: string }
+): Promise<void> {
+  try {
+    if (!options.message) {
+      throw new Error('--message is required');
+    }
+    let context = options.context;
+    if (options.stdinContext) {
+      if (context !== undefined) {
+        throw new Error('Provide either --context or --stdin-context, not both');
+      }
+      context = await readContextFromStdinIfAvailable();
+      if (context === undefined) {
+        throw new Error('--stdin-context was set but no data was piped on stdin');
+      }
+    }
+    await runStewardConsult({
+      repository,
+      message: options.message,
+      ...(context ? { context } : {}),
+      baseUrl: options.baseUrl,
+    });
+  } catch (error) {
+    console.error('Error running steward consult:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
 program
   .command('auth')
   .description('Authenticate with steward.foo')
@@ -385,6 +416,16 @@ program
   .action(handleStewardReview);
 
 program
+  .command('consult')
+  .argument('<repository>', 'Repository the consult is about — a full URL (https://github.com/owner/repo) or an owner/repo slug')
+  .description('Ask the stewards scoped to a repository a question and get attributed responses')
+  .requiredOption('--message <message>', 'Question or message to send to the stewards')
+  .option('--context <context>', 'Optional additional context (code snippet, error log, design notes)')
+  .option('--stdin-context', 'Read additional context from stdin instead of --context')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(handleStewardConsult);
+
+program
   .command('whoami')
   .description('Show current authentication status')
   .action(async () => {
@@ -418,6 +459,7 @@ Quick start:
   steward backlog --help
   steward backlog top
   steward review <repository> <sha>
+  steward consult <repository> --message "..."
 `);
 
 program.parse();
