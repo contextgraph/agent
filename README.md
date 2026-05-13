@@ -10,6 +10,8 @@ steward auth
 steward --help
 steward backlog --help
 steward backlog top
+steward review <repository> <sha>
+steward consult <repository> --message "..."
 ```
 
 `steward auth` opens a browser login and stores credentials locally in `~/.steward/credentials.json`.
