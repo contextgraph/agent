@@ -1,7 +1,8 @@
 import chalk from 'chalk';
-import { ApiClient } from '../api-client.js';
+import { ApiClient, ApiClientError } from '../api-client.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
+import { captureEvent, shutdownPostHog } from '../posthog-client.js';
 
 const DEFAULT_BASE_URL = PRIMARY_WEB_BASE_URL;
 
@@ -71,13 +72,44 @@ export async function runStewardConsult(options: StewardConsultOptions): Promise
   }
 
   const apiClient = new ApiClient(baseUrl);
-  const consult = await apiClient.stewardConsult({
+
+  captureEvent(credentials.userId, 'steward_cli_consult_invoked', {
     repository,
-    message,
-    ...(context ? { context } : {}),
+    message_length: message.length,
+    context_length: context?.length ?? 0,
+    has_context: context !== undefined,
   });
 
-  console.log(consult.markdown);
+  const startedAt = Date.now();
+  try {
+    const consult = await apiClient.stewardConsult({
+      repository,
+      message,
+      ...(context ? { context } : {}),
+    });
+
+    captureEvent(credentials.userId, 'steward_cli_consult_completed', {
+      repository,
+      status: consult.status,
+      candidate_count: consult.candidate_count,
+      relevant_steward_count: consult.stewards.filter((s) => s.relevant).length,
+      failed_steward_count: consult.stewards.filter((s) => s.failed).length,
+      response_count: consult.responses.length,
+      duration_ms: Date.now() - startedAt,
+    });
+
+    console.log(consult.markdown);
+  } catch (error) {
+    captureEvent(credentials.userId, 'steward_cli_consult_failed', {
+      repository,
+      duration_ms: Date.now() - startedAt,
+      error_status: error instanceof ApiClientError ? error.status : undefined,
+      error_code: error instanceof ApiClientError ? error.code : undefined,
+    });
+    throw error;
+  } finally {
+    await shutdownPostHog();
+  }
 }
 
 export async function readContextFromStdinIfAvailable(): Promise<string | undefined> {
