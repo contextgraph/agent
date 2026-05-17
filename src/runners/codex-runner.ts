@@ -1,4 +1,5 @@
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
+import { promisify } from 'util';
 import { createInterface } from 'readline';
 import type { LogEvent } from '../log-transport.js';
 import { PRIMARY_MCP_BASE_URL as CONTEXTGRAPH_MCP_URL } from '../platform-urls.js';
@@ -8,6 +9,8 @@ import {
   buildStewardSessionId,
   buildStewardSessionMetadata,
 } from '../langfuse-session.js';
+
+const execAsync = promisify(exec);
 
 const EXECUTION_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const DEFAULT_CODEX_SANDBOX_MODE = 'danger-full-access';
@@ -190,6 +193,18 @@ export const codexRunner: AgentRunner = {
   provider: 'codex',
   capabilities: {
     fullAccessExecution: true,
+  },
+  async isAvailable(): Promise<boolean> {
+    try {
+      // Check if codex CLI is available on the system
+      // Use 'which' on Unix-like systems, 'where' on Windows
+      const command = process.platform === 'win32' ? 'where codex' : 'which codex';
+      await execAsync(command);
+      return true;
+    } catch {
+      // Command failed, codex is not available
+      return false;
+    }
   },
   async execute(options: RunnerExecuteOptions): Promise<AgentRunResult> {
     return new Promise((resolve, reject) => {

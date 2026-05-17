@@ -23,4 +23,5 @@ export interface AgentRunner {
   provider: AgentProvider;
   capabilities: RunnerCapabilities;
   execute(options: RunnerExecuteOptions): Promise<AgentRunResult>;
+  isAvailable(): Promise<boolean>;
 }

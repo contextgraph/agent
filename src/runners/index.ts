@@ -13,4 +13,9 @@ export function createAgentRunner(provider: AgentProvider = 'claude'): AgentRunn
   }
 }
 
+export async function isAgentAvailable(provider: AgentProvider): Promise<boolean> {
+  const runner = createAgentRunner(provider);
+  return runner.isAvailable();
+}
+
 export type { AgentProvider, AgentRunner, RunnerExecuteOptions } from './types.js';
