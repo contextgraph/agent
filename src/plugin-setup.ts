@@ -1,9 +1,17 @@
 import { spawn } from 'child_process';
 
 export const PLUGIN_REPO = 'https://github.com/contextgraph/claude-code-plugin';
+// `claude plugin marketplace add` takes the GitHub source shorthand. We detect
+// an existing registration by this source rather than by the marketplace's
+// display name: the display name has drifted across releases
+// ('contextgraph-marketplace' on older installs, 'steward-marketplace' in the
+// current manifest), but the source repo is stable.
 const MARKETPLACE_SOURCE = 'contextgraph/claude-code-plugin';
-const MARKETPLACE_NAME = 'contextgraph';
-const PLUGIN_NAME = 'contextgraph';
+// The plugin name as declared in the plugin manifest. This is the token
+// `claude plugin install <plugin>` resolves and the token `claude plugin list`
+// prints before the `@<marketplace>` suffix. It must match the manifest name,
+// not the legacy 'contextgraph' brand.
+const PLUGIN_NAME = 'steward';
 
 /**
  * Run a command and capture stdout + exit code.
@@ -40,22 +48,42 @@ export async function isClaudeCodeAvailable(): Promise<boolean> {
 }
 
 /**
- * Check if the ContextGraph marketplace is configured in Claude Code
+ * Parse the output of `claude plugin list` into the set of installed plugin
+ * names. Each entry is rendered as `<plugin>@<marketplace>` (optionally behind
+ * a selection marker such as `❯ `); we key on the `<plugin>` token before the
+ * `@` so detection can never false-positive on a marketplace-name substring
+ * (e.g. an unrelated plugin in a marketplace whose name contains 'steward').
+ */
+export function parseInstalledPluginNames(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => line.replace(/^[^A-Za-z0-9@]+/, '').trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const atIndex = line.indexOf('@');
+      return (atIndex >= 0 ? line.slice(0, atIndex) : line).trim();
+    })
+    .filter((name) => name.length > 0);
+}
+
+/**
+ * Check if the Steward marketplace is configured in Claude Code.
+ * Matches on the GitHub source rather than the display name, which has drifted.
  */
 async function isMarketplaceConfigured(): Promise<boolean> {
   try {
     const { stdout, exitCode } = await runCommand('claude', ['plugin', 'marketplace', 'list']);
-    return exitCode === 0 && stdout.includes(MARKETPLACE_NAME);
+    return exitCode === 0 && stdout.includes(MARKETPLACE_SOURCE);
   } catch {
     return false;
   }
 }
 
 /**
- * Add the ContextGraph marketplace to Claude Code
+ * Add the Steward marketplace to Claude Code
  */
 async function addMarketplace(): Promise<void> {
-  console.log('Adding ContextGraph marketplace...');
+  console.log('Adding Steward marketplace...');
   const { exitCode } = await runCommand('claude', ['plugin', 'marketplace', 'add', MARKETPLACE_SOURCE]);
 
   if (exitCode !== 0) {
@@ -64,19 +92,19 @@ async function addMarketplace(): Promise<void> {
 }
 
 /**
- * Check if the ContextGraph plugin is already installed in Claude Code
+ * Check if the Steward plugin is already installed in Claude Code
  */
 export async function isPluginInstalled(): Promise<boolean> {
   try {
     const { stdout, exitCode } = await runCommand('claude', ['plugin', 'list']);
-    return exitCode === 0 && stdout.includes(PLUGIN_NAME);
+    return exitCode === 0 && parseInstalledPluginNames(stdout).includes(PLUGIN_NAME);
   } catch {
     return false;
   }
 }
 
 /**
- * Ensure the ContextGraph plugin is installed in Claude Code.
+ * Ensure the Steward plugin is installed in Claude Code.
  * Adds the marketplace if needed, then installs the plugin if not already present.
  */
 export async function ensurePluginInstalled(): Promise<void> {
@@ -89,12 +117,12 @@ export async function ensurePluginInstalled(): Promise<void> {
     await addMarketplace();
   }
 
-  console.log('Installing ContextGraph plugin for Claude Code...');
+  console.log('Installing Steward plugin for Claude Code...');
   const { exitCode } = await runCommand('claude', ['plugin', 'install', PLUGIN_NAME]);
 
   if (exitCode !== 0) {
     throw new Error(`Failed to install plugin (exit code ${exitCode})`);
   }
 
-  console.log('ContextGraph plugin installed (includes MCP server)');
+  console.log('Steward plugin installed (includes MCP server)');
 }

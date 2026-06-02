@@ -15,6 +15,7 @@ const {
   isClaudeCodeAvailable,
   isPluginInstalled,
   ensurePluginInstalled,
+  parseInstalledPluginNames,
   PLUGIN_REPO,
 } = await import('../src/plugin-setup.js');
 
@@ -91,10 +92,25 @@ describe('plugin-setup', () => {
     });
   });
 
+  describe('parseInstalledPluginNames', () => {
+    it('keys on the plugin token before @, stripping selection markers', () => {
+      const stdout = '  ❯ steward@contextgraph-marketplace\n    other@official\n';
+      expect(parseInstalledPluginNames(stdout)).toEqual(['steward', 'other']);
+    });
+
+    it('handles entries with no @ marketplace suffix', () => {
+      expect(parseInstalledPluginNames('solo-plugin\n')).toEqual(['solo-plugin']);
+    });
+
+    it('ignores blank lines', () => {
+      expect(parseInstalledPluginNames('\n\nsteward@m\n\n')).toEqual(['steward']);
+    });
+  });
+
   describe('isPluginInstalled', () => {
-    it('should return true when plugin list includes contextgraph', async () => {
+    it('should return true when the steward plugin is listed', async () => {
       mockSpawn.mockReturnValueOnce(
-        createMockProcess(0, 'contextgraph@contextgraph-marketplace\nother-plugin\n')
+        createMockProcess(0, '  ❯ steward@contextgraph-marketplace\nother-plugin\n')
       );
 
       const result = await isPluginInstalled();
@@ -115,6 +131,16 @@ describe('plugin-setup', () => {
       expect(result).toBe(false);
     });
 
+    it('should not false-positive when only a marketplace name contains the plugin token', async () => {
+      // An unrelated plugin installed from a 'steward-marketplace': the token
+      // before @ is 'kit', so steward must not be reported as installed.
+      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'kit@steward-marketplace\n'));
+
+      const result = await isPluginInstalled();
+
+      expect(result).toBe(false);
+    });
+
     it('should return false when plugin list command fails', async () => {
       mockSpawn.mockReturnValueOnce(createMockProcess(1));
 
@@ -128,7 +154,7 @@ describe('plugin-setup', () => {
     it('should skip install when plugin is already installed', async () => {
       // isPluginInstalled: claude plugin list returns the plugin
       mockSpawn.mockReturnValueOnce(
-        createMockProcess(0, 'contextgraph@contextgraph-marketplace\n')
+        createMockProcess(0, 'steward@contextgraph-marketplace\n')
       );
 
       await ensurePluginInstalled();
@@ -145,8 +171,10 @@ describe('plugin-setup', () => {
     it('should install plugin when marketplace is already configured', async () => {
       // isPluginInstalled: not installed
       mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
-      // isMarketplaceConfigured: marketplace exists
-      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'contextgraph-marketplace\n'));
+      // isMarketplaceConfigured: marketplace exists (matched by source)
+      mockSpawn.mockReturnValueOnce(
+        createMockProcess(0, '  ❯ contextgraph-marketplace\n    Source: GitHub (contextgraph/claude-code-plugin)\n')
+      );
       // claude plugin install succeeds
       mockSpawn.mockReturnValueOnce(createMockProcess(0, 'Installed\n'));
 
@@ -156,7 +184,7 @@ describe('plugin-setup', () => {
       expect(mockSpawn).toHaveBeenNthCalledWith(
         3,
         'claude',
-        ['plugin', 'install', 'contextgraph'],
+        ['plugin', 'install', 'steward'],
         expect.any(Object)
       );
     });
@@ -164,7 +192,7 @@ describe('plugin-setup', () => {
     it('should add marketplace then install when marketplace is not configured', async () => {
       // isPluginInstalled: not installed
       mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
-      // isMarketplaceConfigured: not found
+      // isMarketplaceConfigured: source not present
       mockSpawn.mockReturnValueOnce(createMockProcess(0, 'claude-plugins-official\n'));
       // addMarketplace: succeeds
       mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
@@ -183,7 +211,7 @@ describe('plugin-setup', () => {
       expect(mockSpawn).toHaveBeenNthCalledWith(
         4,
         'claude',
-        ['plugin', 'install', 'contextgraph'],
+        ['plugin', 'install', 'steward'],
         expect.any(Object)
       );
     });
@@ -204,8 +232,10 @@ describe('plugin-setup', () => {
     it('should throw when plugin install fails', async () => {
       // isPluginInstalled: not installed
       mockSpawn.mockReturnValueOnce(createMockProcess(0, ''));
-      // isMarketplaceConfigured: exists
-      mockSpawn.mockReturnValueOnce(createMockProcess(0, 'contextgraph\n'));
+      // isMarketplaceConfigured: exists (matched by source)
+      mockSpawn.mockReturnValueOnce(
+        createMockProcess(0, 'Source: GitHub (contextgraph/claude-code-plugin)\n')
+      );
       // claude plugin install fails
       mockSpawn.mockReturnValueOnce(createMockProcess(1));
 
