@@ -2,11 +2,39 @@
 
 Local CLI for steward.foo.
 
-## Quick Start
+## Install (one command)
 
 ```bash
-npm install -g @contextgraph/agent
-steward auth
+npx -y @contextgraph/agent@latest install
+```
+
+`steward install` is an interactive wizard: it authenticates you, detects which
+coding agents you have (Claude Code, Cursor, Codex CLI, VS Code, Gemini CLI,
+Windsurf, …), and configures the steward **MCP server** plus the steward
+**skills** for each one.
+
+- It asks whether to install **globally** (`~/`, follows you across every
+  project) or for **this project** (committable, shared with your team).
+- Skills are written to the [Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
+  open-standard location (`.agents/skills`) **and** mirrored into `.claude/skills`,
+  so they work across the whole ecosystem.
+- For Claude Code it installs the plugin (MCP + skills + `/steward:` commands).
+- For UI-only destinations (claude.ai, ChatGPT) it prints the connector steps.
+
+Useful flags:
+
+```bash
+steward install --print                  # show copy-paste config, write nothing
+steward install --scope project          # skip the scope prompt
+steward install --client cursor codex    # target specific agents
+steward install --no-mirror              # write skills only to .agents/skills
+```
+
+For non-interactive environments, set `STEWARD_API_TOKEN` and pass `--scope`/`--client`.
+
+## Other commands
+
+```bash
 steward --help
 steward backlog --help
 steward backlog top
@@ -15,8 +43,6 @@ steward consult <repository> --message "..."
 ```
 
 `steward auth` opens a browser login and stores credentials locally in `~/.steward/credentials.json`.
-
-For non-interactive environments, set `STEWARD_API_TOKEN` instead of using browser auth.
 
 ## Tell Your Agent
 

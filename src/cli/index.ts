@@ -18,6 +18,7 @@ import { runStewardList } from '../workflows/steward-list.js';
 import { runStewardBacklogInstructions } from '../workflows/steward-backlog-instructions.js';
 import { runStewardReview } from '../workflows/steward-review.js';
 import { runStewardConsult, readContextFromStdinIfAvailable } from '../workflows/steward-consult.js';
+import { runInstall, type InstallOptions } from '../workflows/install.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 
@@ -279,6 +280,45 @@ program
     }
   });
 
+program
+  .command('install')
+  .description('Detect your coding agent(s) and install the steward MCP server + skills')
+  .option('--scope <scope>', 'Install scope: "global" (~/) or "project" (this repo)')
+  .option('--client <client...>', 'Target specific client id(s) instead of auto-detecting')
+  .option('--no-skills', 'Skip writing the steward skills library')
+  .option('--no-mirror', 'Write skills only to .agents/skills (skip the .claude/skills mirror)')
+  .option('--print', 'Print copy-paste config for each client without writing anything')
+  .option('--yes', 'Accept detected defaults without prompting')
+  .option('--base-url <baseUrl>', platformBaseUrlHelp, PRIMARY_WEB_BASE_URL)
+  .action(async (options: {
+    scope?: string;
+    client?: string[];
+    skills?: boolean;
+    mirror?: boolean;
+    print?: boolean;
+    yes?: boolean;
+    baseUrl?: string;
+  }) => {
+    try {
+      if (options.scope && options.scope !== 'global' && options.scope !== 'project') {
+        throw new Error('--scope must be "global" or "project"');
+      }
+      const installOptions: InstallOptions = {
+        scope: options.scope as InstallOptions['scope'],
+        clients: options.client,
+        skipSkills: options.skills === false,
+        mirrorClaude: options.mirror !== false,
+        print: options.print,
+        yes: options.yes,
+        baseUrl: options.baseUrl,
+      };
+      await runInstall(installOptions);
+    } catch (error) {
+      console.error('Error during install:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 const backlog = program
   .command('backlog')
   .description('Steward backlog workflows');
@@ -455,7 +495,7 @@ program
 
 program.addHelpText('after', `
 Quick start:
-  steward auth
+  steward install
   steward backlog --help
   steward backlog top
   steward review <repository> <sha>
