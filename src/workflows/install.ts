@@ -299,7 +299,18 @@ export async function runInstall(options: InstallOptions = {}): Promise<void> {
     for (const f of failures) console.log(`  ${chalk.red('✗')} ${f}`);
   }
 
-  console.log(chalk.dim('\nRestart (or reload MCP servers in) each agent to pick up the steward server.'));
-  console.log(chalk.dim(`Dashboard: ${webBaseUrl}`));
+  // `install` wires up the connection + skills; creating a steward happens
+  // inside the agent (or the dashboard) afterward. Make that explicit so users
+  // know what's left to do.
+  const includesClaudeCode = clients.some((c) => c.kind === 'claude-plugin');
+  console.log(chalk.bold('\nNext steps:'));
+  console.log('  install sets up the steward connection (MCP server) and skills — not the steward itself.');
+  console.log('  1. Restart (or reload MCP servers in) each agent so it picks up the steward server.');
+  if (includesClaudeCode) {
+    console.log('  2. In Claude Code, run `/mcp` to authorize steward, then `/steward:define-steward` to create your first steward.');
+  } else {
+    console.log('  2. Complete the browser authorization when your agent first connects, then define a steward from the dashboard.');
+  }
+  console.log(chalk.dim(`\nDashboard: ${webBaseUrl}`));
   console.log('');
 }

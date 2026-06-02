@@ -21,6 +21,12 @@ Windsurf, …), and configures the steward **MCP server** plus the steward
 - For Claude Code it installs the plugin (MCP + skills + `/steward:` commands).
 - For UI-only destinations (claude.ai, ChatGPT) it prints the connector steps.
 
+`install` sets up the **connection** (MCP server) and **skills** — not a steward
+itself. After it finishes, restart your agent (or reload MCP servers), authorize
+the steward server when prompted (`/mcp` in Claude Code), then create your first
+steward from inside the agent (`/steward:define-steward` in Claude Code) or the
+dashboard.
+
 Useful flags:
 
 ```bash
