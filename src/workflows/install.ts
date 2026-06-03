@@ -3,7 +3,7 @@ import { dirname } from 'path';
 import chalk from 'chalk';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { authenticateAgent } from '../auth-flow.js';
-import { fetchSkillsLibrary } from '../skills-library-fetch.js';
+import { fetchPluginSkills } from '../install/plugin-skills.js';
 import { isClaudeCodeAvailable, ensurePluginInstalled } from '../plugin-setup.js';
 import { PRIMARY_MCP_BASE_URL, PRIMARY_WEB_BASE_URL } from '../platform-urls.js';
 import {
@@ -211,7 +211,10 @@ export async function runInstall(options: InstallOptions = {}): Promise<void> {
 
   console.log(chalk.bold('\nInstalling steward.foo into your coding agent(s)\n'));
 
-  const token = await resolveAuthToken(webBaseUrl);
+  // Sign the developer in (so the dashboard has their account); skills now come
+  // from the public plugin repo and the MCP server does its own OAuth on first
+  // connect, so the token itself is no longer consumed here.
+  await resolveAuthToken(webBaseUrl);
   const scope = await chooseScope(options);
   const clients = await chooseClients(options);
 
@@ -224,21 +227,18 @@ export async function runInstall(options: InstallOptions = {}): Promise<void> {
   const manualSteps: ManualStep[] = [];
   const failures: string[] = [];
 
-  // Skills: the most portable asset. Write once for the chosen scope.
+  // Skills: the most portable asset. Fetched verbatim from the plugin repo
+  // (canonical source of truth) and written once for the chosen scope.
   if (!options.skipSkills) {
     try {
-      const skills = await fetchSkillsLibrary({ authToken: token });
-      if (skills.length > 0) {
-        const dirs = await writeSkillsForInstall({
-          scope,
-          skills,
-          mirrorClaude: options.mirrorClaude ?? true,
-          cwd,
-        });
-        successes.push(`Skills (${skills.length}) → ${dirs.join(', ')}`);
-      } else {
-        console.log(chalk.dim('Skills library is empty — skipping skills.'));
-      }
+      const skills = await fetchPluginSkills();
+      const dirs = await writeSkillsForInstall({
+        scope,
+        skills,
+        mirrorClaude: options.mirrorClaude ?? true,
+        cwd,
+      });
+      successes.push(`Skills (${skills.map((s) => s.name).join(', ')}) → ${dirs.join(', ')}`);
     } catch (error) {
       failures.push(`Skills: ${error instanceof Error ? error.message : String(error)}`);
     }
