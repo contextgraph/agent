@@ -29,11 +29,15 @@ export interface FetchPluginSkillsOptions {
 
 const GITHUB_HEADERS = { 'User-Agent': 'steward-cli' } as const;
 
+/** Per-request timeout so a stalled fetch can't hang the interactive install. */
+const FETCH_TIMEOUT_MS = 10_000;
+
 async function listSkillNames(ref: string, fetchImpl: typeof fetch): Promise<string[]> {
   const url = `https://api.github.com/repos/${PLUGIN_SKILLS_REPO}/contents/${PLUGIN_SKILLS_PATH}?ref=${encodeURIComponent(ref)}`;
   try {
     const response = await fetchImpl(url, {
       headers: { ...GITHUB_HEADERS, Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) {
       return KNOWN_SKILL_NAMES;
@@ -66,7 +70,10 @@ export async function fetchPluginSkills(options: FetchPluginSkillsOptions = {}):
   const errors: string[] = [];
   for (const name of names) {
     try {
-      const response = await fetchImpl(rawSkillUrl(ref, name), { headers: { ...GITHUB_HEADERS } });
+      const response = await fetchImpl(rawSkillUrl(ref, name), {
+        headers: { ...GITHUB_HEADERS },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
       if (!response.ok) {
         errors.push(`${name} (HTTP ${response.status})`);
         continue;
