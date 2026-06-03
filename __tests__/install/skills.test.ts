@@ -2,12 +2,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import os from 'os';
 import { join } from 'path';
 
-const mockInjectSkills = jest.fn() as any;
+const mockMkdir = jest.fn() as any;
+const mockWriteFile = jest.fn() as any;
 
-jest.unstable_mockModule('../../src/skill-injection.js', () => ({
-  injectSkills: mockInjectSkills,
-  STANDARD_SKILLS_DIR: join('.agents', 'skills'),
-  CLAUDE_SKILLS_DIR: join('.claude', 'skills'),
+jest.unstable_mockModule('fs/promises', () => ({
+  mkdir: mockMkdir,
+  writeFile: mockWriteFile,
 }));
 
 const { resolveSkillRoot, resolveSkillDirs, writeSkillsForInstall } = await import(
@@ -49,33 +49,53 @@ describe('resolveSkillDirs', () => {
 describe('writeSkillsForInstall', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockInjectSkills.mockResolvedValue(undefined);
+    mockMkdir.mockResolvedValue(undefined);
+    mockWriteFile.mockResolvedValue(undefined);
   });
 
-  const skills = [{ name: 's', description: 'd', content: 'c' }];
+  const skills = [
+    { name: 'define-steward', markdown: '---\nname: define-steward\n---\nbody' },
+    { name: 'plan-review', markdown: '---\nname: plan-review\n---\nbody2' },
+  ];
 
-  it('writes to both standard and claude dirs and returns them', async () => {
+  it('writes each skill verbatim to both standard and claude dirs', async () => {
     const written = await writeSkillsForInstall({ scope: 'project', skills, cwd: '/repo' });
-    expect(mockInjectSkills).toHaveBeenCalledTimes(2);
-    expect(mockInjectSkills).toHaveBeenCalledWith('/repo', skills, STANDARD);
-    expect(mockInjectSkills).toHaveBeenCalledWith('/repo', skills, CLAUDE);
+
     expect(written).toEqual([join('/repo', STANDARD), join('/repo', CLAUDE)]);
+    // 2 skills x 2 dirs = 4 writes
+    expect(mockWriteFile).toHaveBeenCalledTimes(4);
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      join('/repo', STANDARD, 'define-steward', 'SKILL.md'),
+      '---\nname: define-steward\n---\nbody',
+      'utf-8'
+    );
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      join('/repo', CLAUDE, 'plan-review', 'SKILL.md'),
+      '---\nname: plan-review\n---\nbody2',
+      'utf-8'
+    );
+  });
+
+  it('writes content as-is without adding frontmatter', async () => {
+    await writeSkillsForInstall({ scope: 'global', skills: [skills[0]], mirrorClaude: false });
+    const [, content] = mockWriteFile.mock.calls[0];
+    expect(content).toBe('---\nname: define-steward\n---\nbody');
   });
 
   it('writes only the standard dir when mirroring disabled', async () => {
     const written = await writeSkillsForInstall({
       scope: 'project',
-      skills,
+      skills: [skills[0]],
       cwd: '/repo',
       mirrorClaude: false,
     });
-    expect(mockInjectSkills).toHaveBeenCalledTimes(1);
     expect(written).toEqual([join('/repo', STANDARD)]);
+    expect(mockWriteFile).toHaveBeenCalledTimes(1);
   });
 
   it('returns [] and writes nothing for an empty skill list', async () => {
     const written = await writeSkillsForInstall({ scope: 'global', skills: [] });
-    expect(mockInjectSkills).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
     expect(written).toEqual([]);
   });
 });

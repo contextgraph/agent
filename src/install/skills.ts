@@ -1,11 +1,8 @@
 import os from 'os';
+import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import {
-  injectSkills,
-  STANDARD_SKILLS_DIR,
-  CLAUDE_SKILLS_DIR,
-  type SkillToInject,
-} from '../skill-injection.js';
+import { STANDARD_SKILLS_DIR, CLAUDE_SKILLS_DIR } from '../skill-injection.js';
+import type { RawSkill } from './plugin-skills.js';
 import type { InstallScope } from './types.js';
 
 /**
@@ -40,17 +37,18 @@ export function resolveSkillDirs(
 
 export interface WriteSkillsOptions {
   scope: InstallScope;
-  skills: SkillToInject[];
+  skills: RawSkill[];
   /** Mirror into `.claude/skills` in addition to `.agents/skills`. Default true. */
   mirrorClaude?: boolean;
   cwd?: string;
 }
 
 /**
- * Write the steward skill library into the standard (and, by default, the
- * Claude-native) skills directory for the chosen scope.
+ * Write the steward skills (verbatim `SKILL.md`) into the standard (and, by
+ * default, the Claude-native) skills directory for the chosen scope.
  *
- * Returns the absolute directories written, for reporting back to the user.
+ * The markdown already carries its own frontmatter, so it is written as-is.
+ * Returns the absolute base directories written, for reporting back.
  */
 export async function writeSkillsForInstall(options: WriteSkillsOptions): Promise<string[]> {
   const { scope, skills, mirrorClaude = true, cwd } = options;
@@ -58,16 +56,13 @@ export async function writeSkillsForInstall(options: WriteSkillsOptions): Promis
     return [];
   }
 
-  const root = resolveSkillRoot(scope, cwd);
-  const relativeDirs = [STANDARD_SKILLS_DIR];
-  if (mirrorClaude) {
-    relativeDirs.push(CLAUDE_SKILLS_DIR);
+  const dirs = resolveSkillDirs(scope, { mirrorClaude, cwd });
+  for (const baseDir of dirs) {
+    for (const skill of skills) {
+      const skillDir = join(baseDir, skill.name);
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), skill.markdown, 'utf-8');
+    }
   }
-
-  const written: string[] = [];
-  for (const relativeDir of relativeDirs) {
-    await injectSkills(root, skills, relativeDir);
-    written.push(join(root, relativeDir));
-  }
-  return written;
+  return dirs;
 }
