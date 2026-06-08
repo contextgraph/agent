@@ -37,6 +37,16 @@ jest.unstable_mockModule('fs/promises', () => ({
   rm: jest.fn(),
 }));
 
+const mockCaptureEvent = jest.fn();
+jest.unstable_mockModule('../src/posthog-client.js', () => ({
+  captureEvent: mockCaptureEvent,
+}));
+
+const mockLoadCredentials = jest.fn<() => Promise<any>>();
+jest.unstable_mockModule('../src/credentials.js', () => ({
+  loadCredentials: mockLoadCredentials,
+}));
+
 const { setupWorkspaceForAction } = await import('../src/workspace-setup.js');
 
 function makeActionDetail(overrides: Partial<ActionDetailResource> = {}): ActionDetailResource {
@@ -64,6 +74,11 @@ describe('setupWorkspaceForAction', () => {
     mockPrepareMultiRepo.mockReset();
     mockMkdtemp.mockReset();
     mockCreateRun.mockReset().mockResolvedValue('run-123');
+    mockCaptureEvent.mockReset();
+    mockLoadCredentials.mockReset().mockResolvedValue({
+      userId: 'user-123',
+      clerkToken: 'token',
+    });
     mockMkdtemp.mockResolvedValue('/tmp/cg-workspace-blank' as any);
   });
 

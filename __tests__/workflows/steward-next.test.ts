@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ChildProcess } from 'child_process';
-import { EventEmitter } from 'events';
 
 jest.unstable_mockModule('chalk', () => ({
   default: {
@@ -29,36 +27,39 @@ jest.unstable_mockModule('../../src/credentials.js', () => ({
 }));
 
 const mockNextStewardWork = jest.fn<() => Promise<any>>();
+const mockClaimStewardBacklog = jest.fn<(...args: unknown[]) => Promise<any>>();
 jest.unstable_mockModule('../../src/api-client.js', () => ({
   ApiClient: jest.fn(() => ({
     nextStewardWork: mockNextStewardWork,
+    claimStewardBacklog: mockClaimStewardBacklog,
   })),
 }));
 
-const mockSpawn = jest.fn<(...args: unknown[]) => ChildProcess>();
-jest.unstable_mockModule('child_process', () => ({
-  spawn: mockSpawn,
+const mockDetectCurrentBranch = jest.fn<() => Promise<any>>();
+jest.unstable_mockModule('../../src/git-current-branch.js', () => ({
+  detectCurrentBranch: mockDetectCurrentBranch,
+}));
+
+const mockCaptureEvent = jest.fn();
+jest.unstable_mockModule('../../src/posthog-client.js', () => ({
+  captureEvent: mockCaptureEvent,
 }));
 
 const { runStewardNext } = await import('../../src/workflows/steward-next.js');
 
-function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
-  const proc = new EventEmitter() as ChildProcess;
-  proc.stdout = new EventEmitter() as any;
-  proc.stderr = new EventEmitter() as any;
+const BACKLOG_ITEM = {
+  id: 'backlog-1',
+  title: 'Wire CLI command',
+  backlog_reference: 'agent-platform/wire-cli-command',
+  objective: 'Add steward next to the agent CLI',
+  rationale: 'Humans need a manual claim flow',
+  repository_url: 'https://github.com/contextgraph/agent',
+};
 
-  setImmediate(() => {
-    if (stdout) {
-      (proc.stdout as EventEmitter).emit('data', Buffer.from(stdout));
-    }
-    if (stderr) {
-      (proc.stderr as EventEmitter).emit('data', Buffer.from(stderr));
-    }
-    proc.emit('close', exitCode);
-  });
-
-  return proc;
-}
+const STEWARD = {
+  name: 'Agent Platform',
+  slug: 'agent-platform',
+};
 
 describe('runStewardNext', () => {
   beforeEach(() => {
@@ -73,103 +74,88 @@ describe('runStewardNext', () => {
     mockIsTokenExpired.mockReturnValue(false);
   });
 
-  it('creates the proposed branch after selecting the next backlog item', async () => {
+  it('prints the claim summary for the top queued item without registering a branch', async () => {
     mockNextStewardWork.mockResolvedValue({
-      steward: {
-        name: 'Agent Platform',
-        slug: 'agent-platform',
-      },
-      backlog_item: {
-        id: 'backlog-1',
-        title: 'Wire CLI command',
-        backlog_reference: 'agent-platform/wire-cli-command',
-        objective: 'Add steward next to the agent CLI',
-        rationale: 'Humans need a manual claim flow',
-        proposed_branch: 'feat/steward-next-cli',
-        repository_url: 'https://github.com/contextgraph/agent',
-      },
+      steward: STEWARD,
+      backlog_item: BACKLOG_ITEM,
       workflow: {
         dismissal_command: 'steward backlog dismiss agent-platform/wire-cli-command --note "<reason>"',
         dismissal_rule: 'If invalid, dismiss it.',
         completion_rule: 'Merge webhook completes it.',
       },
     });
-    mockSpawn.mockReturnValue(createMockProcess(0));
 
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     await runStewardNext();
 
     expect(mockNextStewardWork).toHaveBeenCalled();
-    expect(mockSpawn).toHaveBeenCalledWith(
-      'git',
-      ['checkout', '-b', 'feat/steward-next-cli'],
-      { cwd: undefined }
-    );
+    // No identifier => the top item is inspected, not claimed. No branch is registered.
+    expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
+    expect(mockDetectCurrentBranch).not.toHaveBeenCalled();
+
     expect(consoleLog).toHaveBeenCalledWith('# Steward Claim');
     expect(consoleLog).toHaveBeenCalledWith('## Objective');
     expect(consoleLog).toHaveBeenCalledWith('  Add steward next to the agent CLI');
+    expect(consoleLog).toHaveBeenCalledWith('## Rationale');
     expect(consoleLog).toHaveBeenCalledWith('## Workflow');
-    expect(consoleLog).toHaveBeenCalledWith('## Branch');
-    expect(consoleLog).toHaveBeenCalledWith('Created and checked out feat/steward-next-cli');
+    expect(consoleLog).toHaveBeenCalledWith(
+      'Deprecated: shortcut `steward backlog claim` without an identifier returns the top queued item but does not register a branch.'
+    );
 
     consoleLog.mockRestore();
   });
 
-  it('prints a message and skips git when no work is queued', async () => {
+  it('prints a message and skips claiming when no work is queued', async () => {
     mockNextStewardWork.mockResolvedValue(null);
 
     const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     await runStewardNext();
 
-    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
     expect(consoleLog).toHaveBeenCalledWith('No queued steward backlog items right now.');
 
     consoleLog.mockRestore();
   });
 
-  it('fails when no proposed branch is returned', async () => {
-    mockNextStewardWork.mockResolvedValue({
-      steward: {
-        name: 'Agent Platform',
-        slug: 'agent-platform',
-      },
-      backlog_item: {
-        id: 'backlog-2',
-        backlog_reference: 'agent-platform/triage-docs',
-        title: 'Triage docs',
-        objective: 'Review steward docs',
-        rationale: 'No branch required',
-        proposed_branch: null,
-        repository_url: 'https://github.com/contextgraph/agent',
-      },
+  it('registers the resolved branch when claiming a specific identifier', async () => {
+    mockDetectCurrentBranch.mockResolvedValue({ kind: 'branch', name: 'feat/steward-next-cli' });
+    mockClaimStewardBacklog.mockResolvedValue({
+      steward: STEWARD,
+      backlog_item: BACKLOG_ITEM,
     });
 
-    await expect(runStewardNext()).rejects.toThrow(
-      'API contract violation: claim route returned a backlog item without proposed_branch'
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runStewardNext({ identifier: 'agent-platform/wire-cli-command' });
+
+    expect(mockNextStewardWork).not.toHaveBeenCalled();
+    expect(mockClaimStewardBacklog).toHaveBeenCalledWith(
+      'agent-platform/wire-cli-command',
+      'feat/steward-next-cli'
     );
-    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(consoleLog).toHaveBeenCalledWith('## Registered Branch');
+    expect(consoleLog).toHaveBeenCalledWith('## Next Step');
+
+    consoleLog.mockRestore();
   });
 
-  it('surfaces git branch creation failures', async () => {
-    mockNextStewardWork.mockResolvedValue({
-      steward: {
-        name: 'Agent Platform',
-        slug: 'agent-platform',
-      },
-      backlog_item: {
-        id: 'backlog-1',
-        backlog_reference: 'agent-platform/wire-cli-command',
-        title: 'Wire CLI command',
-        objective: 'Add steward next to the agent CLI',
-        rationale: 'Humans need a manual claim flow',
-        proposed_branch: 'feat/steward-next-cli',
-        repository_url: 'https://github.com/contextgraph/agent',
-      },
-    });
-    mockSpawn.mockReturnValue(createMockProcess(128, '', 'fatal: a branch named already exists'));
+  it('fails when claiming without a branch checkout (detached HEAD)', async () => {
+    mockDetectCurrentBranch.mockResolvedValue({ kind: 'detached' });
 
-    await expect(runStewardNext()).rejects.toThrow('git checkout -b feat/steward-next-cli failed');
+    await expect(runStewardNext({ identifier: 'agent-platform/wire-cli-command' })).rejects.toThrow(
+      'steward backlog claim requires a branch checkout. HEAD is detached.'
+    );
+    expect(mockClaimStewardBacklog).not.toHaveBeenCalled();
+  });
+
+  it('surfaces claim API failures', async () => {
+    mockDetectCurrentBranch.mockResolvedValue({ kind: 'branch', name: 'feat/steward-next-cli' });
+    mockClaimStewardBacklog.mockRejectedValue(new Error('API error 409: already claimed'));
+
+    await expect(runStewardNext({ identifier: 'agent-platform/wire-cli-command' })).rejects.toThrow(
+      'API error 409: already claimed'
+    );
   });
 });

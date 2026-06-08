@@ -38,7 +38,7 @@ describe('steward queue CLI', () => {
       expect(help).toContain('Local steward.foo CLI');
       expect(help).toContain('backlog');
       expect(help).toContain('Steward backlog workflows');
-      expect(help).toContain('run [options]');
+      expect(help).toContain('install [options]');
       expect(help).toContain('list [options]');
       expect(help).toContain('mission [options] <steward>');
       expect(help).not.toContain('next [options]');

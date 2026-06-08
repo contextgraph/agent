@@ -341,7 +341,7 @@ describe('SDK Wrapper Functions', () => {
             mcpServers: expect.objectContaining({
               actions: expect.objectContaining({
                 type: 'http',
-                url: 'https://mcp.contextgraph.dev',
+                url: 'https://mcp.steward.foo',
               }),
             }),
           }),

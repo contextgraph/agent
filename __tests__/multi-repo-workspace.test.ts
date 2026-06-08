@@ -1,10 +1,30 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ChildProcess, spawn as actualSpawn } from 'child_process';
+import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 
-jest.mock('child_process');
-jest.mock('fs/promises');
-jest.mock('chalk', () => ({
+const mockSpawn = jest.fn<(...args: unknown[]) => ChildProcess>();
+const mockMkdtemp = jest.fn<(...args: unknown[]) => Promise<string>>();
+const mockRm = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockAppendFile = jest.fn<(...args: unknown[]) => Promise<void>>();
+const mockReaddir = jest.fn<(...args: unknown[]) => Promise<any[]>>();
+const mockStat = jest.fn<(...args: unknown[]) => Promise<{ mtimeMs: number }>>();
+
+jest.unstable_mockModule('child_process', () => ({
+  spawn: mockSpawn,
+}));
+
+jest.unstable_mockModule('fs/promises', () => ({
+  mkdtemp: mockMkdtemp,
+  rm: mockRm,
+  appendFile: mockAppendFile,
+  readdir: mockReaddir,
+  stat: mockStat,
+  writeFile: jest.fn<(...args: unknown[]) => Promise<void>>(),
+  chmod: jest.fn<(...args: unknown[]) => Promise<void>>(),
+  mkdir: jest.fn<(...args: unknown[]) => Promise<string | undefined>>(),
+}));
+
+jest.unstable_mockModule('chalk', () => ({
   default: {
     cyan: (s: string) => s,
     dim: (s: string) => s,
@@ -15,20 +35,11 @@ jest.mock('chalk', () => ({
   __esModule: true,
 }));
 
-import { spawn } from 'child_process';
-import { mkdtemp, rm, appendFile, readdir, stat } from 'fs/promises';
-import {
+const {
   extractRepoName,
   prepareMultiRepoWorkspace,
-  type PrepareWorkspaceOptions,
-} from '../src/workspace-prep.js';
-
-const mockSpawn = spawn as jest.MockedFunction<typeof actualSpawn>;
-const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
-const mockRm = rm as jest.MockedFunction<typeof rm>;
-const mockAppendFile = appendFile as jest.MockedFunction<typeof appendFile>;
-const mockReaddir = readdir as jest.MockedFunction<typeof readdir>;
-const mockStat = stat as jest.MockedFunction<typeof stat>;
+} = await import('../src/workspace-prep.js');
+import type { PrepareWorkspaceOptions } from '../src/workspace-prep.js';
 
 function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
   const proc = new EventEmitter() as ChildProcess;

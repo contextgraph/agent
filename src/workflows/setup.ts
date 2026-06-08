@@ -51,7 +51,7 @@ export async function runSetup(): Promise<void> {
           ctx.displayName = result.credentials.email ?? result.credentials.userId;
           task.title = `Authenticated as ${chalk.cyan(ctx.displayName)}`;
         },
-        options: { bottomBar: Infinity },
+        rendererOptions: { bottomBar: Infinity },
       },
       {
         title: 'Checking for Claude Code',

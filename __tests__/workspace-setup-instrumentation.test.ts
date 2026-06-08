@@ -1,8 +1,16 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import type { prepareWorkspace, prepareMultiRepoWorkspace } from '../src/workspace-prep.js';
+import type { mkdtemp } from 'fs/promises';
 
 // Mock dependencies
-jest.mock('../src/workspace-prep.js');
-jest.mock('chalk', () => ({
+const mockPrepareWorkspace = jest.fn() as jest.MockedFunction<typeof prepareWorkspace>;
+const mockPrepareMultiRepo = jest.fn() as jest.MockedFunction<typeof prepareMultiRepoWorkspace>;
+jest.unstable_mockModule('../src/workspace-prep.js', () => ({
+  prepareWorkspace: mockPrepareWorkspace,
+  prepareMultiRepoWorkspace: mockPrepareMultiRepo,
+}));
+
+jest.unstable_mockModule('chalk', () => ({
   default: {
     cyan: (s: string) => s,
     dim: (s: string) => s,
@@ -14,36 +22,34 @@ jest.mock('chalk', () => ({
 }));
 
 const mockCreateRun = jest.fn<() => Promise<string>>().mockResolvedValue('run-123');
-jest.mock('../src/log-transport.js', () => ({
+jest.unstable_mockModule('../src/log-transport.js', () => ({
   LogTransportService: jest.fn(() => ({ createRun: mockCreateRun })),
 }));
 
-jest.mock('../src/api-client.js', () => ({
+jest.unstable_mockModule('../src/api-client.js', () => ({
   ApiClient: jest.fn().mockImplementation(() => ({
     getActionDetail: jest.fn<() => Promise<unknown>>().mockResolvedValue(null),
   })),
 }));
 
-jest.mock('fs/promises');
+const mockMkdtemp = jest.fn() as jest.MockedFunction<typeof mkdtemp>;
+jest.unstable_mockModule('fs/promises', () => ({
+  mkdtemp: mockMkdtemp,
+  rm: jest.fn(),
+}));
 
 const mockCaptureEvent = jest.fn();
-jest.mock('../src/posthog-client.js', () => ({
+jest.unstable_mockModule('../src/posthog-client.js', () => ({
   captureEvent: mockCaptureEvent,
 }));
 
 const mockLoadCredentials = jest.fn<() => Promise<any>>();
-jest.mock('../src/credentials.js', () => ({
+jest.unstable_mockModule('../src/credentials.js', () => ({
   loadCredentials: mockLoadCredentials,
 }));
 
-import { prepareWorkspace, prepareMultiRepoWorkspace } from '../src/workspace-prep.js';
-import { mkdtemp } from 'fs/promises';
-import { setupWorkspaceForAction } from '../src/workspace-setup.js';
+const { setupWorkspaceForAction } = await import('../src/workspace-setup.js');
 import type { ActionDetailResource } from '../src/types/actions.js';
-
-const mockPrepareWorkspace = prepareWorkspace as jest.MockedFunction<typeof prepareWorkspace>;
-const mockPrepareMultiRepo = prepareMultiRepoWorkspace as jest.MockedFunction<typeof prepareMultiRepoWorkspace>;
-const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
 
 function makeActionDetail(overrides: Partial<ActionDetailResource> = {}): ActionDetailResource {
   return {
