@@ -19,6 +19,13 @@ All notable changes to this project will be documented in this file.
   integrations now live on the platform side (steward.foo workspace settings);
   there is no CLI-side replacement.
 
+## [0.6.1](https://github.com/contextgraph/agent/compare/v0.6.0...v0.6.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* clear masked typecheck + test failures blocking npm publish ([#119](https://github.com/contextgraph/agent/issues/119)) ([5120233](https://github.com/contextgraph/agent/commit/512023345fd809db438b2f5c3c0244d9e3ea4ca3))
+
 ## [0.6.0](https://github.com/contextgraph/agent/compare/v0.5.0...v0.6.0) (2026-06-08)
 
 
