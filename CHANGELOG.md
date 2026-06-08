@@ -19,6 +19,20 @@ All notable changes to this project will be documented in this file.
   integrations now live on the platform side (steward.foo workspace settings);
   there is no CLI-side replacement.
 
+## [0.6.0](https://github.com/contextgraph/agent/compare/v0.5.0...v0.6.0) (2026-06-08)
+
+
+### Features
+
+* `steward install` — one command to set up the MCP server + skills across coding agents ([#115](https://github.com/contextgraph/agent/issues/115)) ([7a6f023](https://github.com/contextgraph/agent/commit/7a6f023bbd25ce3fcdae0845e83721a60752802d))
+* source `steward install` skills from the plugin repo (fix silent zero-skills) ([#116](https://github.com/contextgraph/agent/issues/116)) ([710f7de](https://github.com/contextgraph/agent/commit/710f7de20d7bef4873ae6c8a625dbb12c72dca6c))
+
+
+### Bug Fixes
+
+* **cli:** install the 'steward' plugin name in Claude Code auto-setup ([#113](https://github.com/contextgraph/agent/issues/113)) ([8be66e7](https://github.com/contextgraph/agent/commit/8be66e7f7d023d91cddec81995cf2d00da8001c6))
+* **cli:** rename work-top-backlog-item skill to work-backlog in fallback list ([#117](https://github.com/contextgraph/agent/issues/117)) ([d76fd32](https://github.com/contextgraph/agent/commit/d76fd3264eccc2670fd9e34ba3b3c619b8b13ea3))
+
 ## [0.5.0](https://github.com/contextgraph/agent/compare/v0.4.41...v0.5.0) (2026-05-15)
 
 
