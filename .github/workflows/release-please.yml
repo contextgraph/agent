@@ -38,11 +38,12 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22'
+          # Node 24 bundles npm >= 11.5.1, which Trusted Publishing (OIDC) requires.
+          # This avoids the in-place `npm install -g npm@...` self-upgrade, which
+          # corrupted the global install ("Cannot find module 'promise-retry'") and
+          # silently broke the 0.5.0 publish.
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Ensure npm supports Trusted Publishing (>=11.5.1)
-        run: npm install -g 'npm@^11.5.1'
 
       - run: npm ci
 
