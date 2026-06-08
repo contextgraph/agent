@@ -40,6 +40,18 @@ jest.unstable_mockModule('child_process', () => ({
   spawn: mockSpawn,
 }));
 
+// The system-under-test calls `mkdirSync(repoRoot, '.worktrees')` against the
+// (mocked) repo root, which is a hardcoded absolute path. Stub mkdirSync so the
+// test never touches the real filesystem; keep every other fs export intact so
+// transitively-loaded modules still work.
+import * as realFs from 'fs';
+const mockMkdirSync = jest.fn();
+jest.unstable_mockModule('fs', () => ({
+  ...realFs,
+  default: realFs,
+  mkdirSync: mockMkdirSync,
+}));
+
 const { runStewardBacklogSetup } = await import('../../src/workflows/steward-backlog-setup.js');
 
 function createMockProcess(exitCode: number, stdout: string = '', stderr: string = ''): ChildProcess {
