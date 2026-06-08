@@ -12,7 +12,7 @@ export const DEFAULT_SKILLS_REF = 'main';
  * unavailable (e.g. unauthenticated rate limit). Raw file fetches don't share
  * that limit, so install still works against these names.
  */
-export const KNOWN_SKILL_NAMES = ['define-steward', 'plan-review', 'work-top-backlog-item'];
+export const KNOWN_SKILL_NAMES = ['define-steward', 'plan-review', 'work-backlog'];
 
 /** A skill fetched verbatim — the markdown already contains its frontmatter. */
 export interface RawSkill {
