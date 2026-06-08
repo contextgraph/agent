@@ -19,6 +19,13 @@ All notable changes to this project will be documented in this file.
   integrations now live on the platform side (steward.foo workspace settings);
   there is no CLI-side replacement.
 
+## [0.6.3](https://github.com/contextgraph/agent/compare/v0.6.2...v0.6.3) (2026-06-08)
+
+
+### Bug Fixes
+
+* make steward-backlog-setup test hermetic (mock mkdirSync) ([#124](https://github.com/contextgraph/agent/issues/124)) ([e62c24b](https://github.com/contextgraph/agent/commit/e62c24b60b2a74fce75b3964597617bac5676b5c))
+
 ## [0.6.2](https://github.com/contextgraph/agent/compare/v0.6.1...v0.6.2) (2026-06-08)
 
 
