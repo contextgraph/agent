@@ -19,6 +19,13 @@ All notable changes to this project will be documented in this file.
   integrations now live on the platform side (steward.foo workspace settings);
   there is no CLI-side replacement.
 
+## [0.6.2](https://github.com/contextgraph/agent/compare/v0.6.1...v0.6.2) (2026-06-08)
+
+
+### Miscellaneous Chores
+
+* release 0.6.2 ([d100976](https://github.com/contextgraph/agent/commit/d100976da8c1077959514735f3a764abbfbe3c81))
+
 ## [0.6.1](https://github.com/contextgraph/agent/compare/v0.6.0...v0.6.1) (2026-06-08)
 
 
