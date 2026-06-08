@@ -2,15 +2,15 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { SDKMessage, SDKResultMessage, Query, SDKSystemMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { UUID } from 'crypto';
 
-jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: jest.fn(),
+const mockQuery = jest.fn() as jest.MockedFunction<typeof import('@anthropic-ai/claude-agent-sdk').query>;
+
+jest.unstable_mockModule('@anthropic-ai/claude-agent-sdk', () => ({
+  query: mockQuery,
 }));
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { executeClaude } from '../src/claude-sdk.js';
 import type { SpawnClaudeOptions } from '../src/types/actions.js';
 
-const mockQuery = query as jest.MockedFunction<typeof query>;
+const { executeClaude } = await import('../src/claude-sdk.js');
 
 function createMockQuery(messages: SDKMessage[]): Query {
   const generator = (async function* () {

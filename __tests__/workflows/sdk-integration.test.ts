@@ -460,7 +460,7 @@ describe('SDK Integration Tests', () => {
           mcpServers: expect.objectContaining({
             actions: expect.objectContaining({
               type: 'http',
-              url: 'https://mcp.contextgraph.dev',
+              url: 'https://mcp.steward.foo',
             }),
           }),
         }),

@@ -3,12 +3,9 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApiClient } from '../api-client.js';
-import type { ActionNode, ActionMetadata } from '../types/actions.js';
-import { findNextLeaf, type FindNextLeafResult } from '../next-action.js';
 import { runExecute } from './execute.js';
 import { loadCredentials, isExpired, isTokenExpired } from '../credentials.js';
 import { setupWorkspaceForAction } from '../workspace-setup.js';
-import { PRIMARY_WEB_BASE_URL as API_BASE_URL } from '../platform-urls.js';
 import type { AgentProvider } from '../runners/index.js';
 import type { RunnerExecutionMode } from '../runners/types.js';
 import chalk from 'chalk';
@@ -28,7 +25,6 @@ const STATUS_INTERVAL_MS = 30000; // Show status every 30 seconds when idle
 
 // Retry configuration for transient API errors
 // For extended outages, we wait indefinitely with a ceiling on delay
-const MAX_API_RETRIES = Infinity;  // Never give up on transient errors
 const INITIAL_RETRY_DELAY = 1000;  // 1 second
 const MAX_RETRY_DELAY = 60000;     // 1 minute ceiling
 const OUTAGE_WARNING_THRESHOLD = 5;  // Warn user after this many retries
@@ -62,50 +58,6 @@ function printStatus(): void {
   const uptime = formatDuration(Date.now() - stats.startTime);
   const total = stats.executed;
   console.log(chalk.dim(`Status: ${total} actions (${stats.executed} executed, ${stats.errors} errors) | Uptime: ${uptime}`));
-}
-
-/**
- * Get the next action to work on, handling tree depth truncation.
- * If the tree is truncated (children exist beyond depth limit), this function
- * will recursively re-fetch the tree starting from the truncated node.
- */
-async function getNextAction(
-  apiClient: ApiClient,
-  rootId: string,
-  depth: number = 0
-): Promise<ActionNode | null> {
-  // Prevent infinite recursion in case of malformed data
-  const maxDepth = 20;
-  if (depth >= maxDepth) {
-    console.error(chalk.red(`Tree traversal exceeded maximum depth (${maxDepth}). Possible cycle or malformed data.`));
-    return null;
-  }
-
-  const tree = await apiClient.fetchTree(rootId, false);
-
-  if (tree.done) {
-    if (depth === 0) {
-      console.log(chalk.green('Root action is already complete'));
-    }
-    return null;
-  }
-
-  // Use local findNextLeaf to traverse tree and find next action
-  const result = findNextLeaf(tree);
-
-  // If we found an action, return it
-  if (result.action) {
-    return result.action;
-  }
-
-  // If tree was truncated, re-fetch starting from the truncated node
-  if (result.truncatedAt) {
-    console.log(chalk.dim(`Tree depth limit reached at action ${result.truncatedAt}. Fetching deeper...`));
-    return getNextAction(apiClient, result.truncatedAt, depth + 1);
-  }
-
-  // No action found and no truncation - tree is complete or blocked
-  return null;
 }
 
 /**

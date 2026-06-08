@@ -45,6 +45,18 @@ export interface BatchSendResponse {
 }
 
 /**
+ * Envelope returned by the run/log API endpoints.
+ */
+interface ApiEnvelope {
+  success: boolean;
+  error?: string;
+  data?: {
+    runId?: string;
+    eventsReceived?: number;
+  };
+}
+
+/**
  * Configuration for retry behavior
  */
 export interface RetryConfig {
@@ -106,14 +118,19 @@ export class LogTransportService {
       }),
     });
 
-    const result = await response.json();
+    const result = (await response.json()) as ApiEnvelope;
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to create run');
     }
 
-    this.runId = result.data.runId;
-    return this.runId;
+    const runId = result.data?.runId;
+    if (!runId) {
+      throw new Error('Create run response missing runId');
+    }
+
+    this.runId = runId;
+    return runId;
   }
 
   /**
@@ -130,7 +147,7 @@ export class LogTransportService {
       body: JSON.stringify({}),
     });
 
-    const result = await response.json();
+    const result = (await response.json()) as ApiEnvelope;
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to start run');
@@ -164,7 +181,7 @@ export class LogTransportService {
       }),
     });
 
-    const result = await response.json();
+    const result = (await response.json()) as ApiEnvelope;
 
     if (!result.success) {
       // If the run is already in a finishing state (summarizing, finished),
@@ -258,7 +275,7 @@ export class LogTransportService {
       }),
     });
 
-    const result = await response.json();
+    const result = (await response.json()) as ApiEnvelope;
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to send log batch');
